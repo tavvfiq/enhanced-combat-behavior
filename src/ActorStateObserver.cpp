@@ -43,7 +43,7 @@ namespace CombatAI
         data.self = GatherSelfState(a_actor);
 
         // Get weapon reach
-        data.weaponReach = GetWeaponReach(a_actor);
+        data.weaponReach = GetWeaponReach(a_actor, &data.weaponReachFromPrecision);
 
         // Gather target state - wrap in try-catch to protect against invalid actor
         // access
@@ -63,7 +63,7 @@ namespace CombatAI
         }
 
         // Gather combat context (multiple enemies, etc.) - cached for performance
-        data.combatContext = GatherCombatContext(a_actor, m_currentTime);
+        data.combatContext = GatherCombatContext(a_actor, m_currentTime, data.weaponReach);
 
         // Gather temporal state (time-based tracking)
         RE::Actor *target = nullptr;
@@ -79,7 +79,7 @@ namespace CombatAI
         } catch (...) {
             // Target access failed
         }
-        data.temporal = GatherTemporalState(a_actor, target, a_deltaTime);
+        data.temporal = GatherTemporalState(a_actor, target, a_deltaTime, data);
 
         // Environmental sensing: line of sight to the primary target. A single Havok
         // LOS raycast, run only when we have a target and the gate is enabled. Gathered
@@ -541,19 +541,22 @@ namespace CombatAI
         return ClampValue(baseDuration, 0.2f, 2.0f);
     }
 
-    float ActorStateObserver::GetWeaponReach(RE::Actor *a_actor)
+    float ActorStateObserver::GetWeaponReach(RE::Actor *a_actor, bool *a_fromPrecision)
     {
         if (!a_actor) {
+            if (a_fromPrecision) {
+                *a_fromPrecision = false;
+            }
             return 150.0f; // Default reach in game units
         }
 
         // Single source of truth: PrecisionIntegration returns the Precision capsule
         // length when the mod is available, otherwise its vanilla weapon-reach
         // fallback (m_precisionAPI is only set when Precision integration is enabled).
-        return PrecisionIntegration::GetInstance().GetWeaponReach(a_actor);
+        return PrecisionIntegration::GetInstance().GetWeaponReach(a_actor, a_fromPrecision);
     }
 
-    void ActorStateObserver::UpdateRangeCategory(RE::Actor *a_actor, CombatContext &a_context)
+    void ActorStateObserver::UpdateRangeCategory(RE::Actor *a_actor, CombatContext &a_context, float a_weaponReach)
     {
         if (!a_actor) {
             return;
@@ -584,7 +587,7 @@ namespace CombatAI
         float targetDistance = StateHelpers::CalculateDistance(selfPosOpt.value(), targetPosOpt.value());
         a_context.closestEnemyDistance = targetDistance;
 
-        float weaponReach = GetWeaponReach(a_actor);
+        float weaponReach = a_weaponReach;
         if (weaponReach <= 0.0f) {
             weaponReach = 150.0f; // Fallback
         }
@@ -595,7 +598,9 @@ namespace CombatAI
         // Optimal/close are tiers of that range.
         float targetRadius = ActorUtils::GetBodyRadius(target);
         float offenseMult = Config::GetInstance().GetDecisionMatrix().offenseReachMultiplier;
-        float maxAttackRange = StateHelpers::EffectiveAttackRange(weaponReach, targetRadius, offenseMult);
+        float safetyMargin = Config::GetInstance().GetDecisionMatrix().offenseReachSafetyMargin;
+        float maxAttackRange =
+            StateHelpers::EffectiveAttackRange(weaponReach, targetRadius, offenseMult, safetyMargin);
         float optimalAttackRange = maxAttackRange * 0.9f; // Optimal attack range (90% of max)
         float closeRange = maxAttackRange * 0.54f;        // Close range threshold (~54% of max)
 
@@ -619,7 +624,7 @@ namespace CombatAI
         }
     }
 
-    CombatContext ActorStateObserver::GatherCombatContext(RE::Actor *a_actor, float a_currentTime)
+    CombatContext ActorStateObserver::GatherCombatContext(RE::Actor *a_actor, float a_currentTime, float a_weaponReach)
     {
         CombatContext context;
 
@@ -652,7 +657,7 @@ namespace CombatAI
                 context.closestEnemy = nullptr;
                 // Refresh the distance/range from the live target - the cached scan
                 // data (enemy/ally counts) is fine to reuse, but range must be current.
-                UpdateRangeCategory(a_actor, context);
+                UpdateRangeCategory(a_actor, context, a_weaponReach);
                 return context;
             }
         }
@@ -691,7 +696,7 @@ namespace CombatAI
 
             // Range granularity is computed from the live target position (never
             // cached) so it can't lag behind the actor's real distance.
-            UpdateRangeCategory(a_actor, context);
+            UpdateRangeCategory(a_actor, context, a_weaponReach);
 
             // Calculate threat level based on enemy count
             if (context.enemyCount == 0) {
@@ -952,7 +957,8 @@ namespace CombatAI
         }
     }
 
-    TemporalState ActorStateObserver::GatherTemporalState(RE::Actor *a_actor, RE::Actor *a_target, float a_deltaTime)
+    TemporalState ActorStateObserver::GatherTemporalState(RE::Actor *a_actor, RE::Actor *a_target, float a_deltaTime,
+                                                          const ActorStateData &a_state)
     {
         TemporalState temporal;
 
@@ -1003,8 +1009,13 @@ namespace CombatAI
                     // Track attack attempt for defense feedback
                     if (a_target) {
                         bool isPowerAttack = IsPowerAttacking(a_actor);
-                        AttackDefenseFeedbackTracker::GetInstance().RecordAttackAttempt(a_actor, a_target,
-                                                                                        isPowerAttack);
+                        AttackDefenseFeedbackTracker::GetInstance().RecordAttackAttempt(
+                            a_actor, a_target, isPowerAttack, a_state.weaponReach, a_state.weaponReachFromPrecision,
+                            a_state.target.distance, a_state.target.boundRadius,
+                            StateHelpers::EffectiveAttackRange(
+                                a_state.weaponReach, a_state.target.boundRadius,
+                                Config::GetInstance().GetDecisionMatrix().offenseReachMultiplier,
+                                Config::GetInstance().GetDecisionMatrix().offenseReachSafetyMargin));
                     }
                 }
             } else {
@@ -1131,16 +1142,19 @@ namespace CombatAI
             if (targetFormIDOpt.has_value()) {
                 RE::FormID targetFormID = targetFormIDOpt.value();
 
-                // Use a composite key: actorFormID + targetFormID for target tracking
-                // For simplicity, we'll use targetFormID and track per actor's
-                // perspective Actually, let's use a simple approach: track target state
-                // per actor We'll use formID (actor) as key, but store target-specific
-                // data For now, let's track target state separately per actor-target pair
-                // We'll use a hash of both FormIDs as the key
-                RE::FormID targetKey = formID; // Use actor's FormID as base key
+                // Keep one target history per observing actor; targetFormID below resets
+                // it when the actor switches opponents.
+                RE::FormID targetKey = formID;
 
                 // Update the target temporal data atomically under the map's lock.
                 m_targetTemporalData.ModifyOrCreate(targetKey, [&](TargetTemporalData &targetTemporal) {
+                    // The cache is keyed by the observing actor, so reset it when that
+                    // actor switches opponents instead of carrying habits across targets.
+                    if (targetTemporal.targetFormID != targetFormID) {
+                        targetTemporal = TargetTemporalData{};
+                        targetTemporal.targetFormID = targetFormID;
+                    }
+
                     // Update timers
                     targetTemporal.timeSinceLastAttack += a_deltaTime;
                     targetTemporal.timeSinceLastPowerAttack += a_deltaTime;
@@ -1160,6 +1174,15 @@ namespace CombatAI
                     }
                     RE::ATTACK_STATE_ENUM targetAttackState = ActorUtils::SafeGetAttackState(a_target);
                     bool targetIsIdle = (targetAttackState == RE::ATTACK_STATE_ENUM::kNone);
+
+                    // Keep recent block starts as a decaying habit score. Two recent
+                    // block commitments can justify baiting a response with a feint.
+                    targetTemporal.recentBlockCommitments =
+                        (std::max)(0.0f, targetTemporal.recentBlockCommitments - (std::max)(0.0f, a_deltaTime) / 6.0f);
+                    if (targetIsBlocking && !targetTemporal.wasBlocking) {
+                        targetTemporal.recentBlockCommitments =
+                            (std::min)(3.0f, targetTemporal.recentBlockCommitments + 1.0f);
+                    }
 
                     if (targetIsBlocking) {
                         if (targetTemporal.wasBlocking) {
@@ -1277,6 +1300,7 @@ namespace CombatAI
                     // Copy to output
                     temporal.target.timeSinceLastAttack = targetTemporal.timeSinceLastAttack;
                     temporal.target.blockingDuration = targetTemporal.blockingDuration;
+                    temporal.target.recentBlockCommitments = targetTemporal.recentBlockCommitments;
                     temporal.target.castingDuration = targetTemporal.castingDuration;
                     temporal.target.drawingDuration = targetTemporal.drawingDuration;
                     temporal.target.attackingDuration = targetTemporal.attackingDuration;
@@ -1321,6 +1345,7 @@ namespace CombatAI
                 }
                 break;
             case ActionType::Dodge:
+            case ActionType::ForwardDodge:
             case ActionType::Jump:
             case ActionType::Strafe:
                 temporal.timeSinceLastDodge = 0.0f;

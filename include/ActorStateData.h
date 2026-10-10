@@ -194,6 +194,7 @@ namespace CombatAI
     {
         float timeSinceLastAttack = 999.0f;      // Time since target last attacked
         float blockingDuration = 0.0f;           // How long target has been blocking
+        float recentBlockCommitments = 0.0f;     // Recent block starts, decayed over time
         float castingDuration = 0.0f;            // How long target has been casting
         float drawingDuration = 0.0f;            // How long target has been drawing bow
         float attackingDuration = 0.0f;          // How long target has been attacking
@@ -230,6 +231,7 @@ namespace CombatAI
         EnvState env;                // Environmental sensing (line-of-sight, etc.)
         float deltaTime = 0.0f;
         float weaponReach = 150.0f; // Weapon reach (from Precision or fallback)
+        bool weaponReachFromPrecision = false;
     };
 
     // Helper functions
@@ -242,9 +244,11 @@ namespace CombatAI
         // so pad the (multiplier-scaled) weapon reach with the target's physical body
         // radius. Single source of truth shared by the observer's range categories and
         // the decision matrix's attack checks so they never disagree.
-        inline float EffectiveAttackRange(float a_weaponReach, float a_targetBoundRadius, float a_multiplier)
+        inline float EffectiveAttackRange(float a_weaponReach, float a_targetBoundRadius, float a_multiplier,
+                                          float a_safetyMargin = 0.0f)
         {
-            return a_weaponReach * a_multiplier + a_targetBoundRadius;
+            const float effectiveRange = a_weaponReach * a_multiplier + a_targetBoundRadius - a_safetyMargin;
+            return effectiveRange > 0.0f ? effectiveRange : 0.0f;
         }
 
         // Calculate dot product for orientation check

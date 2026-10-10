@@ -45,7 +45,7 @@ namespace CombatAI
         TargetState GatherTargetState(RE::Actor *a_actor, RE::Actor *a_target);
 
         // Gather combat context (multiple enemies, etc.)
-        CombatContext GatherCombatContext(RE::Actor *a_actor, float a_currentTime);
+        CombatContext GatherCombatContext(RE::Actor *a_actor, float a_currentTime, float a_weaponReach);
 
         // Scan for nearby actors (enemies and allies) - expensive operation, done in
         // one pass
@@ -58,16 +58,17 @@ namespace CombatAI
         bool IsPowerAttacking(RE::Actor *a_target);
 
         // Helper: Get weapon reach (approximation)
-        float GetWeaponReach(RE::Actor *a_actor);
+        float GetWeaponReach(RE::Actor *a_actor, bool *a_fromPrecision = nullptr);
 
         // Recompute distance-dependent fields (primary-target distance + range
         // category / isInAttackRange) from the LIVE target position. The rest of the
         // combat context is cached for several seconds, but range must stay fresh or
         // NPCs act on a stale distance (e.g. think a point-blank target is far away).
-        void UpdateRangeCategory(RE::Actor *a_actor, CombatContext &a_context);
+        void UpdateRangeCategory(RE::Actor *a_actor, CombatContext &a_context, float a_weaponReach);
 
         // Gather temporal state (time-based tracking)
-        TemporalState GatherTemporalState(RE::Actor *a_actor, RE::Actor *a_target, float a_deltaTime);
+        TemporalState GatherTemporalState(RE::Actor *a_actor, RE::Actor *a_target, float a_deltaTime,
+                                          const ActorStateData &a_state);
 
         // Caching for combat context (expensive to calculate)
         struct CachedCombatContext
@@ -164,8 +165,10 @@ namespace CombatAI
         // Target temporal tracking per actor-target pair
         struct TargetTemporalData
         {
+            RE::FormID targetFormID = 0;
             float timeSinceLastAttack = 999.0f;
             float blockingDuration = 0.0f;
+            float recentBlockCommitments = 0.0f;
             float castingDuration = 0.0f;
             float drawingDuration = 0.0f;
             float attackingDuration = 0.0f;

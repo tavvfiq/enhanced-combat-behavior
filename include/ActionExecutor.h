@@ -32,6 +32,11 @@ namespace CombatAI
         // Execute dodge (TK Dodge integration)
         bool ExecuteDodge(RE::Actor *a_actor, const ActorStateData &a_state);
 
+        // Execute a directional dodge toward the target for long-range advancing
+        bool ExecuteForwardDodge(RE::Actor *a_actor, const DecisionResult &a_decision, const ActorStateData &a_state);
+
+        void ConfigureDodgeSystem();
+
         // Execute strafe movement (with CPR support)
         bool ExecuteStrafe(RE::Actor *a_actor, const DecisionResult &a_decision, const ActorStateData &a_state);
 

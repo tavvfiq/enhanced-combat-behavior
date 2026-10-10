@@ -17,7 +17,9 @@
 namespace CombatAI
 {
     void AttackDefenseFeedbackTracker::RecordAttackAttempt(RE::Actor *a_attacker, RE::Actor *a_target,
-                                                           bool a_isPowerAttack)
+                                                           bool a_isPowerAttack, float a_weaponReach,
+                                                           bool a_reachFromPrecision, float a_targetDistance,
+                                                           float a_targetRadius, float a_attackThreshold)
     {
         if (!a_attacker || !a_target) {
             return;
@@ -41,6 +43,11 @@ namespace CombatAI
         attempt.matchedParry = false;
         attempt.matchedTimedBlock = false;
         attempt.matchedHit = false;
+        attempt.weaponReach = a_weaponReach;
+        attempt.reachFromPrecision = a_reachFromPrecision;
+        attempt.targetDistance = a_targetDistance;
+        attempt.targetRadius = a_targetRadius;
+        attempt.attackThreshold = a_attackThreshold;
 
         size_t totalAttempts = 0;
         // Add to recent attempts (keyed by attacker FormID)
@@ -338,6 +345,15 @@ namespace CombatAI
                     // If attempt is old enough and hasn't been matched, it's a miss
                     if (age >= MISS_DETECTION_TIME && !attempt.matchedParry && !attempt.matchedTimedBlock &&
                         !attempt.matchedHit) {
+                        if (Config::GetInstance().GetGeneral().enableDebugLog) {
+                            LOG_DEBUG("Unmatched attack timeout: actor=0x{:08X} target=0x{:08X} power={} "
+                                      "reachSource={} reach={:.1f} targetRadius={:.1f} distance={:.1f} "
+                                      "threshold={:.1f} overshoot={:.1f}",
+                                      attackerFormID, attempt.targetFormID, attempt.isPowerAttack,
+                                      attempt.reachFromPrecision ? "Precision" : "fallback", attempt.weaponReach,
+                                      attempt.targetRadius, attempt.targetDistance, attempt.attackThreshold,
+                                      attempt.targetDistance - attempt.attackThreshold);
+                        }
                         // Mark as matched to avoid double-counting
                         attempt.matchedHit = true; // Use matchedHit flag to mark as processed
 

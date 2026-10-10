@@ -106,6 +106,8 @@ namespace CombatAI
                 ImGuiMCP::Checkbox("Enable sprint charge (gap-close)", &config.m_decisionMatrix.enableSprintCharge);
                 ImGuiMCP::Separator();
                 liveFloat("Offense reach multiplier", &config.m_decisionMatrix.offenseReachMultiplier, 0.5f, 3.0f);
+                liveFloat("Offense reach safety margin", &config.m_decisionMatrix.offenseReachSafetyMargin, 0.0f,
+                          100.0f, "%.0f");
                 liveFloat("Interrupt reach multiplier", &config.m_decisionMatrix.interruptReachMultiplier, 0.5f, 3.0f);
                 liveFloat("Evasion min distance", &config.m_decisionMatrix.evasionMinDistance, 0.0f, 600.0f, "%.0f");
                 liveFloat("Sprint attack min dist", &config.m_decisionMatrix.sprintAttackMinDistance, 0.0f, 800.0f,

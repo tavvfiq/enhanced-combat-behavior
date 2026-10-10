@@ -21,7 +21,8 @@ namespace CombatAI
         Feint,        // 11 - Fake attack to bait enemy response
         Flanking,     // 12 - Tactical positioning with allies (pincer movement)
         Parry,        // 13 - Timed bash for parrying incoming attacks
-        TimedBlock    // 14 - Timed block for blocking incoming attacks
+        TimedBlock,   // 14 - Timed block for blocking incoming attacks
+        ForwardDodge  // 15 - Directional gap-close dodge during advancing
     };
 
     // Decision result containing action to take

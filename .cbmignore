@@ -1,0 +1,11 @@
+lib/
+lib/**
+extern/
+extern/**
+.extern/
+package/
+build/
+dist/
+vsxmake2022/
+.xmake/
+.token-optimizer/

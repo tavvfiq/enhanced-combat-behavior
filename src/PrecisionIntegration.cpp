@@ -20,8 +20,11 @@ namespace CombatAI
         }
     }
 
-    float PrecisionIntegration::GetWeaponReach(RE::Actor *a_actor)
+    float PrecisionIntegration::GetWeaponReach(RE::Actor *a_actor, bool *a_fromPrecision)
     {
+        if (a_fromPrecision) {
+            *a_fromPrecision = false;
+        }
         if (!a_actor || !a_actor->Is3DLoaded()) {
             return 150.0f; // Default fallback
         }
@@ -34,6 +37,9 @@ namespace CombatAI
                 float reach = precision->GetAttackCollisionCapsuleLength(
                     actorHandle, PRECISION_API::RequestedAttackCollisionType::Default);
                 if (reach > 0.0f) {
+                    if (a_fromPrecision) {
+                        *a_fromPrecision = true;
+                    }
                     return reach;
                 }
             }

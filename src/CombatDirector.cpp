@@ -26,6 +26,7 @@ namespace CombatAI
             case ActionType::Strafe:
             case ActionType::Backoff:
             case ActionType::Advancing:
+            case ActionType::ForwardDodge:
             case ActionType::Flanking:
                 return true;
             default:
@@ -210,7 +211,12 @@ namespace CombatAI
 
         // Check cooldowns (only actions with cooldowns will return true)
         if (m_humanizer.IsOnCooldown(formID, decision.action)) {
-            return; // On cooldown
+            if (decision.action == ActionType::ForwardDodge) {
+                // Keep ordinary gap-closing active while the shared dodge cooldown runs.
+                decision.action = ActionType::Advancing;
+            } else {
+                return; // On cooldown
+            }
         }
 
         if (decision.action != ActionType::None) {
@@ -248,14 +254,23 @@ namespace CombatAI
     void CombatDirector::ExecuteDecision(RE::Actor *a_actor, RE::FormID a_formID, const DecisionResult &a_decision,
                                          const ActorStateData &a_state)
     {
-        if (!m_executor.Execute(a_actor, a_decision, a_state)) {
-            return;
+        DecisionResult executedDecision = a_decision;
+        if (!m_executor.Execute(a_actor, executedDecision, a_state)) {
+            if (executedDecision.action != ActionType::ForwardDodge) {
+                return;
+            }
+            // If the dodge cannot start (e.g. runtime state changed after evaluation),
+            // fall back to the usual advancing path without spending its cooldown.
+            executedDecision.action = ActionType::Advancing;
+            if (!m_executor.Execute(a_actor, executedDecision, a_state)) {
+                return;
+            }
         }
 
         m_processedActors.Insert(a_formID);
-        m_humanizer.MarkActionUsed(a_formID, a_decision.action);
-        m_observer.NotifyActionExecuted(a_actor, a_decision.action);
-        APIManager::GetSingleton()->NotifyDecision(a_actor, a_decision);
+        m_humanizer.MarkActionUsed(a_formID, executedDecision.action);
+        m_observer.NotifyActionExecuted(a_actor, executedDecision.action);
+        APIManager::GetSingleton()->NotifyDecision(a_actor, executedDecision);
     }
 
     void CombatDirector::Update(float a_deltaTime)

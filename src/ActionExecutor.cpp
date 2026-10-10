@@ -36,7 +36,8 @@ namespace CombatAI
         const bool targetsHiddenPlayer = a_state.target.isPlayer && !a_state.target.isDetected;
         if (targetsHiddenPlayer &&
             (a_decision.action == ActionType::Attack || a_decision.action == ActionType::PowerAttack ||
-             a_decision.action == ActionType::SprintAttack || a_decision.action == ActionType::Advancing)) {
+             a_decision.action == ActionType::SprintAttack || a_decision.action == ActionType::Advancing ||
+             a_decision.action == ActionType::ForwardDodge)) {
             return false;
         }
 
@@ -66,6 +67,9 @@ namespace CombatAI
                              (config.GetDecisionMatrix().enableSprintCharge && meleeWithTarget);
             break;
         }
+        case ActionType::ForwardDodge:
+            movementCanRun = a_state.target.isValid;
+            break;
         default:
             break;
         }
@@ -91,6 +95,7 @@ namespace CombatAI
         case ActionType::Bash:
         case ActionType::Parry:
         case ActionType::TimedBlock:
+        case ActionType::ForwardDodge:
             if (ActorUtils::SafeIsSprinting(a_actor)) {
                 ActorUtils::SafeSetSprinting(a_actor, false);
             }
@@ -144,6 +149,10 @@ namespace CombatAI
 
         case ActionType::Dodge:
             success = ExecuteDodge(a_actor, a_state);
+            break;
+
+        case ActionType::ForwardDodge:
+            success = ExecuteForwardDodge(a_actor, a_decision, a_state);
             break;
 
         case ActionType::Backoff:
@@ -307,7 +316,34 @@ namespace CombatAI
             return false;
         }
 
-        // Load dodge system config
+        ConfigureDodgeSystem();
+        return m_dodgeSystem.ExecuteEvasionDodge(a_actor, a_state);
+    }
+
+    bool ActionExecutor::ExecuteForwardDodge(RE::Actor *a_actor, const DecisionResult &a_decision,
+                                             const ActorStateData &a_state)
+    {
+        if (!a_actor || !a_state.target.isValid) {
+            return false;
+        }
+
+        RE::NiPoint3 direction = a_decision.direction;
+        direction.z = 0.0f;
+        if (direction.x == 0.0f && direction.y == 0.0f) {
+            direction = a_state.target.position - a_state.self.position;
+            direction.z = 0.0f;
+        }
+        if (direction.x == 0.0f && direction.y == 0.0f) {
+            return false;
+        }
+        direction.Unitize();
+
+        ConfigureDodgeSystem();
+        return m_dodgeSystem.ExecuteDodge(a_actor, direction);
+    }
+
+    void ActionExecutor::ConfigureDodgeSystem()
+    {
         auto &config = Config::GetInstance();
         DodgeSystem::Config dodgeConfig;
         dodgeConfig.dodgeStaminaCost = config.GetDodgeSystem().dodgeStaminaCost;
@@ -315,9 +351,6 @@ namespace CombatAI
         dodgeConfig.enableStepDodge = config.GetDodgeSystem().enableStepDodge;
         dodgeConfig.enableDodgeAttackCancel = config.GetDodgeSystem().enableDodgeAttackCancel;
         m_dodgeSystem.SetConfig(dodgeConfig);
-
-        // Use DodgeSystem to execute evasion dodge
-        return m_dodgeSystem.ExecuteEvasionDodge(a_actor, a_state);
     }
 
     bool ActionExecutor::ExecuteStrafe(RE::Actor *a_actor, const DecisionResult &a_decision,

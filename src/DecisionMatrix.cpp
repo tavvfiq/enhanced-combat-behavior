@@ -18,9 +18,11 @@ namespace CombatAI
 
     // Effective melee reach in game units. Delegates to the shared StateHelpers
     // formula so the decision matrix and the observer's range categories agree.
-    static float EffectiveAttackRange(const ActorStateData &a_state, float a_weaponReach, float a_multiplier)
+    static float EffectiveAttackRange(const ActorStateData &a_state, float a_weaponReach, float a_multiplier,
+                                      float a_safetyMargin = 0.0f)
     {
-        return StateHelpers::EffectiveAttackRange(a_weaponReach, a_state.target.boundRadius, a_multiplier);
+        return StateHelpers::EffectiveAttackRange(a_weaponReach, a_state.target.boundRadius, a_multiplier,
+                                                  a_safetyMargin);
     }
     DecisionResult DecisionMatrix::Evaluate(RE::Actor *a_actor, const ActorStateData &a_state)
     {
@@ -1106,7 +1108,8 @@ namespace CombatAI
         // Effective range pads weapon reach with the target's body radius so
         // center-to-center distance checks connect regardless of target size.
         float maxAttackDistance =
-            EffectiveAttackRange(a_state, reachDistance, config.GetDecisionMatrix().offenseReachMultiplier);
+            EffectiveAttackRange(a_state, reachDistance, config.GetDecisionMatrix().offenseReachMultiplier,
+                                 config.GetDecisionMatrix().offenseReachSafetyMargin);
 
         // Define sprint attack ranges
         const float sprintAttackMaxDist = config.GetDecisionMatrix().sprintAttackMaxDistance;
@@ -1128,7 +1131,11 @@ namespace CombatAI
             }
 
             if (shouldAdvance) {
-                advancingResult.action = ActionType::Advancing;
+                const bool canUseForwardDodge =
+                    config.GetModIntegrations().enableTKDodgeIntegration &&
+                    a_state.self.currentStamina >= config.GetDodgeSystem().dodgeStaminaCost &&
+                    a_state.target.distance > sprintAttackMaxDist * 2.0f;
+                advancingResult.action = canUseForwardDodge ? ActionType::ForwardDodge : ActionType::Advancing;
 
                 // Base priority for advancing
                 float basePriority = config.GetScoringWeights().advancingBase;
@@ -1328,9 +1335,9 @@ namespace CombatAI
             }
         }
 
-        // If we are NOT in sprint attack range but Advancing is valid (Long range)
+        // If we are NOT in sprint attack range but a gap-close action is valid (Long range)
         if (a_state.target.distance > sprintAttackMaxDist) {
-            if (advancingResult.action == ActionType::Advancing) {
+            if (advancingResult.action == ActionType::Advancing || advancingResult.action == ActionType::ForwardDodge) {
                 return advancingResult;
             }
             // If advancing rejected (e.g. defensive), return None
@@ -1339,7 +1346,8 @@ namespace CombatAI
 
         // --- 4. Normal Attack Logic (Close Range) ---
         // Optimal range is slightly less than base reach, padded with target body radius
-        float optimalAttackDistance = EffectiveAttackRange(a_state, reachDistance, 0.9f);
+        float optimalAttackDistance =
+            EffectiveAttackRange(a_state, reachDistance, 0.9f, config.GetDecisionMatrix().offenseReachSafetyMargin);
 
         // Use enhanced combat context: Range granularity
         // Only consider attacks when in attack range (use range category for more
@@ -2320,6 +2328,7 @@ namespace CombatAI
         // Use temporal state: Wait for target to commit to blocking before feinting
         bool goodFeintOpportunity = false;
         float blockingDuration = a_state.temporal.target.blockingDuration;
+        bool targetFrequentlyBlocks = a_state.temporal.target.recentBlockCommitments >= 1.5f;
 
         // Weapon type considerations: Feinting is more useful for one-handed weapons
         // Two-handed weapons can break blocks easier, so feinting less needed
@@ -2331,17 +2340,19 @@ namespace CombatAI
         if (targetIsBlocking && justFinishedAttack) {
             // We attacked, they blocked - feint to break guard
             // But wait for them to commit to blocking (at least 0.3s) for better timing
-            if (blockingDuration > 0.3f && feintIsUseful) {
+            if ((blockingDuration > 0.3f || targetFrequentlyBlocks) && feintIsUseful) {
                 goodFeintOpportunity = true;
             }
         } else if (targetIsBlocking && readyToFeint) {
             // Target is blocking - wait for them to commit (at least 0.5s) before
             // feinting
-            if (blockingDuration > 0.5f && feintIsUseful) {
+            if ((blockingDuration > 0.5f || targetFrequentlyBlocks) && feintIsUseful) {
                 goodFeintOpportunity = true; // Target committed to blocking - feint to break guard
             }
         } else if (targetIsDefensive && readyToFeint && feintIsUseful) {
             goodFeintOpportunity = true; // Target is defensive - feint to bait
+        } else if (targetFrequentlyBlocks && readyToFeint && feintIsUseful) {
+            goodFeintOpportunity = true; // Repeated recent blocks make a feint a useful bait
         }
 
         if (goodFeintOpportunity && inFeintRange) {
@@ -2377,12 +2388,17 @@ namespace CombatAI
                     basePriority += 0.15f; // Target committed to blocking for > 0.5s - good
                                            // feint opportunity
                 }
+                if (targetFrequentlyBlocks) {
+                    basePriority += 0.15f; // Repeated recent blocks make another feint more promising
+                }
 
                 // Extra bonus if we just attacked and they blocked (perfect feint
                 // opportunity)
                 if (justFinishedAttack) {
                     basePriority += 0.3f; // We attacked, they blocked - feint to break guard
                 }
+            } else if (targetFrequentlyBlocks) {
+                basePriority = 1.45f; // Bait a target that has committed to blocking repeatedly
             } else if (a_state.target.orientationDot > 0.7f) {
                 basePriority = 1.4f; // Higher priority when target is facing us defensively
             }
@@ -2646,7 +2662,8 @@ namespace CombatAI
 
         // Factor 5: Distance-based preference
         float distance = a_state.target.distance;
-        if (a_decision.action == ActionType::Advancing && distance > 800.0f) {
+        if ((a_decision.action == ActionType::Advancing || a_decision.action == ActionType::ForwardDodge) &&
+            distance > 800.0f) {
             score += 3.0f; // Prefer advancing when very far
         } else if (a_decision.action == ActionType::Bash && distance < 200.0f) {
             score += 3.0f; // Prefer bash when very close

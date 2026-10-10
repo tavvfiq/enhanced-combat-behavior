@@ -113,6 +113,7 @@ namespace CombatAI
         B("DecisionMatrix", "EnableSurvivalRetreat", m_decisionMatrix.enableSurvivalRetreat);
         B("DecisionMatrix", "EnableOffense", m_decisionMatrix.enableOffense);
         D("DecisionMatrix", "OffenseReachMultiplier", m_decisionMatrix.offenseReachMultiplier);
+        D("DecisionMatrix", "OffenseReachSafetyMargin", m_decisionMatrix.offenseReachSafetyMargin);
         B("DecisionMatrix", "EnableSprintAttack", m_decisionMatrix.enableSprintAttack);
         B("DecisionMatrix", "EnableSprintCharge", m_decisionMatrix.enableSprintCharge);
         D("DecisionMatrix", "SprintAttackMinDistance", m_decisionMatrix.sprintAttackMinDistance);
@@ -340,6 +341,10 @@ namespace CombatAI
             a_ini.GetBoolValue("DecisionMatrix", "EnableOffense", m_decisionMatrix.enableOffense);
         m_decisionMatrix.offenseReachMultiplier = static_cast<float>(
             a_ini.GetDoubleValue("DecisionMatrix", "OffenseReachMultiplier", m_decisionMatrix.offenseReachMultiplier));
+        m_decisionMatrix.offenseReachSafetyMargin = std::clamp(
+            static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "OffenseReachSafetyMargin",
+                                                    m_decisionMatrix.offenseReachSafetyMargin)),
+            0.0f, 250.0f);
         m_decisionMatrix.enableSprintAttack =
             a_ini.GetBoolValue("DecisionMatrix", "EnableSprintAttack", m_decisionMatrix.enableSprintAttack);
         m_decisionMatrix.enableSprintCharge =

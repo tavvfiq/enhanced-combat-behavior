@@ -21,7 +21,9 @@ namespace CombatAI
         AttackDefenseFeedbackTracker &operator=(const AttackDefenseFeedbackTracker &) = delete;
 
         // Record an attack attempt (when NPC starts attacking)
-        void RecordAttackAttempt(RE::Actor *a_attacker, RE::Actor *a_target, bool a_isPowerAttack);
+        void RecordAttackAttempt(RE::Actor *a_attacker, RE::Actor *a_target, bool a_isPowerAttack,
+                                 float a_weaponReach, bool a_reachFromPrecision, float a_targetDistance,
+                                 float a_targetRadius, float a_attackThreshold);
 
         // Handle EldenParry mod callback event (called when attacker's attack is parried)
         void OnAttackParried(RE::Actor *a_attacker);
@@ -81,6 +83,11 @@ namespace CombatAI
             bool matchedParry = false;      // Whether this attack was matched with a parry event
             bool matchedTimedBlock = false; // Whether this attack was matched with a timed block event
             bool matchedHit = false;        // Whether this attack was matched with a hit event
+            float weaponReach = 0.0f;
+            bool reachFromPrecision = false;
+            float targetDistance = 0.0f;
+            float targetRadius = 0.0f;
+            float attackThreshold = 0.0f;
         };
 
         // Track recent attack attempts (keyed by attacker FormID)

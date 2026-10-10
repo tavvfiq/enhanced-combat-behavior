@@ -21,7 +21,7 @@ namespace CombatAI
         bool Initialize();
 
         // Get weapon reach for an actor (uses Precision if available, fallback otherwise)
-        float GetWeaponReach(RE::Actor *a_actor);
+        float GetWeaponReach(RE::Actor *a_actor, bool *a_fromPrecision = nullptr);
 
         // Check if Precision is available
         bool IsAvailable() const { return m_precisionAPI != nullptr; }
