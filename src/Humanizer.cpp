@@ -1,6 +1,8 @@
 #include "Humanizer.h"
 #include "ActorUtils.h"
 #include "pch.h"
+#include <algorithm>
+#include <bit>
 #include <random>
 
 namespace CombatAI
@@ -12,7 +14,7 @@ namespace CombatAI
         thread_local std::mt19937 g_gen(g_rd());
     } // namespace
 
-    bool Humanizer::CanReact(RE::Actor *a_actor, RE::FormID a_formID, float a_deltaTime)
+    bool Humanizer::CanReact(RE::Actor *a_actor, RE::FormID a_formID)
     {
         if (!a_actor || a_formID == RE::FormID(0)) {
             return false;
@@ -22,84 +24,120 @@ namespace CombatAI
         if (!ActorUtils::SafeIsInCombat(a_actor)) {
             // Remove reaction state if actor left combat
             m_reactionStates.Erase(a_formID);
+            m_skillRolls.Erase(a_formID);
             return false;
         }
 
-        // Ensure a reaction state exists and check whether the delay still needs to be
-        // initialized. The read-modify-write is done atomically under the map's lock.
-        bool needsInit = false;
-        m_reactionStates.ModifyOrCreate(a_formID,
-                                        [&](ActorReactionState &state) { needsInit = (state.reactionDelay == 0.0f); });
-
-        // Initialize delay if not set. InitializeReactionDelay locks the same map, so it
-        // must run outside the callback above to avoid a recursive (deadlocking) lock.
-        if (needsInit) {
-            InitializeReactionDelay(a_actor);
-        }
-
-        // Advance the reaction timer and evaluate readiness atomically under the lock.
-        // If the entry was removed in the meantime, treat the actor as unable to react.
+        // Roll outside the lock (reads the actor); only used if the entry is new.
+        const float now = m_time.load(std::memory_order_relaxed);
+        const float delay = RollReactionDelaySeconds(a_actor);
         bool canReact = false;
-        m_reactionStates.Modify(a_formID, [&](ActorReactionState &state) {
-            // If already able to react, keep it (reset happens after the action executes).
-            if (state.canReact) {
-                canReact = true;
-                return;
+        m_reactionStates.ModifyOrCreate(a_formID, [&](ActorReactionState &state) {
+            if (state.entryReadyTime < 0.0f) {
+                state.entryReadyTime = now + delay;
             }
-
-            // Update timer (convert seconds to milliseconds) and check if the delay passed.
-            state.reactionTimer += a_deltaTime * 1000.0f;
-            if (state.reactionTimer >= state.reactionDelay) {
-                state.canReact = true;
-                canReact = true;
-            }
+            canReact = now >= state.entryReadyTime;
         });
-
         return canReact;
     }
 
-    void Humanizer::ResetReactionState(RE::Actor *a_actor)
+    namespace
     {
-        if (!a_actor) {
-            return;
+        enum class SkillClass
+        {
+            None,    // movement and the like: never rolls
+            Defense, // reacting to the target: dodge, parry, timed block, bash, jump
+            Offense  // committing to an attack or feint
+        };
+
+        SkillClass ClassOf(ActionType a_action)
+        {
+            switch (a_action) {
+            case ActionType::Dodge:
+            case ActionType::Parry:
+            case ActionType::TimedBlock:
+            case ActionType::Bash:
+            case ActionType::Jump:
+                return SkillClass::Defense;
+            case ActionType::Attack:
+            case ActionType::PowerAttack:
+            case ActionType::SprintAttack:
+            case ActionType::Feint:
+                return SkillClass::Offense;
+            default:
+                return SkillClass::None;
+            }
+        }
+    } // namespace
+
+    bool Humanizer::PassesSkillCheck(RE::Actor *a_actor, RE::FormID a_formID, ActionType a_action,
+                                     const ActorStateData &a_state, float a_combatTime)
+    {
+        const SkillClass skillClass = ClassOf(a_action);
+        if (!m_config.enableSkillRolls || skillClass == SkillClass::None || !a_actor) {
+            return true;
         }
 
-        // Get FormID safely - use FormID as key instead of raw pointer
-        auto formIDOpt = ActorUtils::SafeGetFormID(a_actor);
-        if (!formIDOpt.has_value()) {
-            return; // Can't get FormID, actor is invalid
+        // Opportunity key. Defense: the target's current swing (its start time identifies it),
+        // so one roll covers the whole swing. Otherwise a time window, so a failed roll
+        // passes on that opening and a new one comes after the window.
+        const float now = m_time.load(std::memory_order_relaxed);
+        const float window = (std::max)(0.1f, m_config.skillRerollSeconds);
+        std::uint64_t key = static_cast<std::uint64_t>(now / window) | (1ull << 63);
+        const auto &target = a_state.target;
+        if (skillClass == SkillClass::Defense && target.isValid && (target.isAttacking || target.isPowerAttacking) &&
+            a_state.temporal.target.attackStartTime >= 0.0f) {
+            key = (static_cast<std::uint64_t>(target.targetFormID) << 32) |
+                  std::bit_cast<std::uint32_t>(a_state.temporal.target.attackStartTime);
         }
-        RE::FormID formID = formIDOpt.value();
 
-        // Validate FormID before using it
-        if (formID == RE::FormID(0)) {
-            return; // Invalid FormID
-        }
-
-        // Reset timer and delay atomically; will be re-initialized on next CanReact call
-        m_reactionStates.Modify(formID, [](ActorReactionState &state) {
-            state.reactionTimer = 0.0f;
-            state.reactionDelay = 0.0f;
-            state.canReact = false;
+        const float chance = SkillChance(a_actor, a_action, a_combatTime, a_state.self);
+        bool passed = true;
+        m_skillRolls.ModifyOrCreate(a_formID, [&](SkillState &state) {
+            auto &storedKey = skillClass == SkillClass::Defense ? state.defenseKey : state.offenseKey;
+            auto &storedPassed = skillClass == SkillClass::Defense ? state.defensePassed : state.offensePassed;
+            if (storedKey != key) {
+                storedKey = key;
+                storedPassed = std::uniform_real_distribution<float>(0.0f, 1.0f)(g_gen) < chance;
+            }
+            passed = storedPassed;
         });
+        return passed;
     }
 
-    bool Humanizer::ShouldMakeMistake(RE::Actor *a_actor, ActionType a_action)
+    float Humanizer::SkillChance(RE::Actor *a_actor, ActionType a_action, float a_combatTime,
+                                 const SelfState &a_self) const
     {
-        if (!a_actor) {
-            return false;
+        const float level = static_cast<float>(ActorUtils::SafeGetLevel(a_actor));
+        const float skill = (std::clamp)(m_config.skillBase + m_config.skillPerLevel * (level - 1.0f),
+                                         m_config.skillMin, m_config.skillMax);
+        // Fatigue and panic scale the failure chance: x(1 + penalty) at full fatigue/panic.
+        // (Dividing skill instead turned a 95% veteran into 63% after three minutes.)
+        const float failure = (1.0f - skill) * (1.0f + CalculateStress(a_action, a_combatTime, a_self));
+        return (std::max)(0.0f, 1.0f - failure);
+    }
+
+    float Humanizer::CalculateStress(ActionType a_action, float a_combatTime, const SelfState &a_self) const
+    {
+        float stress = 0.0f;
+
+        if (m_config.enableFatigue) {
+            const float span = (std::max)(1.0f, m_config.fatigueFullSeconds - m_config.fatigueOnsetSeconds);
+            float fatigue = (std::clamp)((a_combatTime - m_config.fatigueOnsetSeconds) / span, 0.0f, 1.0f);
+            if (m_config.fatigueStaminaThreshold > 0.0f && a_self.staminaPercent < m_config.fatigueStaminaThreshold) {
+                fatigue = (std::max)(fatigue, 1.0f - a_self.staminaPercent / m_config.fatigueStaminaThreshold);
+            }
+            stress += fatigue * m_config.fatigueSkillPenalty;
         }
 
-        // Get level safely using wrapper
-        std::uint16_t level = ActorUtils::SafeGetLevel(a_actor);
-        float mistakeChance = CalculateMistakeChance(level, a_action);
-
-        if (mistakeChance <= 0.0f) {
-            return false;
+        // Panic makes fighting sloppier, not running away.
+        const bool fleeing = a_action == ActionType::Retreat || a_action == ActionType::Backoff;
+        if (m_config.enablePanic && !fleeing && m_config.panicHealthThreshold > 0.0f &&
+            a_self.healthPercent < m_config.panicHealthThreshold) {
+            stress += (1.0f - a_self.healthPercent / m_config.panicHealthThreshold) * m_config.panicSkillPenalty;
         }
 
-        std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-        return dist(g_gen) < mistakeChance;
+        return stress;
     }
 
     bool Humanizer::IsOnCooldown(RE::FormID a_formID, ActionType a_action)
@@ -135,6 +173,8 @@ namespace CombatAI
             return m_config.dodgeCooldownSeconds;
         case ActionType::Jump:
             return m_config.jumpCooldownSeconds;
+        case ActionType::SprintAttack:
+            return m_config.sprintAttackCooldownSeconds;
         case ActionType::TimedBlock:
             // Briefly preserve the block animation before a movement decision can release it.
             return 0.15f;
@@ -172,11 +212,14 @@ namespace CombatAI
         // This is a last resort when maps become unusable
         // Thread-safe wrappers handle this safely
         m_reactionStates.Clear();
+        m_skillRolls.Clear();
         m_cooldownStates.Clear();
     }
 
     void Humanizer::Update(float a_deltaTime)
     {
+        m_time.store(m_time.load(std::memory_order_relaxed) + a_deltaTime, std::memory_order_relaxed);
+
         // Update cooldowns and clean up expired ones
         // Use thread-safe iteration with write lock
         m_cooldownStates.WithWriteLock([&](auto &cooldownStatesMap) {
@@ -233,48 +276,6 @@ namespace CombatAI
         // But for now, lazy cleanup is safer and more efficient
     }
 
-    float Humanizer::GetMistakeMultiplierForAction(ActionType a_action) const
-    {
-        switch (a_action) {
-        case ActionType::Bash:
-            return m_config.bashMistakeMultiplier;
-        case ActionType::Dodge:
-            return m_config.dodgeMistakeMultiplier;
-        case ActionType::Jump:
-            return m_config.jumpMistakeMultiplier;
-        case ActionType::Strafe:
-            return m_config.strafeMistakeMultiplier;
-        case ActionType::PowerAttack:
-            return m_config.powerAttackMistakeMultiplier;
-        case ActionType::Attack:
-            return m_config.attackMistakeMultiplier;
-        case ActionType::SprintAttack:
-            return m_config.sprintAttackMistakeMultiplier;
-        case ActionType::Retreat:
-            return m_config.retreatMistakeMultiplier;
-        case ActionType::Backoff:
-            return m_config.backoffMistakeMultiplier;
-        case ActionType::Advancing:
-            return m_config.advancingMistakeMultiplier;
-        case ActionType::Flanking:
-            return m_config.flankingMistakeMultiplier;
-        default:
-            return 1.0f; // Default multiplier for unknown actions
-        }
-    }
-
-    float Humanizer::CalculateMistakeChance(std::uint16_t a_level, ActionType a_action) const
-    {
-        // Calculate base mistake chance based on level
-        // Calculate base mistake chance using linear reduction
-        float reduction = static_cast<float>(a_level) * m_config.mistakeChanceReductionPerLevel;
-        float baseMistakeChance = (std::max)(m_config.minMistakeChance, m_config.baseMistakeChance - reduction);
-
-        // Apply action-specific multiplier
-        float multiplier = GetMistakeMultiplierForAction(a_action);
-        return baseMistakeChance * multiplier;
-    }
-
     float Humanizer::CalculateReactionDelay(std::uint16_t a_level) const
     {
         // Calculate reaction delay using linear reduction
@@ -282,50 +283,10 @@ namespace CombatAI
         return (std::max)(m_config.minReactionDelayMs, m_config.baseReactionDelayMs - reduction);
     }
 
-    void Humanizer::InitializeReactionDelay(RE::Actor *a_actor)
+    float Humanizer::RollReactionDelaySeconds(RE::Actor *a_actor) const
     {
-        if (!a_actor) {
-            return;
-        }
-
-        // Get FormID safely - use FormID as key instead of raw pointer
-        auto formIDOpt = ActorUtils::SafeGetFormID(a_actor);
-        if (!formIDOpt.has_value()) {
-            return; // Can't get FormID, actor is invalid
-        }
-        RE::FormID formID = formIDOpt.value();
-
-        // Re-validate actor is still in combat before accessing
-        if (!ActorUtils::SafeIsInCombat(a_actor)) {
-            // Actor left combat, don't initialize
-            return;
-        }
-
-        // Validate FormID before using it
-        if (formID == RE::FormID(0)) {
-            return; // Invalid FormID
-        }
-
-        // Calculate base delay based on actor level
-        // Use wrapper to safely get level - validate actor again before accessing
-        if (!ActorUtils::SafeIsInCombat(a_actor)) {
-            // Actor left combat during initialization, clean up
-            m_reactionStates.Erase(formID);
-            return;
-        }
-
-        std::uint16_t level = ActorUtils::SafeGetLevel(a_actor);
-        float baseDelay = CalculateReactionDelay(level);
-
-        // Random variance: base + variance
+        const float baseDelayMs = CalculateReactionDelay(ActorUtils::SafeGetLevel(a_actor));
         std::uniform_real_distribution<float> dist(0.0f, m_config.reactionVarianceMs);
-        float variance = dist(g_gen);
-
-        // Get-or-create the reaction state and initialize it atomically under the lock.
-        m_reactionStates.ModifyOrCreate(formID, [&](ActorReactionState &state) {
-            state.reactionDelay = baseDelay + variance;
-            state.reactionTimer = 0.0f;
-            state.canReact = false;
-        });
+        return (baseDelayMs + dist(g_gen)) / 1000.0f;
     }
 } // namespace CombatAI

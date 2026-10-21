@@ -22,6 +22,14 @@ namespace CombatAI
         Spell  // Magic/spell (no weapon)
     };
 
+    // Armor class of the body-slot item (clothing and nothing are both None)
+    enum class ArmorClass : std::uint8_t
+    {
+        None = 0,
+        Light,
+        Heavy
+    };
+
     // Self state information
     struct SelfState
     {
@@ -42,6 +50,7 @@ namespace CombatAI
         bool isTwoHanded = false;                 // True if two-handed weapon
         bool isRanged = false;                    // True if ranged weapon (bow/crossbow)
         bool isMelee = false;                     // True if melee weapon
+        ArmorClass armorClass = ArmorClass::None; // Body armor weight class
     };
 
     // Target state information
@@ -119,6 +128,12 @@ namespace CombatAI
         bool targetFacingAwayFromAlly =
             false; // True if target is facing away from closest ally (good flanking opportunity)
         bool targetFacingTowardAlly = false; // True if target is facing toward closest ally (we can flank from behind)
+        bool allyIsPlayer = false;           // Closest ally is the player (we are a follower)
+
+        // Weakest enemy other than the primary target (target switching finisher)
+        RE::ActorHandle weakestEnemy;
+        float weakestEnemyHealth = 1.0f;
+        float weakestEnemyDistance = 0.0f;
 
         // Range granularity - precise range classification
         RangeCategory rangeCategory = RangeCategory::OutOfRange;
@@ -132,6 +147,7 @@ namespace CombatAI
     {
         float timeSinceLastAttack = 999.0f;       // Time since last attack (any type)
         float timeSinceLastDodge = 999.0f;        // Time since last dodge/evasion
+        float timeSinceLastEvasion = 999.0f;      // Time since last evasive dodge/jump (not forward dodge)
         float timeSinceLastAction = 999.0f;       // Time since last action (any action type)
         float blockingDuration = 0.0f;            // How long currently blocking
         float attackingDuration = 0.0f;           // How long currently attacking
@@ -213,6 +229,18 @@ namespace CombatAI
         TargetTemporalState target;
     };
 
+    // A projectile from the engine's threat list on course to hit this actor
+    struct IncomingProjectile
+    {
+        bool valid = false;
+        float timeToImpact = 0.0f; // seconds to closest approach
+        float speed = 0.0f;
+        RE::NiPoint3 flightDir;    // horizontal unit vector
+        RE::NiPoint3 missOffset;   // from the flight line to the actor at closest approach
+        RE::FormID threatID = 0;
+        RE::FormID shooterID = 0;
+    };
+
     // Environmental sensing (raycast-derived spatial awareness). Defaults are
     // optimistic so an actor behaves normally when sensing is disabled or hasn't run.
     struct EnvState
@@ -229,6 +257,7 @@ namespace CombatAI
         CombatContext combatContext; // Combat context (multiple enemies, etc.)
         TemporalState temporal;      // Temporal state (time-based tracking)
         EnvState env;                // Environmental sensing (line-of-sight, etc.)
+        IncomingProjectile incomingProjectile; // From the engine's threat list
         float deltaTime = 0.0f;
         float weaponReach = 150.0f; // Weapon reach (from Precision or fallback)
         bool weaponReachFromPrecision = false;

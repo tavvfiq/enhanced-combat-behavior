@@ -28,6 +28,9 @@ namespace CombatAI
         // Evasion (Tactical)
         DecisionResult EvaluateEvasion(RE::Actor *a_actor, const ActorStateData &a_state);
 
+        // Sidestep a projectile on course to hit (engine threat list)
+        DecisionResult EvaluateProjectileDodge(RE::Actor *a_actor, const ActorStateData &a_state);
+
         // Survival (Fallback)
         DecisionResult EvaluateSurvival(RE::Actor *a_actor, const ActorStateData &a_state);
 

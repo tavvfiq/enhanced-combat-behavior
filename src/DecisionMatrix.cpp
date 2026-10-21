@@ -1,6 +1,9 @@
 #include "DecisionMatrix.h"
 #include "ActorUtils.h"
 #include "Config.h"
+#include "Logger.h"
+#include "ProjectileAwareness.h"
+#include "SCARIntegration.h"
 #include "TimedBlockIntegration.h"
 #include "pch.h"
 #include <algorithm>
@@ -39,6 +42,11 @@ namespace CombatAI
             possibleDecisions.push_back(interruptResult);
         }
 
+        DecisionResult projectileResult = EvaluateProjectileDodge(a_actor, a_state);
+        if (projectileResult.action != ActionType::None) {
+            possibleDecisions.push_back(projectileResult);
+        }
+
         DecisionResult evasionResult = EvaluateEvasion(a_actor, a_state);
         if (evasionResult.action != ActionType::None) {
             possibleDecisions.push_back(evasionResult);
@@ -60,6 +68,11 @@ namespace CombatAI
         }
 
         DecisionResult offenseResult = EvaluateOffense(a_actor, a_state);
+        // SCAR-patched movesets pick their own normal/power attacks (sprint attack stays ours)
+        if ((offenseResult.action == ActionType::Attack || offenseResult.action == ActionType::PowerAttack) &&
+            SCARIntegration::GetInstance().OwnsAttacks(a_actor->GetFormID())) {
+            offenseResult = DecisionResult();
+        }
         if (offenseResult.action != ActionType::None) {
             possibleDecisions.push_back(offenseResult);
         }
@@ -116,6 +129,7 @@ namespace CombatAI
                      << " | action: " << static_cast<int>(bestDecision.action)
                      << " | possible actions (a,p): " << actions;
                 ConsolePrint(logs.str().c_str());
+                LOG_DEBUG("{}", logs.str());
             }
         }
 
@@ -598,6 +612,43 @@ namespace CombatAI
         return result;
     }
 
+    DecisionResult DecisionMatrix::EvaluateProjectileDodge(RE::Actor *a_actor, const ActorStateData &a_state)
+    {
+        DecisionResult result;
+        const auto &settings = Config::GetInstance().GetProjectileAwareness();
+        const auto &incoming = a_state.incomingProjectile;
+        if (!settings.enableProjectileDodge || !incoming.valid ||
+            !Config::GetInstance().GetModIntegrations().enableTKDodgeIntegration ||
+            incoming.timeToImpact < settings.reactMinSeconds || incoming.timeToImpact > settings.reactMaxSeconds) {
+            return result;
+        }
+
+        const RE::FormID formID = a_actor->GetFormID();
+        const bool react = ProjectileAwareness::GetInstance().RollReaction(formID, incoming.threatID,
+                                                                           settings.dodgeChance);
+        if (Config::GetInstance().IsDebugTarget(formID)) {
+            LOG_DEBUG("Projectile 0x{:08X}: threat 0x{:08X} from 0x{:08X} impact in {:.2f}s speed {:.0f} -> {}",
+                      static_cast<std::uint32_t>(formID), static_cast<std::uint32_t>(incoming.threatID),
+                      static_cast<std::uint32_t>(incoming.shooterID), incoming.timeToImpact, incoming.speed,
+                      react ? "sidestep" : "no reaction (chance)");
+        }
+        if (!react) {
+            return result;
+        }
+
+        // Sidestep perpendicular to the flight path, to the side the actor already leans
+        // toward (away from the line), so the shortest move clears it
+        RE::NiPoint3 side(-incoming.flightDir.y, incoming.flightDir.x, 0.0f);
+        if (side.Dot(incoming.missOffset) < 0.0f) {
+            side = -side;
+        }
+        result.action = ActionType::Dodge;
+        result.direction = side;
+        result.priority = settings.dodgePriority;
+        result.reflex = true;
+        return result;
+    }
+
     DecisionResult DecisionMatrix::EvaluateEvasion(RE::Actor *a_actor, const ActorStateData &a_state)
     {
         DecisionResult result;
@@ -681,8 +732,7 @@ namespace CombatAI
                     a_state.target.orientationDot > 0.9f) {
 
                     // Random chance to jump
-                    std::random_device rd;
-                    std::mt19937 gen(rd());
+                    thread_local std::mt19937 gen{std::random_device{}()};
                     std::uniform_real_distribution<> dis(0.0, 1.0);
                     if (dis(gen) < config.GetDecisionMatrix().evasionJumpChance) {
                         result.action = ActionType::Jump;
@@ -753,7 +803,7 @@ namespace CombatAI
             if (actorOwner) {
                 float maxStamina = actorOwner->GetBaseActorValue(RE::ActorValue::kStamina);
                 float currentStamina = a_state.self.staminaPercent * maxStamina;
-                if (currentStamina < config.GetDodgeSystem().dodgeStaminaCost) {
+                if (currentStamina < config.GetDodgeSystem().RequiredStamina()) {
                     conditionsMet = false;
                 }
             }
@@ -1122,8 +1172,9 @@ namespace CombatAI
             bool shouldAdvance = true;
 
             // Don't advance if target is actively attacking (stay defensive)
-            // Exception: if target is fleeing, pursue them
-            if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && !a_state.target.isFleeing) {
+            // Exception: if target is fleeing, or recovering from a swing (an opening)
+            if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && !a_state.target.isFleeing &&
+                !a_state.target.isInAttackRecovery) {
                 // If we are in sprint attack range, we might still want to sprint attack
                 // (checked later) But generally advancing into an attack is bad unless we
                 // sprinting
@@ -1131,10 +1182,24 @@ namespace CombatAI
             }
 
             if (shouldAdvance) {
-                const bool canUseForwardDodge =
-                    config.GetModIntegrations().enableTKDodgeIntegration &&
-                    a_state.self.currentStamina >= config.GetDodgeSystem().dodgeStaminaCost &&
-                    a_state.target.distance > sprintAttackMaxDist * 2.0f;
+                // Forward dodge closes the last stretch, not the whole approach (it used to
+                // fire from beyond 2x the sprint band and chain across the map on cooldown):
+                //  - gap-close: target just outside reach and open (dashing at a ready,
+                //    facing target only walks into its swing, and chained on every cooldown)
+                //  - counter: we just evaded and the target is stuck recovering from its swing
+                const auto &dodgeCfg = config.GetDodgeSystem();
+                const float gap = a_state.target.distance - maxAttackDistance;
+                const bool targetOpen = a_state.target.isCasting || a_state.target.isDrawingBow ||
+                                        a_state.target.isInAttackRecovery || a_state.target.isFleeing ||
+                                        a_state.target.knockState != RE::KNOCK_STATE_ENUM::kNormal ||
+                                        a_state.target.orientationDot < 0.0f;
+                const bool counterOpening =
+                    a_state.target.isInAttackRecovery &&
+                    a_state.temporal.self.timeSinceLastEvasion <= dodgeCfg.forwardDodgeCounterWindowSeconds &&
+                    gap <= dodgeCfg.forwardDodgeMaxGap * 1.5f;
+                const bool canUseForwardDodge = config.GetModIntegrations().enableTKDodgeIntegration &&
+                                                a_state.self.currentStamina >= dodgeCfg.RequiredStamina() &&
+                                                ((gap <= dodgeCfg.forwardDodgeMaxGap && targetOpen) || counterOpening);
                 advancingResult.action = canUseForwardDodge ? ActionType::ForwardDodge : ActionType::Advancing;
 
                 // Base priority for advancing
@@ -1164,6 +1229,9 @@ namespace CombatAI
                 if (a_state.target.isInAttackRecovery) {
                     basePriority += 0.3f;
                 }
+                if (canUseForwardDodge && counterOpening) {
+                    basePriority += 0.4f; // punish the whiff before the target recovers
+                }
 
                 advancingResult.priority = basePriority;
 
@@ -1191,8 +1259,11 @@ namespace CombatAI
         // --- 2. Evaluate Sprint Attack ---
         // Valid in specific range, competes with Advancing
         DecisionResult sprintAttackResult;
-        bool checkSprintAttack =
-            (a_state.target.distance > sprintAttackMinDist && a_state.target.distance < sprintAttackMaxDist);
+        // Only from a real sprint (ProjectGapClose's rule). Where NPCs never sprint (vanilla/CPR
+        // can leave combat movement at a run), a sprint-attack decision could never launch,
+        // yet it won the whole band and starved Advancing/ForwardDodge.
+        bool checkSprintAttack = a_state.self.isSprinting && a_state.target.distance > sprintAttackMinDist &&
+                                 a_state.target.distance < sprintAttackMaxDist;
 
         if (checkSprintAttack) {
             bool shouldSprintAttack = config.GetDecisionMatrix().enableSprintAttack;
@@ -1305,43 +1376,20 @@ namespace CombatAI
             }
         }
 
-        // --- 3. Selection Logic (Advancing vs Sprint Attack) ---
-        // If we are in range for Sprint Attack, we compare it with Advancing
-        if (checkSprintAttack) {
-            // If Sprint Attack is valid/desired
-            if (sprintAttackResult.action == ActionType::SprintAttack) {
-                // If Advancing is ALSO valid (which it should be if we are in sprint
-                // range)
-                if (advancingResult.action == ActionType::Advancing) {
-                    // Compare priorities
-                    // If sprints are risky (priority dropped), Advancing will win
-                    if (sprintAttackResult.priority >= advancingResult.priority) {
-                        return sprintAttackResult;
-                    } else {
-                        return advancingResult;
-                    }
-                } else {
-                    return sprintAttackResult;
-                }
-            } else {
-                // Sprint attack not valid (e.g. low stamina, target attacking), fallback
-                // to Advancing But only if logic allows advancing (e.g. not fleeing
-                // check)
-                if (advancingResult.action == ActionType::Advancing) {
-                    return advancingResult;
-                }
-                // If neither, fall through to None (or strafe in next frame)
-                return result;
-            }
+        // --- 3. Selection Logic (Advancing / ForwardDodge vs Sprint Attack) ---
+        // Outside attack range the answer is always the approach (or a sprint attack when
+        // that wins). Previously the sprint band only fell back to plain Advancing, so a
+        // ForwardDodge gap-close there was dropped, and once sprint attacks required a real
+        // sprint the whole band returned nothing.
+        const bool advancingValid =
+            advancingResult.action == ActionType::Advancing || advancingResult.action == ActionType::ForwardDodge;
+        if (sprintAttackResult.action == ActionType::SprintAttack) {
+            // Sprint attack wins ties; risky sprints drop below the approach
+            return advancingValid && advancingResult.priority > sprintAttackResult.priority ? advancingResult
+                                                                                            : sprintAttackResult;
         }
-
-        // If we are NOT in sprint attack range but a gap-close action is valid (Long range)
-        if (a_state.target.distance > sprintAttackMaxDist) {
-            if (advancingResult.action == ActionType::Advancing || advancingResult.action == ActionType::ForwardDodge) {
-                return advancingResult;
-            }
-            // If advancing rejected (e.g. defensive), return None
-            return result;
+        if (a_state.target.distance > maxAttackDistance && !a_state.combatContext.isInAttackRange) {
+            return advancingValid ? advancingResult : result; // rejected (e.g. target swinging): None
         }
 
         // --- 4. Normal Attack Logic (Close Range) ---
@@ -2244,6 +2292,11 @@ namespace CombatAI
             situationBonus += 0.2f; // Already in good position
         }
 
+        // Follower pincer: the player is holding the target's attention, go around it
+        if (shouldFlank && targetEngagedWithAlly && a_state.combatContext.allyIsPlayer) {
+            situationBonus += Config::GetInstance().GetTeamwork().followerPincerBonus;
+        }
+
         if (shouldFlank) {
             result.action = ActionType::Flanking;
             result.priority = basePriority + outnumberBonus + situationBonus; // Add all bonuses
@@ -2803,6 +2856,9 @@ namespace CombatAI
                   a_state.temporal.self.timeSinceLastSprintAttack, a_state.temporal.self.timeSinceLastDodge,
                   a_state.temporal.self.timeSinceLastBash, a_state.temporal.self.timeSinceLastFeint,
                   a_state.temporal.self.timeSinceLastAction);
+        LOG_DEBUG("Self: ArmorClass={} Combat: AllyIsPlayer={} WeakestEnemyHp={:.0f}% WeakestEnemyDist={:.0f}",
+                  static_cast<int>(a_state.self.armorClass), a_state.combatContext.allyIsPlayer,
+                  a_state.combatContext.weakestEnemyHealth * 100.0f, a_state.combatContext.weakestEnemyDistance);
         LOG_DEBUG("TemporalSelf: BlockDur={:.2f}s AtkDur={:.2f}s IdleDur={:.2f}s",
                   a_state.temporal.self.blockingDuration, a_state.temporal.self.attackingDuration,
                   a_state.temporal.self.idleDuration);
@@ -2845,8 +2901,9 @@ namespace CombatAI
 
         // Temporal State - Target
         if (a_state.target.isValid) {
-            LOG_DEBUG("TemporalTarget: LastAtk={:.2f}s LastPAtk={:.2f}s", a_state.temporal.target.timeSinceLastAttack,
-                      a_state.temporal.target.timeSinceLastPowerAttack);
+            LOG_DEBUG("TemporalTarget: LastAtk={:.2f}s LastPAtk={:.2f}s RecentBlockCommits={:.2f}",
+                      a_state.temporal.target.timeSinceLastAttack, a_state.temporal.target.timeSinceLastPowerAttack,
+                      a_state.temporal.target.recentBlockCommitments);
             LOG_DEBUG("TemporalTarget: AtkDur={:.2f}s BlockDur={:.2f}s CastDur={:.2f}s "
                       "DrawDur={:.2f}s IdleDur={:.2f}s",
                       a_state.temporal.target.attackingDuration, a_state.temporal.target.blockingDuration,

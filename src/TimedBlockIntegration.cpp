@@ -96,13 +96,8 @@ namespace CombatAI
         // Apply the spell that creates the timed block window
         // This spell applies the mgef_parry_window effect for 0.33 seconds
         // Use styyx-util's MagicUtil::ApplySpell which handles both permanent and temporary spells
-        try {
-            StyyxUtil::MagicUtil::ApplySpell(a_actor, a_actor, m_spellParryWindow);
-            return true;
-        } catch (...) {
-            LOG_WARN("Failed to apply timed block window spell to actor");
-            return false;
-        }
+        StyyxUtil::MagicUtil::ApplySpell(a_actor, a_actor, m_spellParryWindow);
+        return true;
     }
 
     bool TimedBlockIntegration::HasTimedBlockWindow(RE::Actor *a_actor) const

@@ -1,11 +1,15 @@
 #include "ActionExecutor.h"
 #include "ActorUtils.h"
 #include "Config.h"
+#include "EnvSensor.h"
 #include "GuardCounterFeedbackTracker.h"
 #include "ParryFeedbackTracker.h"
 #include "TimedBlockFeedbackTracker.h"
 #include "TimedBlockIntegration.h"
 #include "pch.h"
+
+#include <random>
+#include <xmmintrin.h>
 
 #ifdef min
 #undef min
@@ -16,16 +20,44 @@
 
 namespace CombatAI
 {
-    void ActionExecutor::EnableBFCO(bool isEnabled)
+    namespace
     {
-        if (isEnabled) {
-            LOG_INFO("BFCO integration enabled");
-        } else {
-            LOG_INFO("integration with BFCO disabled");
+        // Jump launch helpers, ported from Follower Jumping Framework (FJF).
+        // AE/VR NPC controllers overwrite a bare velocity write while grounded; they only
+        // launch when moved into the Havok jumping state first. SE keeps velocity-only.
+        bool IsControllerJumpRuntime() { return REL::Module::IsAE() || REL::Module::IsVR(); }
+
+        bool IsAirborneState(RE::hkpCharacterStateType a_state)
+        {
+            return a_state == RE::hkpCharacterStateType::kInAir || a_state == RE::hkpCharacterStateType::kJumping;
         }
 
-        m_isBFCOEnabled = isEnabled;
-    }
+        bool CanEnterJumpState(const RE::bhkCharacterController *a_controller)
+        {
+            if (!a_controller || a_controller->context.currentState != RE::hkpCharacterStateType::kOnGround) {
+                return false;
+            }
+            if (!IsControllerJumpRuntime()) {
+                return true;
+            }
+            const auto *manager = a_controller->context.stateManager;
+            return manager && manager->registeredState[RE::hkpCharacterStateType::kJumping];
+        }
+
+        // Controller linear velocity in Havok units/s; false if unreadable.
+        bool ReadVelocity(const RE::bhkCharacterController *a_controller, float (&a_out)[4])
+        {
+            RE::hkVector4 current{};
+            a_controller->GetLinearVelocityImpl(current);
+            alignas(16) float v[4]{};
+            _mm_store_ps(v, current.quad);
+            if (!std::isfinite(v[0]) || !std::isfinite(v[1]) || !std::isfinite(v[2])) {
+                return false;
+            }
+            std::copy(std::begin(v), std::end(v), std::begin(a_out));
+            return true;
+        }
+    } // namespace
 
     bool ActionExecutor::Execute(RE::Actor *a_actor, const DecisionResult &a_decision, const ActorStateData &a_state)
     {
@@ -96,11 +128,18 @@ namespace CombatAI
         case ActionType::Parry:
         case ActionType::TimedBlock:
         case ActionType::ForwardDodge:
+            ReleaseSprint(a_actor);
             if (ActorUtils::SafeIsSprinting(a_actor)) {
                 ActorUtils::SafeSetSprinting(a_actor, false);
             }
             break;
+        case ActionType::Advancing:
+        case ActionType::SprintAttack:
+            break;
         default:
+            // A forced sprint left on while backing off/strafing plays the forward sprint
+            // animation while the controller moves the actor elsewhere (running backward)
+            ReleaseSprint(a_actor);
             break;
         }
 
@@ -116,7 +155,7 @@ namespace CombatAI
             break;
 
         case ActionType::SprintAttack:
-            success = ExecuteSprintAttack(a_actor);
+            success = ExecuteSprintAttack(a_actor, a_state);
             break;
 
         case ActionType::Bash:
@@ -148,7 +187,11 @@ namespace CombatAI
             break;
 
         case ActionType::Dodge:
-            success = ExecuteDodge(a_actor, a_state);
+            // A direction means a sidestep in that direction (projectile dodge); without one,
+            // evasion picks its side from the melee attacker
+            success = (a_decision.direction.x != 0.0f || a_decision.direction.y != 0.0f)
+                          ? ExecuteDirectionalDodge(a_actor, a_decision.direction)
+                          : ExecuteDodge(a_actor, a_state);
             break;
 
         case ActionType::ForwardDodge:
@@ -195,11 +238,6 @@ namespace CombatAI
             return false;
         }
 
-        // Reset BFCO attack state if BFCO is installed
-        if (m_isBFCOEnabled) {
-            ResetBFCOAttackState(a_actor);
-        }
-
         // Trigger bash animation (regular bash, not parry)
         return NotifyAnimation(a_actor, "bashStart");
     }
@@ -217,27 +255,18 @@ namespace CombatAI
             return false;
         }
 
-        // Reset BFCO attack state if BFCO is installed
-        if (m_isBFCOEnabled) {
-            ResetBFCOAttackState(a_actor);
-        }
-
         // Always record parry attempt - this is specifically a parry action
         if (a_state.target.isValid && (a_state.target.isAttacking || a_state.target.isPowerAttacking) &&
             a_state.temporal.target.timeUntilAttackHits < 999.0f) {
             // Get target actor
             RE::Actor *target = nullptr;
-            try {
-                RE::CombatController *combatController = ActorUtils::SafeGetCombatController(a_actor);
+            RE::CombatController *combatController = ActorUtils::SafeGetCombatController(a_actor);
                 if (combatController) {
-                    RE::ActorHandle targetHandle = combatController->targetHandle;
-                    RE::NiPointer<RE::Actor> targetPtr = targetHandle.get();
-                    if (targetPtr && targetPtr.get()) {
-                        target = targetPtr.get();
-                    }
+                RE::ActorHandle targetHandle = combatController->targetHandle;
+                RE::NiPointer<RE::Actor> targetPtr = targetHandle.get();
+                if (targetPtr && targetPtr.get()) {
+                    target = targetPtr.get();
                 }
-            } catch (...) {
-                // Target access failed
             }
 
             if (target) {
@@ -267,11 +296,6 @@ namespace CombatAI
             return false;
         }
 
-        // Reset BFCO attack state if BFCO is installed
-        if (m_isBFCOEnabled) {
-            ResetBFCOAttackState(a_actor);
-        }
-
         // Apply timed block window spell (creates 0.33s window for timed block)
         // This must be applied before blocking starts
         if (!TimedBlockIntegration::GetInstance().ApplyTimedBlockWindow(a_actor)) {
@@ -284,17 +308,13 @@ namespace CombatAI
             a_state.temporal.target.timeUntilAttackHits < 999.0f) {
             // Get target actor
             RE::Actor *target = nullptr;
-            try {
-                RE::CombatController *combatController = ActorUtils::SafeGetCombatController(a_actor);
+            RE::CombatController *combatController = ActorUtils::SafeGetCombatController(a_actor);
                 if (combatController) {
-                    RE::ActorHandle targetHandle = combatController->targetHandle;
-                    RE::NiPointer<RE::Actor> targetPtr = targetHandle.get();
-                    if (targetPtr && targetPtr.get()) {
-                        target = targetPtr.get();
-                    }
+                RE::ActorHandle targetHandle = combatController->targetHandle;
+                RE::NiPointer<RE::Actor> targetPtr = targetHandle.get();
+                if (targetPtr && targetPtr.get()) {
+                    target = targetPtr.get();
                 }
-            } catch (...) {
-                // Target access failed
             }
 
             if (target) {
@@ -340,6 +360,23 @@ namespace CombatAI
 
         ConfigureDodgeSystem();
         return m_dodgeSystem.ExecuteDodge(a_actor, direction);
+    }
+
+    bool ActionExecutor::ExecuteDirectionalDodge(RE::Actor *a_actor, RE::NiPoint3 a_direction)
+    {
+        if (!a_actor) {
+            return false;
+        }
+        a_direction.z = 0.0f;
+        a_direction.Unitize();
+        // Either side clears a projectile; take the mirror side over a ledge
+        const auto &envCfg = Config::GetInstance().GetEnvSensor();
+        if (envCfg.enableCliffSafeDodge &&
+            !EnvSensor::HasGroundAhead(a_actor, a_direction, envCfg.dodgeLedgeProbeDistance, envCfg.dodgeMaxDrop)) {
+            a_direction = -a_direction;
+        }
+        ConfigureDodgeSystem();
+        return m_dodgeSystem.ExecuteDodge(a_actor, a_direction);
     }
 
     void ActionExecutor::ConfigureDodgeSystem()
@@ -420,6 +457,11 @@ namespace CombatAI
             // Calculate circling parameters for flanking movement
             float minDist = (std::max)(50.0f, a_state.target.distance * 0.7f);
             float maxDist = a_state.target.distance * 1.3f;
+            if (a_decision.holdDistance > 0.0f) {
+                // Pacing: wait on a ring outside reach
+                minDist = a_decision.holdDistance;
+                maxDist = (std::max)(maxDist, a_decision.holdDistance + 150.0f);
+            }
 
             // Calculate circling angles based on flanking direction
             float minAngle, maxAngle;
@@ -465,29 +507,82 @@ namespace CombatAI
         return false;
     }
 
-    bool ActionExecutor::ExecuteSprintAttack(RE::Actor *a_actor)
+    bool ActionExecutor::CanLaunchSprintAttack(RE::Actor *a_actor, const ActorStateData &a_state)
     {
-        if (!a_actor) {
+        if (!a_actor || !a_state.target.isValid) {
+            return false;
+        }
+        const RE::FormID formID = a_actor->GetFormID();
+        if (!ActorUtils::SafeIsSprinting(a_actor)) {
+            m_sprintSince.Erase(formID);
+            return false;
+        }
+        // The sprint flag flips before the behavior graph reaches its sprint state, and
+        // "attackStartSprint" is ignored until it does.
+        constexpr auto kSustainedSprint = std::chrono::milliseconds(300);
+        const auto now = std::chrono::steady_clock::now();
+        // The skill roll (Humanizer) decides whether the NPC goes for it; a second
+        // Confidence roll here stacked to ~25% per approach and nothing ever launched.
+        m_sprintSince.Emplace(formID, now); // keeps the first time seen
+        if (now - m_sprintSince.Find(formID).value_or(now) < kSustainedSprint) {
+            return false;
+        }
+        if (Config::GetInstance().GetEnvSensor().enableLosGate && a_state.env.losChecked &&
+            !a_state.env.losToTarget) {
+            return false;
+        }
+        const auto attackState = ActorUtils::SafeGetAttackState(a_actor);
+        if (attackState != RE::ATTACK_STATE_ENUM::kNone && attackState != RE::ATTACK_STATE_ENUM::kDraw) {
+            return false;
+        }
+        return a_state.target.distance <= SprintAttackLaunchDistance(a_state);
+    }
+
+    float ActionExecutor::SprintAttackLaunchDistance(const ActorStateData &a_state)
+    {
+        const float configured = Config::GetInstance().GetDecisionMatrix().sprintAttackLaunchDistance;
+        return configured > 0.0f ? configured : 3.0f * a_state.weaponReach;
+    }
+
+    bool ActionExecutor::ExecuteSprintAttack(RE::Actor *a_actor, const ActorStateData &a_state)
+    {
+        // The caller runs up first; this only fires from a real sprint. A plain
+        // "attackStart" here would play a standing swing from sprint distance.
+        if (!CanLaunchSprintAttack(a_actor, a_state)) {
             return false;
         }
 
-        // Start sprinting if not already
+        return NotifyAnimation(a_actor, "attackStartSprint");
+    }
+
+    void ActionExecutor::ForceSprint(RE::Actor *a_actor)
+    {
         if (!ActorUtils::SafeIsSprinting(a_actor)) {
             NotifyAnimation(a_actor, "SprintStart");
             ActorUtils::SafeSetSprinting(a_actor, true);
         }
+        m_forcedSprint.Insert(a_actor->GetFormID());
+    }
 
-        // Reset BFCO attack state if BFCO is installed
-        if (m_isBFCOEnabled) {
-            ResetBFCOAttackState(a_actor);
+    void ActionExecutor::SuspendRetreat(RE::Actor *a_actor)
+    {
+        for (const char *var : {"CPR_EnableFallback", "CPR_EnableBackoff"}) {
+            bool enabled = false;
+            if (ActorUtils::SafeGetGraphVariableBool(a_actor, var, enabled) && enabled) {
+                ActorUtils::SafeSetGraphVariableBool(a_actor, var, false);
+            }
         }
+    }
 
-        // Trigger sprint attack
-        // BFCO supports attackStartSprint, vanilla also supports it
-        NotifyAnimation(a_actor, "attackStartSprint");
-        NotifyAnimation(a_actor, "attackStart");
-
-        return true;
+    void ActionExecutor::ReleaseSprint(RE::Actor *a_actor)
+    {
+        if (!a_actor || m_forcedSprint.Erase(a_actor->GetFormID()) == 0) {
+            return;
+        }
+        if (ActorUtils::SafeIsSprinting(a_actor)) {
+            ActorUtils::SafeSetSprinting(a_actor, false);
+            NotifyAnimation(a_actor, "SprintStop");
+        }
     }
 
     bool ActionExecutor::NotifyAnimation(RE::Actor *a_actor, const char *a_eventName)
@@ -511,6 +606,16 @@ namespace CombatAI
 
         RE::NiPoint3 worldDir = a_direction;
         worldDir.Unitize();
+        RE::NiPoint3 flatDir(worldDir.x, worldDir.y, 0.0f);
+        flatDir.Unitize();
+
+        // Cliff-safe movement: strafe/flank/feint push the controller directly, so never
+        // walk the actor off a ledge (same probe as cliff-safe dodge).
+        const auto &envCfg = Config::GetInstance().GetEnvSensor();
+        if (envCfg.enableCliffSafeDodge &&
+            !EnvSensor::HasGroundAhead(a_actor, flatDir, envCfg.dodgeLedgeProbeDistance, envCfg.dodgeMaxDrop)) {
+            return false;
+        }
 
         // Get actor's rotation matrix (transpose is the inverse for rotation matrices)
         RE::NiMatrix3 invActorRot = actor3d->world.rotate.Transpose();
@@ -545,12 +650,10 @@ namespace CombatAI
         ActorUtils::SafeSetGraphVariableFloat(a_actor, "InputMagnitude", speedNorm);
 
         // Direct Physics Control
-        // Apply velocity (this overrides vanilla pathfinding velocity for this frame)
-        // Physics Speed needs to match Animation Speed to look natural
+        // Apply horizontal velocity (overrides vanilla pathfinding velocity for this frame)
+        // Physics Speed needs to match Animation Speed to look natural (game units/s)
         float physicsSpeed = 300.0f * speedNorm;
-        RE::NiPoint3 velocity = worldDir * physicsSpeed;
-
-        ActorUtils::SafeApplyVelocity(a_actor, velocity);
+        ActorUtils::SafeApplyHorizontalVelocity(a_actor, flatDir * physicsSpeed);
 
         return true;
     }
@@ -581,54 +684,27 @@ namespace CombatAI
 
         // Check if actor has ranged weapon or magic equipped
         // CPR only works for melee-only actors
-        // Wrap all checks in try-catch to prevent crashes from stale form pointers
-        try {
-            auto rightHand = ActorUtils::SafeGetEquippedObject(a_actor, false);
+        auto rightHand = ActorUtils::SafeGetEquippedObject(a_actor, false);
 
-            // Check right hand for ranged weapon
-            if (rightHand) {
-                try {
-                    if (rightHand->IsWeapon()) {
-                        auto weapon = rightHand->As<RE::TESObjectWEAP>();
-                        if (weapon) {
-                            try {
-                                if (weapon->IsBow() || weapon->IsCrossbow()) {
-                                    return false; // Has ranged weapon
-                                }
-                            } catch (...) {
-                                // Weapon access failed - assume melee to be safe
-                            }
-                        }
+        // Check right hand for ranged weapon
+        if (rightHand) {
+            if (rightHand->IsWeapon()) {
+                auto weapon = rightHand->As<RE::TESObjectWEAP>();
+                if (weapon) {
+                    if (weapon->IsBow() || weapon->IsCrossbow()) {
+                        return false; // Has ranged weapon
                     }
-                } catch (...) {
-                    // Form access failed - assume melee to be safe
                 }
             }
-
-            // Check if actor is currently casting magic
-            // This is more reliable than checking left hand (which could be shield)
-            if (ActorUtils::SafeWhoIsCasting(a_actor) != 0) {
-                return false; // Actor is casting magic
-            }
-
-            return true; // Melee-only actor
-        } catch (...) {
-            // Actor access failed - return false to be safe (skip CPR)
-            return false;
-        }
-    }
-
-    void ActionExecutor::ResetBFCOAttackState(RE::Actor *a_actor)
-    {
-        if (!a_actor || !m_isBFCOEnabled) {
-            return;
         }
 
-        // Reset BFCO attack state variables
-        ActorUtils::SafeSetGraphVariableInt(a_actor, "NEW_BFCO_IsNormalAttacking", 0);
-        ActorUtils::SafeSetGraphVariableInt(a_actor, "NEW_BFCO_IsPowerAttacking", 0);
-        ActorUtils::SafeSetGraphVariableInt(a_actor, "BFCONG_PARMB", 0);
-        ActorUtils::SafeSetGraphVariableInt(a_actor, "NEW_BFCO_DisablePALMB", 0);
+        // Check if actor is currently casting magic
+        // This is more reliable than checking left hand (which could be shield)
+        if (ActorUtils::SafeWhoIsCasting(a_actor) != 0) {
+            return false; // Actor is casting magic
+        }
+
+        return true; // Melee-only actor
     }
 
     void ActionExecutor::SetCPRCircling(RE::Actor *a_actor, float a_minDist, float a_maxDist, float a_minAngle,
@@ -715,11 +791,7 @@ namespace CombatAI
             return false;
         }
 
-        if (m_isBFCOEnabled) {
-            ActorUtils::SafeSetGraphVariableInt(a_actor, "NEW_BFCO_IsNormalAttacking", 1);
-            ActorUtils::SafeSetGraphVariableInt(a_actor, "NEW_BFCO_IsPowerAttacking", 0);
-        }
-
+        // The vanilla event; MCO, BFCO and SCAR movesets all take over from it
         return NotifyAnimation(a_actor, "attackStart");
     }
 
@@ -739,17 +811,13 @@ namespace CombatAI
         if (a_state.self.isGuardCounterActive && a_state.target.isValid) {
             // Get target actor
             RE::Actor *target = nullptr;
-            try {
-                RE::CombatController *combatController = ActorUtils::SafeGetCombatController(a_actor);
+            RE::CombatController *combatController = ActorUtils::SafeGetCombatController(a_actor);
                 if (combatController) {
-                    RE::ActorHandle targetHandle = combatController->targetHandle;
-                    RE::NiPointer<RE::Actor> targetPtr = targetHandle.get();
-                    if (targetPtr && targetPtr.get()) {
-                        target = targetPtr.get();
-                    }
+                RE::ActorHandle targetHandle = combatController->targetHandle;
+                RE::NiPointer<RE::Actor> targetPtr = targetHandle.get();
+                if (targetPtr && targetPtr.get()) {
+                    target = targetPtr.get();
                 }
-            } catch (...) {
-                // Target access failed
             }
 
             if (target) {
@@ -757,14 +825,10 @@ namespace CombatAI
             }
         }
 
-        if (m_isBFCOEnabled) {
-            ActorUtils::SafeSetGraphVariableInt(a_actor, "NEW_BFCO_IsPowerAttacking", 1);
-            ActorUtils::SafeSetGraphVariableInt(a_actor, "NEW_BFCO_IsNormalAttacking", 0);
-            return NotifyAnimation(a_actor, "attackStart");
-        }
-
-        // Vanilla power attack
-        return NotifyAnimation(a_actor, "powerAttack");
+        // The vanilla power-attack event (attackPowerStartInPlace/Forward/Backward/Left/Right
+        // exist in the behavior graph; there is no "powerAttack" event). Framework movesets
+        // take over from it like they do from "attackStart".
+        return NotifyAnimation(a_actor, "attackPowerStartInPlace");
     }
 
     bool ActionExecutor::ExecuteJump(RE::Actor *a_actor, const ActorStateData &a_state)
@@ -773,30 +837,134 @@ namespace CombatAI
             return false;
         }
 
-        // Check if already dodging/jumping - don't trigger another dodge
-        bool isJumping = false;
-        if (ActorUtils::SafeGetGraphVariableBool(a_actor, "EnhancedCombatAI_Jump", isJumping) && isJumping) {
-            return false; // Already in jump state, don't trigger again
+        const RE::FormID formID = a_actor->GetFormID();
+        if (m_activeJumps.Contains(formID)) {
+            return false; // Still airborne from the previous jump
         }
 
-        // Set EnhancedCombatAI_Jump to true BEFORE executing dodge
-        // This allows OAR to detect it and replace the dodge animation with a jump animation
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "EnhancedCombatAI_Jump", true);
+        // Check everything up front so a rejected jump leaves no graph/physics side effects
+        if (a_actor->IsInKillMove() || ActorUtils::SafeGetKnockState(a_actor) != RE::KNOCK_STATE_ENUM::kNormal ||
+            !CanEnterJumpState(a_actor->GetCharController())) {
+            return false;
+        }
 
-        // PHYSICS JUMP IMPULSE
-        // Since we are hacking dodge to look like a jump, we need to provide the vertical movement manually.
-        // SkyRim gravity is roughly -2000 units/sec^2.
-        // A velocity of 600.0f gives a jump height of roughly h = v^2 / 2g ~= 360000 / 4000 = 90 units (approx player
-        // jump height) We also add forward momentum to make it a "leap".
+        const float height = Config::GetInstance().GetDecisionMatrix().jumpHeight;
+        const RE::ActorHandle handle = a_actor->GetHandle();
 
-        // For now, let's keep it simple: Just UP. The Dodge animation has root motion for X/Y.
-        // If we add X/Y velocity here, it might compound with root motion and launch them into orbit.
-        // Let's rely on the anim for horizontal, and us for vertical.
+        // FJF: AE accepted JumpStandingStart on every launch; SE uses JumpUp.
+        const char *jumpEvent = IsControllerJumpRuntime() ? "JumpStandingStart" : "JumpUp";
+        bool oarFallback = false;
+        if (!ActorUtils::SafeNotifyAnimationGraph(a_actor, jumpEvent)) {
+            // Graph refused the vanilla jump: fall back to the OAR swap that replays a
+            // TK Dodge as a jump animation. The variable must be set before the dodge event.
+            ActorUtils::SafeSetGraphVariableBool(a_actor, "EnhancedCombatAI_Jump", true);
+            if (!ExecuteDodge(a_actor, a_state)) {
+                ResetJumpVariable(a_actor);
+                return false;
+            }
+            oarFallback = true;
+        }
 
-        RE::NiPoint3 jumpVelocity(0.0f, 0.0f, 600.0f); // Vertical impulse only
-        ActorUtils::SafeApplyVelocity(a_actor, jumpVelocity);
+        // An animation event may replace the actor's process/controller.
+        // Resolve the handle again before touching Havok.
+        const auto resolved = handle.get();
+        RE::Actor *actor = resolved.get();
+        const float launchVz = (actor && actor->Is3DLoaded()) ? LaunchJump(actor, height) : -1.0f;
+        if (launchVz < 0.0f) {
+            if (oarFallback && actor) {
+                ResetJumpVariable(actor);
+            }
+            return true; // The animation already fired; let the cooldown apply
+        }
 
-        return ExecuteDodge(a_actor, a_state);
+        const float startZ = actor->GetPositionZ();
+        ActiveJump jump{handle, 0.0f, startZ, startZ, launchVz, height, 0, oarFallback};
+        m_activeJumps.WithWriteLock([&](auto &jumps) { jumps.insert_or_assign(formID, jump); });
+        return true;
+    }
+
+    float ActionExecutor::LaunchJump(RE::Actor *a_actor, float a_height)
+    {
+        auto *controller = a_actor->GetCharController();
+        if (!CanEnterJumpState(controller)) {
+            return -1.0f;
+        }
+
+        // controller->gravity is a scale (1 in FJF's logs), not an acceleration.
+        const float gravityScale = std::abs(controller->gravity);
+        if (!std::isfinite(gravityScale) || gravityScale < 0.1f || gravityScale > 10.0f) {
+            return -1.0f;
+        }
+
+        // v = sqrt(2 g h), in Havok units (game units * world scale, ~1/70).
+        constexpr float kHavokGravity = 9.81f;
+        const float upward = std::sqrt(2.0f * gravityScale * kHavokGravity * a_height * RE::bhkWorld::GetWorldScale());
+        float velocity[4]{};
+        if (!std::isfinite(upward) || !ReadVelocity(controller, velocity)) {
+            return -1.0f;
+        }
+
+        // Keep horizontal momentum (the dodge fallback's root motion drives X/Y).
+        const float launchVz = std::max(0.0f, velocity[2]) + upward;
+        if (IsControllerJumpRuntime()) {
+            controller->wantState = RE::hkpCharacterStateType::kJumping;
+        }
+        controller->SetLinearVelocityImpl(RE::hkVector4(velocity[0], velocity[1], launchVz, 0.0f));
+        return launchVz;
+    }
+
+    void ActionExecutor::UpdateJumps(float a_deltaTime)
+    {
+        if (m_activeJumps.Empty()) {
+            return;
+        }
+
+        m_activeJumps.WithWriteLock([&](auto &jumps) {
+            for (auto it = jumps.begin(); it != jumps.end();) {
+                ActiveJump &jump = it->second;
+                const auto ptr = jump.handle.get();
+                RE::Actor *actor = ptr.get();
+                if (!actor || actor->IsDead() || !actor->Is3DLoaded()) {
+                    it = jumps.erase(it);
+                    continue;
+                }
+
+                jump.elapsed += a_deltaTime;
+                const float z = actor->GetPositionZ();
+                if (std::isfinite(z)) {
+                    jump.peakZ = std::max(jump.peakZ, z);
+                }
+
+                auto *controller = actor->GetCharController();
+                const auto state = controller ? controller->context.currentState : RE::hkpCharacterStateType::kTotal;
+
+                // FJF: AE/VR NPC movement can replace the one-shot vertical speed.
+                // Reassert it briefly, only while the controller is in a jumping/in-air state.
+                if (IsControllerJumpRuntime() && controller && IsAirborneState(state) && jump.elapsed < 0.3f &&
+                    jump.boosts < 8 && z - jump.startZ < jump.height - 4.0f) {
+                    float velocity[4]{};
+                    if (ReadVelocity(controller, velocity) && velocity[2] < jump.launchVz * 0.5f) {
+                        controller->SetLinearVelocityImpl(
+                            RE::hkVector4(velocity[0], velocity[1], jump.launchVz, 0.0f));
+                        ++jump.boosts;
+                    }
+                }
+
+                const bool landed = jump.elapsed > 0.25f && state == RE::hkpCharacterStateType::kOnGround;
+                if (landed || jump.elapsed > 4.0f) {
+                    if (jump.oarFallback) {
+                        ResetJumpVariable(actor);
+                    }
+                    if (Config::GetInstance().IsDebugTarget(it->first)) {
+                        LOG_DEBUG("Jump 0x{:08X}: released (landed={} rise={:.0f} boosts={})", it->first, landed,
+                                  jump.peakZ - jump.startZ, jump.boosts);
+                    }
+                    it = jumps.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        });
     }
 
     void ActionExecutor::ResetJumpVariable(RE::Actor *a_actor)
@@ -805,12 +973,7 @@ namespace CombatAI
             return;
         }
 
-        // Wrap in try-catch to protect against stale actors
-        try {
-            a_actor->SetGraphVariableBool("EnhancedCombatAI_Jump", false);
-        } catch (...) {
-            // Actor access failed - animation graph may be invalid
-        }
+        a_actor->SetGraphVariableBool("EnhancedCombatAI_Jump", false);
     }
 
     void ActionExecutor::CalculateCPRCirclingAngles(const RE::NiPoint3 &a_strafeDirection,
@@ -986,11 +1149,9 @@ namespace CombatAI
             return false;
         }
 
-        float currentDistance = a_state.target.isValid ? a_state.target.distance : 1000.0f;
-
         auto &config = Config::GetInstance();
-        float desiredMinDist = config.GetDecisionMatrix().sprintAttackMinDistance;
-        float desiredMaxDist = config.GetDecisionMatrix().sprintAttackMaxDistance;
+        const auto &matrix = config.GetDecisionMatrix();
+        float desiredMaxDist = matrix.sprintAttackMaxDistance;
 
         bool isMeleeOnly = IsMeleeOnlyActor(a_actor);
         bool cprAvailable = IsCPRAvailable(a_actor);
@@ -1000,27 +1161,33 @@ namespace CombatAI
         // NPC into a sprint toward the target and give it a heading, then let vanilla +
         // CPR path/shape the charge. Reuses the sprint primitive from ExecuteSprintAttack.
         if (config.GetDecisionMatrix().enableSprintCharge && isMeleeOnly && a_state.target.isValid) {
-            if (!ActorUtils::SafeIsSprinting(a_actor)) {
-                NotifyAnimation(a_actor, "SprintStart");
-                ActorUtils::SafeSetSprinting(a_actor, true);
-            }
+            ForceSprint(a_actor);
             SetMovementDirection(a_actor, a_decision.direction, a_decision.intensity);
+        } else {
+            ReleaseSprint(a_actor);
         }
 
         if (cprAvailable && isMeleeOnly) {
-            // Set inner radius (minimum engagement distance)
-            float innerRadiusMin = desiredMinDist * 0.8f;
-            float innerRadiusMid = desiredMinDist;
-            float innerRadiusMax = desiredMinDist * 1.2f;
+            // Inner radius = where CPR stops advancing. It must be melee range: taking it
+            // from the sprint-attack band parked NPCs just outside their reach.
+            const float meleeRange = StateHelpers::EffectiveAttackRange(
+                a_state.weaponReach, a_state.target.boundRadius, matrix.offenseReachMultiplier,
+                matrix.offenseReachSafetyMargin);
+            float innerRadiusMin = meleeRange * 0.6f;
+            float innerRadiusMid = meleeRange * 0.8f;
+            float innerRadiusMax = meleeRange;
 
-            // Set outer radius (maximum engagement distance - where we want to advance to)
-            float outerRadiusMin = desiredMaxDist * 0.9f;
-            float outerRadiusMid = desiredMaxDist;
-            // Keep the outer radius just below the current distance at long range so
-            // the actor stays "beyond outer radius", which per CPR = sprint toward the
-            // target (fast gap-close). Inside the band would only walk at normal speed.
-            float baseOuterRadiusMax = desiredMaxDist * 1.1f;
-            float outerRadiusMax = (std::max)(baseOuterRadiusMax, currentDistance * 0.95f);
+            // Outer radius: beyond it CPR sprints. An offensive NPC uses OuterMin..OuterMid,
+            // so keep that at the sprint-attack launch distance (as ProjectGapClose does):
+            // the NPC is still sprinting when it reaches launch range. Taking it from the
+            // sprint band slowed NPCs to a run ~150 units before they could launch.
+            // CPR requires each outer value to exceed the matching inner one.
+            // Offensive NPCs stop sprinting at 60-85% of the launch distance, so they cross
+            // the launch line still sprinting (0.8-1.0 left a window one tick wide).
+            const float launchDist = SprintAttackLaunchDistance(a_state);
+            float outerRadiusMin = (std::max)(launchDist * 0.6f, innerRadiusMax + 20.0f);
+            float outerRadiusMid = (std::max)(launchDist * 0.85f, outerRadiusMin + 1.0f);
+            float outerRadiusMax = (std::max)(desiredMaxDist * 1.1f, outerRadiusMid + 1.0f);
 
             // Enable CPR advancing
             SetCPRAdvancing(a_actor, innerRadiusMin, innerRadiusMid, innerRadiusMax, outerRadiusMin, outerRadiusMid,

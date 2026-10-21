@@ -1,6 +1,8 @@
 #include "ModEventSinks.h"
 #include "ActorUtils.h"
 #include "AttackDefenseFeedbackTracker.h"
+#include "CombatDirector.h"
+#include "Config.h"
 #include "GuardCounterFeedbackTracker.h"
 #include "Logger.h"
 #include "ParryFeedbackTracker.h"
@@ -9,10 +11,6 @@
 
 namespace CombatAI
 {
-    // External flags to track if mod callback events are being received
-    // These are defined in CombatDirector.cpp
-    extern bool s_receivedParryModEvent;
-    extern bool s_receivedTimedBlockModEvent;
 
     RE::BSEventNotifyControl
     EldenParryEventSink::ProcessEvent(const SKSE::ModCallbackEvent *a_event,
@@ -31,8 +29,6 @@ namespace CombatAI
             }
 
             if (attacker) {
-                // Mark that we received a mod callback event
-                s_receivedParryModEvent = true;
                 // Notify parry feedback tracker (for when NPC parries)
                 ParryFeedbackTracker::GetInstance().OnParrySuccess(attacker);
                 // Notify attack defense feedback tracker (for when NPC's attack is parried)
@@ -75,8 +71,6 @@ namespace CombatAI
             }
 
             if (attacker) {
-                // Mark that we received a mod callback event
-                s_receivedTimedBlockModEvent = true;
                 // Notify attack defense feedback tracker (for when NPC's attack is timed blocked)
                 AttackDefenseFeedbackTracker::GetInstance().OnAttackTimedBlocked(attacker);
             }
@@ -99,6 +93,18 @@ namespace CombatAI
 
         if (!attacker || !target) {
             return RE::BSEventNotifyControl::kContinue;
+        }
+
+        // Any hit (player's included, blocked or not) can provoke a target switch
+        CombatDirector::GetInstance().OnActorHit(target, attacker);
+
+        const auto &config = Config::GetInstance();
+        if (config.IsDebugTarget(attacker->GetFormID()) || config.IsDebugTarget(target->GetFormID())) {
+            LOG_DEBUG("Probe Hit: 0x{:08X} -> 0x{:08X} blocked={} power={}",
+                      static_cast<std::uint32_t>(attacker->GetFormID()),
+                      static_cast<std::uint32_t>(target->GetFormID()),
+                      a_event->flags.any(RE::TESHitEvent::Flag::kHitBlocked),
+                      a_event->flags.any(RE::TESHitEvent::Flag::kPowerAttack));
         }
 
         // Only process if attacker is an NPC (not player)

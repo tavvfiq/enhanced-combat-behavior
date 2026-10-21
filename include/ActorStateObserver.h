@@ -98,6 +98,7 @@ namespace CombatAI
             // Self temporal tracking
             float timeSinceLastAttack = 999.0f;
             float timeSinceLastDodge = 999.0f;
+            float timeSinceLastEvasion = 999.0f;
             float timeSinceLastAction = 999.0f;
             float blockingDuration = 0.0f;
             float attackingDuration = 0.0f;

@@ -1,5 +1,6 @@
 #include "CombatStyleEnhancer.h"
 #include "ActorUtils.h"
+#include "Config.h"
 #include "pch.h"
 
 // Undefine Windows macros that conflict with std functions
@@ -27,13 +28,9 @@ namespace CombatAI
         }
 
         // Get from combat controller first (runtime)
-        try {
-            RE::CombatController *controller = ActorUtils::SafeGetCombatController(a_actor);
+        RE::CombatController *controller = ActorUtils::SafeGetCombatController(a_actor);
             if (controller && controller->combatStyle) {
-                return controller->combatStyle;
-            }
-        } catch (...) {
-            // Actor access failed - try fallback
+            return controller->combatStyle;
         }
 
         // Fallback to actor base
@@ -52,12 +49,13 @@ namespace CombatAI
             return a_baseDecision;
         }
 
+        DecisionResult enhanced = a_baseDecision;
+        ApplyArmorStyle(enhanced, a_state);
+
         RE::TESCombatStyle *style = GetCombatStyle(a_actor);
         if (!style) {
-            return a_baseDecision; // No combat style, use base decision
+            return enhanced; // No combat style, armor adjustment only
         }
-
-        DecisionResult enhanced = a_baseDecision;
 
         // Apply style-specific enhancements based on flags (mutually exclusive styles)
         if (style->flags.any(RE::TESCombatStyle::FLAG::kDuelingStyle)) {
@@ -86,6 +84,32 @@ namespace CombatAI
         }
 
         return enhanced;
+    }
+
+    void CombatStyleEnhancer::ApplyArmorStyle(DecisionResult &a_decision, const ActorStateData &a_state)
+    {
+        const auto &cfg = Config::GetInstance().GetArmorStyle();
+        if (!cfg.enableArmorStyle || a_state.self.armorClass == ArmorClass::None) {
+            return;
+        }
+
+        const ActionType action = a_decision.action;
+        const bool evasive = action == ActionType::Dodge || action == ActionType::Strafe ||
+                             action == ActionType::Jump || action == ActionType::ForwardDodge;
+
+        if (a_state.self.armorClass == ArmorClass::Light) {
+            // Light armor: mobile skirmisher
+            if (evasive || action == ActionType::Flanking) {
+                a_decision.priority += cfg.lightEvasionBonus;
+            }
+        } else {
+            // Heavy armor: stand ground, trade blows behind the guard
+            if (evasive) {
+                a_decision.priority = (std::max)(0.0f, a_decision.priority - cfg.heavyEvasionPenalty);
+            } else if (action == ActionType::Bash || action == ActionType::TimedBlock) {
+                a_decision.priority += cfg.heavyGuardBonus;
+            }
+        }
     }
 
     bool CombatStyleEnhancer::HasMeleeWeapon(RE::Actor *a_actor) const

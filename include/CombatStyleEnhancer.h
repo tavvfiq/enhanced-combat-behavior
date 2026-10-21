@@ -45,6 +45,9 @@ namespace CombatAI
         DecisionResult EnhanceForRangedStyle(RE::Actor *a_actor, const DecisionResult &a_decision,
                                              const ActorStateData &a_state, RE::TESCombatStyle *a_style);
 
+        // Shift evasion vs. guard priorities by body armor weight (independent of combat style)
+        static void ApplyArmorStyle(DecisionResult &a_decision, const ActorStateData &a_state);
+
         // Apply combat style multipliers
         void ApplyStyleMultipliers(RE::TESCombatStyle *a_style, DecisionResult &a_decision,
                                    const ActorStateData &a_state);

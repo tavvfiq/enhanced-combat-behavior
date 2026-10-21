@@ -14,6 +14,7 @@
 #endif
 
 #include "ActorStateObserver.h"
+#include "ProjectileAwareness.h"
 #include "ActorUtils.h"
 #include "AttackDefenseFeedbackTracker.h"
 #include "Config.h"
@@ -45,41 +46,27 @@ namespace CombatAI
         // Get weapon reach
         data.weaponReach = GetWeaponReach(a_actor, &data.weaponReachFromPrecision);
 
-        // Gather target state - wrap in try-catch to protect against invalid actor
-        // access
-        try {
-            RE::CombatController *combatController = ActorUtils::SafeGetCombatController(a_actor);
-
-            if (combatController) {
-                RE::ActorHandle targetHandle = combatController->targetHandle;
-                RE::NiPointer<RE::Actor> target = targetHandle.get();
-
-                if (target && target.get()) {
-                    data.target = GatherTargetState(a_actor, target.get());
-                }
-            }
-        } catch (...) {
-            // Actor or combat controller access failed - continue without target
+        // Gather target state. Hold the NiPointer for the whole gather so the target
+        // can't be released while we still use it below.
+        RE::NiPointer<RE::Actor> targetPtr;
+        if (RE::CombatController *combatController = ActorUtils::SafeGetCombatController(a_actor)) {
+            targetPtr = combatController->targetHandle.get();
+        }
+        RE::Actor *target = targetPtr.get();
+        if (target) {
+            data.target = GatherTargetState(a_actor, target);
         }
 
         // Gather combat context (multiple enemies, etc.) - cached for performance
         data.combatContext = GatherCombatContext(a_actor, m_currentTime, data.weaponReach);
 
         // Gather temporal state (time-based tracking)
-        RE::Actor *target = nullptr;
-        try {
-            RE::CombatController *combatController = ActorUtils::SafeGetCombatController(a_actor);
-            if (combatController) {
-                RE::ActorHandle targetHandle = combatController->targetHandle;
-                RE::NiPointer<RE::Actor> targetPtr = targetHandle.get();
-                if (targetPtr && targetPtr.get()) {
-                    target = targetPtr.get();
-                }
-            }
-        } catch (...) {
-            // Target access failed
-        }
         data.temporal = GatherTemporalState(a_actor, target, a_deltaTime, data);
+
+        if (Config::GetInstance().GetProjectileAwareness().enableProjectileDodge) {
+            data.incomingProjectile = ProjectileAwareness::GetInstance().Assess(
+                a_actor->GetFormID(), data.self.position, data.self.boundRadius);
+        }
 
         // Environmental sensing: line of sight to the primary target. A single Havok
         // LOS raycast, run only when we have a target and the gate is enabled. Gathered
@@ -190,6 +177,16 @@ namespace CombatAI
         state.isRanged = (state.weaponType == WeaponType::Bow || state.weaponType == WeaponType::Crossbow);
         state.isMelee = (state.isOneHanded || state.isTwoHanded || state.weaponType == WeaponType::Unarmed ||
                          state.weaponType == WeaponType::Staff);
+
+        // Body armor class from the worn biped (cheap; GetWornArmor walks the whole inventory)
+        if (const auto &biped = a_actor->GetCurrentBiped()) {
+            const auto *item = biped->objects[RE::BIPED_OBJECTS::kBody].item;
+            if (const auto *armor = item ? item->As<RE::TESObjectARMO>() : nullptr) {
+                state.armorClass = armor->IsHeavyArmor()   ? ArmorClass::Heavy
+                                   : armor->IsLightArmor() ? ArmorClass::Light
+                                                           : ArmorClass::None;
+            }
+        }
 
         return state;
     }
@@ -352,41 +349,25 @@ namespace CombatAI
         // Calculate maximum value - use GetActorValueMax which includes permanent +
         // temporary modifiers
         float max = 0.0f;
-        try {
-            // Try GetActorValueMax first (includes permanent + temporary modifiers)
-            max = a_actor->GetActorValueMax(a_value);
-        } catch (...) {
-            // GetActorValueMax failed, try alternatives
-        }
+        // Try GetActorValueMax first (includes permanent + temporary modifiers)
+        max = a_actor->GetActorValueMax(a_value);
 
         // If GetActorValueMax returned 0 or failed, try manual calculation
         // GetPermanentActorValue + GetActorValueModifier(kTemporary)
         if (max <= 0.0f) {
-            try {
-                float permanent = actorValueOwner->GetPermanentActorValue(a_value);
-                float temporary = a_actor->GetActorValueModifier(RE::ACTOR_VALUE_MODIFIER::kTemporary, a_value);
-                max = permanent + temporary;
-            } catch (...) {
-                // Manual calculation failed
-            }
+            float permanent = actorValueOwner->GetPermanentActorValue(a_value);
+            float temporary = a_actor->GetActorValueModifier(RE::ACTOR_VALUE_MODIFIER::kTemporary, a_value);
+            max = permanent + temporary;
         }
 
         // Final fallback: Just use GetPermanentActorValue
         if (max <= 0.0f) {
-            try {
-                max = actorValueOwner->GetPermanentActorValue(a_value);
-            } catch (...) {
-                // GetPermanentActorValue failed
-            }
+            max = actorValueOwner->GetPermanentActorValue(a_value);
         }
 
         // Last resort: GetBaseActorValue
         if (max <= 0.0f) {
-            try {
-                max = actorValueOwner->GetBaseActorValue(a_value);
-            } catch (...) {
-                // All methods failed
-            }
+            max = actorValueOwner->GetBaseActorValue(a_value);
         }
 
         if (max <= 0.0f) {
@@ -404,23 +385,16 @@ namespace CombatAI
 
         // Proper power attack detection using AttackData from HighProcessData
         // Based on ProjectGapClose implementation
-        // Wrap in try-catch as process data access can crash when actor is in
-        // transitional states
-        try {
-            auto currentProcess = a_target->GetActorRuntimeData().currentProcess;
+        auto currentProcess = a_target->GetActorRuntimeData().currentProcess;
             if (currentProcess) {
-                auto highProcess = currentProcess->high;
-                if (highProcess) {
-                    auto attackData = highProcess->attackData;
-                    if (attackData) {
-                        auto flags = attackData->data.flags;
-                        return flags.any(RE::AttackData::AttackFlag::kPowerAttack);
-                    }
+            auto highProcess = currentProcess->high;
+            if (highProcess) {
+                auto attackData = highProcess->attackData;
+                if (attackData) {
+                    auto flags = attackData->data.flags;
+                    return flags.any(RE::AttackData::AttackFlag::kPowerAttack);
                 }
             }
-        } catch (...) {
-            // Process data access failed - actor may be in invalid state
-            return false;
         }
 
         return false;
@@ -469,17 +443,13 @@ namespace CombatAI
         }
 
         // Apply actor speed multiplier
-        try {
-            // Use safe wrapper to access ActorValueOwner
-            auto actorValueOwner = ActorUtils::SafeAsActorValueOwner(a_target);
-            if (actorValueOwner) {
-                float speedMult = actorValueOwner->GetActorValue(RE::ActorValue::kSpeedMult);
-                if (speedMult > 0.0f) {
-                    baseDuration /= (speedMult / 100.0f);
-                }
+        // Use safe wrapper to access ActorValueOwner
+        auto actorValueOwner = ActorUtils::SafeAsActorValueOwner(a_target);
+        if (actorValueOwner) {
+            float speedMult = actorValueOwner->GetActorValue(RE::ActorValue::kSpeedMult);
+            if (speedMult > 0.0f) {
+                baseDuration /= (speedMult / 100.0f);
             }
-        } catch (...) {
-            // Speed access failed, use base duration
         }
 
         // Use feedback from previous parry attempts to improve estimation
@@ -565,14 +535,10 @@ namespace CombatAI
         // Resolve the live primary combat target
         RE::Actor *target = nullptr;
         RE::NiPointer<RE::Actor> targetPtr;
-        try {
-            auto *combatController = ActorUtils::SafeGetCombatController(a_actor);
+        auto *combatController = ActorUtils::SafeGetCombatController(a_actor);
             if (combatController) {
-                targetPtr = combatController->targetHandle.get();
-                target = targetPtr.get();
-            }
-        } catch (...) {
-            return;
+            targetPtr = combatController->targetHandle.get();
+            target = targetPtr.get();
         }
         if (!target) {
             return;
@@ -662,66 +628,56 @@ namespace CombatAI
             }
         }
 
-        // Not in cache or expired, gather fresh data - wrap in try-catch
-        try {
-            RE::CombatController *combatController = ActorUtils::SafeGetCombatController(a_actor);
+        // Not in cache or expired, gather fresh data
+        RE::CombatController *combatController = ActorUtils::SafeGetCombatController(a_actor);
 
-            if (!combatController) {
-                return context;
-            }
-
-            // Get primary target
-            RE::ActorHandle primaryTarget = combatController->targetHandle;
-            RE::NiPointer<RE::Actor> target = primaryTarget.get();
-            if (target && target.get()) {
-                // Use safe position access to prevent crashes
-                auto selfPosOpt = ActorUtils::SafeGetPosition(a_actor);
-                auto targetPosOpt = ActorUtils::SafeGetPosition(target.get());
-                if (selfPosOpt.has_value() && targetPosOpt.has_value()) {
-                    context.enemyCount = 1;
-                    // Don't store raw pointer - it becomes invalid
-                    context.closestEnemy = nullptr;
-                    context.closestEnemyDistance =
-                        StateHelpers::CalculateDistance(selfPosOpt.value(), targetPosOpt.value());
-                }
-            }
-
-            // Scan for nearby actors (enemies and allies) - expensive operation, done
-            // in one pass
-            try {
-                ScanForNearbyActors(a_actor, context, target.get());
-            } catch (...) {
-                // Scan failed, continue with whatever we have
-            }
-
-            // Range granularity is computed from the live target position (never
-            // cached) so it can't lag behind the actor's real distance.
-            UpdateRangeCategory(a_actor, context, a_weaponReach);
-
-            // Calculate threat level based on enemy count
-            if (context.enemyCount == 0) {
-                context.threatLevel = ThreatLevel::None;
-            } else if (context.enemyCount == 1) {
-                context.threatLevel = ThreatLevel::Low;
-            } else if (context.enemyCount == 2) {
-                context.threatLevel = ThreatLevel::Moderate;
-            } else if (context.enemyCount <= 4) {
-                context.threatLevel = ThreatLevel::High;
-            } else {
-                context.threatLevel = ThreatLevel::Critical;
-            }
-
-            // Update cache - only if actor is still valid
-            if (!ActorUtils::SafeIsDead(a_actor) && ActorUtils::SafeIsInCombat(a_actor)) {
-                // Clear raw pointer before caching
-                context.closestEnemy = nullptr;
-                CachedCombatContext cached{context, a_currentTime};
-                m_combatContextCache.Emplace(formID, std::move(cached));
-            }
-        } catch (...) {
-            // Actor access failed - return empty context
-            m_combatContextCache.Erase(formID);
+        if (!combatController) {
             return context;
+        }
+
+        // Get primary target
+        RE::ActorHandle primaryTarget = combatController->targetHandle;
+        RE::NiPointer<RE::Actor> target = primaryTarget.get();
+        if (target && target.get()) {
+            // Use safe position access to prevent crashes
+            auto selfPosOpt = ActorUtils::SafeGetPosition(a_actor);
+            auto targetPosOpt = ActorUtils::SafeGetPosition(target.get());
+            if (selfPosOpt.has_value() && targetPosOpt.has_value()) {
+                context.enemyCount = 1;
+                // Don't store raw pointer - it becomes invalid
+                context.closestEnemy = nullptr;
+                context.closestEnemyDistance =
+                    StateHelpers::CalculateDistance(selfPosOpt.value(), targetPosOpt.value());
+            }
+        }
+
+        // Scan for nearby actors (enemies and allies) - expensive operation, done
+        // in one pass
+        ScanForNearbyActors(a_actor, context, target.get());
+
+        // Range granularity is computed from the live target position (never
+        // cached) so it can't lag behind the actor's real distance.
+        UpdateRangeCategory(a_actor, context, a_weaponReach);
+
+        // Calculate threat level based on enemy count
+        if (context.enemyCount == 0) {
+            context.threatLevel = ThreatLevel::None;
+        } else if (context.enemyCount == 1) {
+            context.threatLevel = ThreatLevel::Low;
+        } else if (context.enemyCount == 2) {
+            context.threatLevel = ThreatLevel::Moderate;
+        } else if (context.enemyCount <= 4) {
+            context.threatLevel = ThreatLevel::High;
+        } else {
+            context.threatLevel = ThreatLevel::Critical;
+        }
+
+        // Update cache - only if actor is still valid
+        if (!ActorUtils::SafeIsDead(a_actor) && ActorUtils::SafeIsInCombat(a_actor)) {
+            // Clear raw pointer before caching
+            context.closestEnemy = nullptr;
+            CachedCombatContext cached{context, a_currentTime};
+            m_combatContextCache.Emplace(formID, std::move(cached));
         }
 
         return context;
@@ -768,182 +724,181 @@ namespace CombatAI
             }
         }
 
+        // Record an ally as the flanking partner, with the target's facing relative to it
+        bool sawPlayer = false;
+        auto trackAlly = [&](const RE::NiPoint3 &a_allyPos, float a_distance) {
+            a_context.closestAllyPosition = a_allyPos;
+            a_context.closestAllyDistance = a_distance;
+            a_context.hasNearbyAlly = (a_distance <= 1500.0f); // Flanking range threshold
+            a_context.allyIsPlayer = false;
+
+            if (!hasTarget) {
+                return;
+            }
+            RE::NiPoint3 targetToAlly = a_allyPos - targetPos;
+            if (targetToAlly.SqrLength() <= 0.01f) {
+                return;
+            }
+            targetToAlly.Unitize();
+
+            // 1.0 = target facing ally, -1.0 = target facing away from ally
+            const float targetAllyDot = targetForward.Dot(targetToAlly);
+            a_context.targetFacingAllyDot = targetAllyDot;
+            a_context.targetFacingAwayFromAlly = (targetAllyDot < -0.3f); // good flanking opportunity
+            a_context.targetFacingTowardAlly = (targetAllyDot > 0.3f);    // we can flank from behind
+        };
+
         // Get current cell to scan actors in loaded area
         RE::TESObjectCELL *currentCell = nullptr;
-        try {
-            currentCell = a_actor->GetParentCell();
-        } catch (...) {
-            return; // Cell access failed
-        }
+        currentCell = a_actor->GetParentCell();
 
         if (!currentCell || !currentCell->IsAttached()) {
             return;
         }
 
         // Scan actors in the current cell - single pass for both enemies and allies
-        // Wrap entire scan in try-catch to handle iterator invalidation
-        try {
-            auto &references = currentCell->GetRuntimeData().references;
+        auto &references = currentCell->GetRuntimeData().references;
 
-            // Get size first to detect container modification during iteration
-            size_t initialSize = references.size();
-            size_t processedCount = 0;
+        // Get size first to detect container modification during iteration
+        size_t initialSize = references.size();
+        size_t processedCount = 0;
 
-            for (auto &ref : references) {
-                processedCount++;
+        for (auto &ref : references) {
+            processedCount++;
 
-                // Safety check: if container size changed, abort to avoid iterator
-                // invalidation
-                if (references.size() != initialSize) {
-                    break; // Container was modified, abort scan
-                }
+            // Safety check: if container size changed, abort to avoid iterator
+            // invalidation
+            if (references.size() != initialSize) {
+                break; // Container was modified, abort scan
+            }
 
-                RE::TESObjectREFR *refr = nullptr;
-                try {
-                    refr = ref.get();
-                } catch (...) {
-                    continue; // Reference access failed
-                }
+            RE::TESObjectREFR *refr = nullptr;
+            refr = ref.get();
 
-                if (!refr) {
-                    continue;
-                }
+            if (!refr) {
+                continue;
+            }
 
-                RE::Actor *nearbyActor = nullptr;
-                try {
-                    nearbyActor = refr->As<RE::Actor>();
-                } catch (...) {
-                    continue; // Cast failed
-                }
+            RE::Actor *nearbyActor = nullptr;
+            nearbyActor = refr->As<RE::Actor>();
 
-                if (!nearbyActor) {
-                    continue;
-                }
+            if (!nearbyActor) {
+                continue;
+            }
 
-                // Skip self
-                if (nearbyActor == a_actor) {
-                    continue;
-                }
+            // Skip self
+            if (nearbyActor == a_actor) {
+                continue;
+            }
 
-                // Skip primary target - it's already counted in enemyCount
-                if (a_primaryTarget && nearbyActor == a_primaryTarget) {
-                    continue;
-                }
+            // Skip primary target - it's already counted in enemyCount
+            if (a_primaryTarget && nearbyActor == a_primaryTarget) {
+                continue;
+            }
 
-                // Validate nearby actor before accessing properties
-                // Use wrapper for safe validation
-                if (ActorUtils::SafeIsDead(nearbyActor) || !ActorUtils::SafeIsInCombat(nearbyActor)) {
-                    continue; // Actor validation failed
-                }
+            // Validate nearby actor before accessing properties
+            // Use wrapper for safe validation
+            if (ActorUtils::SafeIsDead(nearbyActor) || !ActorUtils::SafeIsInCombat(nearbyActor)) {
+                continue; // Actor validation failed
+            }
 
-                // Re-validate self actor before distance calculation
-                if (ActorUtils::SafeIsDead(a_actor) || !ActorUtils::SafeIsInCombat(a_actor)) {
-                    return; // Self became invalid, abort scan
-                }
+            // Re-validate self actor before distance calculation
+            if (ActorUtils::SafeIsDead(a_actor) || !ActorUtils::SafeIsInCombat(a_actor)) {
+                return; // Self became invalid, abort scan
+            }
 
-                // Check distance - use wrapper for safe position access
-                auto actorPosOpt = ActorUtils::SafeGetPosition(nearbyActor);
-                if (!actorPosOpt.has_value()) {
-                    continue; // Position access failed
-                }
-                RE::NiPoint3 actorPos = actorPosOpt.value();
+            // Check distance - use wrapper for safe position access
+            auto actorPosOpt = ActorUtils::SafeGetPosition(nearbyActor);
+            if (!actorPosOpt.has_value()) {
+                continue; // Position access failed
+            }
+            RE::NiPoint3 actorPos = actorPosOpt.value();
 
-                float distance = StateHelpers::CalculateDistance(selfPos, actorPos);
-                if (distance > scanRange) {
-                    continue;
-                }
+            float distance = StateHelpers::CalculateDistance(selfPos, actorPos);
+            if (distance > scanRange) {
+                continue;
+            }
 
-                // Re-validate actors before hostility check (they might have become
-                // invalid) Use wrapper for safe access
-                if (ActorUtils::SafeIsDead(a_actor) || ActorUtils::SafeIsDead(nearbyActor) ||
-                    !ActorUtils::SafeIsInCombat(a_actor) || !ActorUtils::SafeIsInCombat(nearbyActor)) {
-                    continue; // Actor validation failed
-                }
+            // Re-validate actors before hostility check (they might have become
+            // invalid) Use wrapper for safe access
+            if (ActorUtils::SafeIsDead(a_actor) || ActorUtils::SafeIsDead(nearbyActor) ||
+                !ActorUtils::SafeIsInCombat(a_actor) || !ActorUtils::SafeIsInCombat(nearbyActor)) {
+                continue; // Actor validation failed
+            }
 
-                // Determine if enemy or ally - use wrapper for safe hostility check
-                // Check if nearbyActor is hostile to a_actor (not the other way around)
-                // IsHostileToActor(a, b) checks if 'a' is hostile to 'b'
-                // So we want: is nearbyActor hostile to a_actor? ->
-                // IsHostileToActor(nearbyActor, a_actor)
-                bool isHostile = ActorUtils::SafeIsHostileToActor(nearbyActor, a_actor);
+            // Determine if enemy or ally - use wrapper for safe hostility check
+            // Check if nearbyActor is hostile to a_actor (not the other way around)
+            // IsHostileToActor(a, b) checks if 'a' is hostile to 'b'
+            // So we want: is nearbyActor hostile to a_actor? ->
+            // IsHostileToActor(nearbyActor, a_actor)
+            bool isHostile = ActorUtils::SafeIsHostileToActor(nearbyActor, a_actor);
 
-                // Re-validate actors one more time before using distance/position data
-                // Actors can become invalid during the loop
-                if (ActorUtils::SafeIsDead(nearbyActor) || !ActorUtils::SafeIsInCombat(nearbyActor)) {
-                    continue; // Actor became invalid, skip
-                }
+            // Re-validate actors one more time before using distance/position data
+            // Actors can become invalid during the loop
+            if (ActorUtils::SafeIsDead(nearbyActor) || !ActorUtils::SafeIsInCombat(nearbyActor)) {
+                continue; // Actor became invalid, skip
+            }
 
-                if (isHostile) {
-                    // Found an additional enemy
-                    additionalEnemies++;
+            if (isHostile) {
+                // Found an additional enemy
+                additionalEnemies++;
 
-                    // Check if this enemy is targeting us (has us as their combat target)
-                    // This helps determine threat level
-                    try {
-                        RE::CombatController *enemyCombatController =
+                // Check if this enemy is targeting us (has us as their combat target)
+                // This helps determine threat level
+                RE::CombatController *enemyCombatController =
                             ActorUtils::SafeGetCombatController(nearbyActor);
                         if (enemyCombatController) {
-                            RE::ActorHandle enemyTargetHandle = enemyCombatController->targetHandle;
-                            RE::NiPointer<RE::Actor> enemyTarget = enemyTargetHandle.get();
-                            if (enemyTarget && enemyTarget.get() == a_actor) {
-                                enemiesTargetingUs++; // This enemy is targeting us
-                            }
-                        }
-                    } catch (...) {
-                        // Enemy combat controller access failed, skip threat check
-                    }
-
-                    // Update closest enemy if this one is closer
-                    // Don't store raw pointer - it becomes invalid
-                    if (distance < closestDistance) {
-                        closestDistance = distance;
-                        a_context.closestEnemy = nullptr; // Don't store raw pointer
-                        a_context.closestEnemyDistance = distance;
-                    }
-                } else {
-                    // Found an ally (non-hostile actor in combat)
-                    allies++;
-
-                    // Track closest ally position for flanking calculations
-                    // Only update if this ally is closer than previous closest
-                    if (!a_context.hasNearbyAlly || distance < a_context.closestAllyDistance) {
-                        a_context.closestAllyPosition = actorPos;
-                        a_context.closestAllyDistance = distance;
-                        a_context.hasNearbyAlly = (distance <= 1500.0f); // Flanking range threshold
-
-                        // Calculate target facing relative to this ally (for flanking
-                        // coordination)
-                        if (hasTarget) {
-                            RE::NiPoint3 targetToAlly = actorPos - targetPos;
-                            float targetToAllyDistSq = targetToAlly.x * targetToAlly.x +
-                                                       targetToAlly.y * targetToAlly.y +
-                                                       targetToAlly.z * targetToAlly.z;
-                            if (targetToAllyDistSq > 0.01f) {
-                                float targetToAllyDist = std::sqrt(targetToAllyDistSq);
-                                targetToAlly.x /= targetToAllyDist;
-                                targetToAlly.y /= targetToAllyDist;
-                                targetToAlly.z /= targetToAllyDist;
-
-                                // Calculate dot product: 1.0 = target facing ally, -1.0 = target
-                                // facing away from ally
-                                float targetAllyDot = targetForward.Dot(targetToAlly);
-                                a_context.targetFacingAllyDot = targetAllyDot;
-
-                                // Set flags for easier decision-making
-                                a_context.targetFacingAwayFromAlly =
-                                    (targetAllyDot < -0.3f); // Target facing away from ally (good
-                                                             // flanking opportunity)
-                                a_context.targetFacingTowardAlly = (targetAllyDot > 0.3f); // Target facing toward ally
-                                                                                           // (we can flank from behind)
-                            }
-                        }
+                    RE::ActorHandle enemyTargetHandle = enemyCombatController->targetHandle;
+                    RE::NiPointer<RE::Actor> enemyTarget = enemyTargetHandle.get();
+                    if (enemyTarget && enemyTarget.get() == a_actor) {
+                        enemiesTargetingUs++; // This enemy is targeting us
                     }
                 }
+
+                // Track the weakest secondary enemy (target switching finisher)
+                const float enemyHealth = GetActorValuePercent(nearbyActor, RE::ActorValue::kHealth);
+                if (enemyHealth < a_context.weakestEnemyHealth) {
+                    a_context.weakestEnemy = nearbyActor->GetHandle();
+                    a_context.weakestEnemyHealth = enemyHealth;
+                    a_context.weakestEnemyDistance = distance;
+                }
+
+                // Update closest enemy if this one is closer
+                // Don't store raw pointer - it becomes invalid
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    a_context.closestEnemy = nullptr; // Don't store raw pointer
+                    a_context.closestEnemyDistance = distance;
+                }
+            } else {
+                // Found an ally (non-hostile actor in combat)
+                allies++;
+
+                sawPlayer = sawPlayer || nearbyActor->IsPlayerRef();
+
+                // Track closest ally position for flanking calculations
+                // Only update if this ally is closer than previous closest
+                if (!a_context.hasNearbyAlly || distance < a_context.closestAllyDistance) {
+                    trackAlly(actorPos, distance);
+                }
             }
-        } catch (...) {
-            // Scan failed, return with whatever we have so far
-            // Don't update counts if scan failed completely
-            return;
+        }
+
+        // Followers pair up with the player: the player becomes their flanking partner
+        // so EvaluateFlanking sets up a pincer around whatever the player is fighting.
+        if (Config::GetInstance().GetTeamwork().enableFollowerPincer && a_actor->IsPlayerTeammate()) {
+            auto *player = RE::PlayerCharacter::GetSingleton();
+            if (player && player->IsInCombat() && !player->IsDead()) {
+                const RE::NiPoint3 playerPos = player->GetPosition();
+                const float distance = StateHelpers::CalculateDistance(selfPos, playerPos);
+                if (distance <= scanRange) {
+                    if (!sawPlayer) {
+                        allies++;
+                    }
+                    trackAlly(playerPos, distance);
+                    a_context.allyIsPlayer = true;
+                }
+            }
         }
 
         // Update counts
@@ -979,6 +934,7 @@ namespace CombatAI
             // Update timers
             actorTemporal.timeSinceLastAttack += a_deltaTime;
             actorTemporal.timeSinceLastDodge += a_deltaTime;
+            actorTemporal.timeSinceLastEvasion += a_deltaTime;
             actorTemporal.timeSinceLastAction += a_deltaTime;
             actorTemporal.timeSinceLastPowerAttack += a_deltaTime;
             actorTemporal.timeSinceLastSprintAttack += a_deltaTime;
@@ -1041,6 +997,7 @@ namespace CombatAI
             // Copy to output
             temporal.self.timeSinceLastAttack = actorTemporal.timeSinceLastAttack;
             temporal.self.timeSinceLastDodge = actorTemporal.timeSinceLastDodge;
+            temporal.self.timeSinceLastEvasion = actorTemporal.timeSinceLastEvasion;
             temporal.self.timeSinceLastAction = actorTemporal.timeSinceLastAction;
             temporal.self.blockingDuration = actorTemporal.blockingDuration;
             temporal.self.attackingDuration = actorTemporal.attackingDuration;
@@ -1349,6 +1306,9 @@ namespace CombatAI
             case ActionType::Jump:
             case ActionType::Strafe:
                 temporal.timeSinceLastDodge = 0.0f;
+                if (a_action == ActionType::Dodge || a_action == ActionType::Jump) {
+                    temporal.timeSinceLastEvasion = 0.0f;
+                }
                 break;
             case ActionType::Bash:
                 temporal.timeSinceLastBash = 0.0f;

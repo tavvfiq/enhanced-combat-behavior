@@ -3,7 +3,9 @@
 #include "ActorStateData.h"
 #include "DecisionResult.h"
 #include "DodgeSystem.h"
+#include "ThreadSafeMap.h"
 #include "pch.h"
+#include <chrono>
 
 namespace CombatAI
 {
@@ -17,9 +19,44 @@ namespace CombatAI
         // Execute a decision result
         bool Execute(RE::Actor *a_actor, const DecisionResult &a_decision, const ActorStateData &a_state);
 
-        void EnableBFCO(bool isEnabled);
+
+        // True when a sprint attack can launch now: sprinting for a moment (so the graph is
+        // in its sprint state), not attacking, inside launch range. Otherwise the caller
+        // runs up (Advancing with sprint).
+        bool CanLaunchSprintAttack(RE::Actor *a_actor, const ActorStateData &a_state);
+
+        // Drop CPR fallback/backoff so a swing in progress isn't dragged backward
+        void SuspendRetreat(RE::Actor *a_actor);
+
+        // Sprint-attack launch distance: the INI value, or 3 x weapon reach when it is 0
+        static float SprintAttackLaunchDistance(const ActorStateData &a_state);
+
+        // Drop a sprint this mod forced (no-op for vanilla/CPR sprints)
+        void ReleaseSprint(RE::Actor *a_actor);
+        void EvictActor(RE::FormID a_formID)
+        {
+            m_forcedSprint.Erase(a_formID);
+            m_sprintSince.Erase(a_formID);
+        }
+
+        // Per-frame jump upkeep: sustain ascent, then release tracking on landing.
+        // Call once per frame (CombatDirector::Update).
+        void UpdateJumps(float a_deltaTime);
 
       private:
+        // In-flight jump, tracked until the actor lands (port of FJF's AirborneJump)
+        struct ActiveJump
+        {
+            RE::ActorHandle handle;
+            float elapsed = 0.0f;
+            float startZ = 0.0f;
+            float peakZ = 0.0f;
+            float launchVz = 0.0f; // Havok units/s
+            float height = 0.0f;   // requested apex, game units
+            std::uint32_t boosts = 0;
+            bool oarFallback = false; // EnhancedCombatAI_Jump was set for the OAR dodge swap
+        };
+
         // Execute bash action
         bool ExecuteBash(RE::Actor *a_actor, const ActorStateData *a_state = nullptr);
 
@@ -52,11 +89,18 @@ namespace CombatAI
         // Execute power attack
         bool ExecutePowerAttack(RE::Actor *a_actor, const ActorStateData &a_state);
 
-        // Execute sprint attack (BFCO support)
-        bool ExecuteSprintAttack(RE::Actor *a_actor);
+        // Execute sprint attack
+        bool ExecuteSprintAttack(RE::Actor *a_actor, const ActorStateData &a_state);
+        bool ExecuteDirectionalDodge(RE::Actor *a_actor, RE::NiPoint3 a_direction);
+        void ForceSprint(RE::Actor *a_actor);
 
-        // Execute jump (actually executes dodge with EnhancedCombatAI_Jump=true for OAR animation replacement)
+        // Execute jump: vanilla jump graph event + Havok jump state/impulse. Falls back to
+        // the OAR "jump as dodge" swap (EnhancedCombatAI_Jump) if the graph rejects the event.
         bool ExecuteJump(RE::Actor *a_actor, const ActorStateData &a_state);
+
+        // Put the controller into its jumping state and apply the launch velocity.
+        // Returns the launch vertical speed (Havok units/s), or a negative value on failure.
+        float LaunchJump(RE::Actor *a_actor, float a_height);
 
         // Execute backoff movement (away from target when they're casting/drawing)
         bool ExecuteBackoff(RE::Actor *a_actor, const DecisionResult &a_decision, const ActorStateData &a_state);
@@ -80,8 +124,6 @@ namespace CombatAI
         // CPR circling and advancing only work for melee-only actors
         bool IsMeleeOnlyActor(RE::Actor *a_actor) const;
 
-        // Helper: Reset BFCO attack state
-        void ResetBFCOAttackState(RE::Actor *a_actor);
 
         // Helper: Set CPR circling parameters
         void SetCPRCircling(RE::Actor *a_actor, float a_minDist, float a_maxDist, float a_minAngle, float a_maxAngle);
@@ -109,6 +151,11 @@ namespace CombatAI
 
         // Dodge system
         DodgeSystem m_dodgeSystem;
-        bool m_isBFCOEnabled = false;
+
+        ThreadSafeMap<RE::FormID, ActiveJump> m_activeJumps;
+        // Actors this mod put into a sprint (raw sprint flag); released when they stop advancing
+        ThreadSafeSet<RE::FormID> m_forcedSprint;
+        // When each actor's current sprint started (sprint-attack launch gate)
+        ThreadSafeMap<RE::FormID, std::chrono::steady_clock::time_point> m_sprintSince;
     };
 } // namespace CombatAI

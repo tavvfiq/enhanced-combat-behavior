@@ -25,6 +25,16 @@ namespace CombatAI
         ForwardDodge  // 15 - Directional gap-close dodge during advancing
     };
 
+    inline const char *ActionName(ActionType a_action)
+    {
+        static constexpr const char *names[] = {"None",     "Retreat",  "Strafe",   "Bash",     "PowerAttack",
+                                                "SprintAttack", "Attack", "Jump",   "Dodge",    "Backoff",
+                                                "Advancing", "Feint",   "Flanking", "Parry",    "TimedBlock",
+                                                "ForwardDodge"};
+        const auto i = static_cast<std::size_t>(a_action);
+        return i < std::size(names) ? names[i] : "?";
+    }
+
     // Decision result containing action to take
     struct DecisionResult
     {
@@ -32,5 +42,8 @@ namespace CombatAI
         float priority = 0.0f;                                   // Higher = more important (float for granular control)
         RE::NiPoint3 direction = RE::NiPoint3(0.0f, 0.0f, 0.0f); // For movement actions
         float intensity = 1.0f;                                  // 0.0 to 1.0, for movement speed/intensity
+        bool sprint = false; // Advancing: sprint toward the target (sprint-attack run-up)
+        float holdDistance = 0.0f; // Strafe/Flanking: circle no closer than this (pacing wait ring)
+        bool reflex = false;       // Projectile sidestep: has its own roll, skips the skill roll
     };
 } // namespace CombatAI

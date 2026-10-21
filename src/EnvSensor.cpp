@@ -19,41 +19,37 @@ namespace CombatAI
                 return result;
             }
 
-            try {
-                RE::TESObjectCELL *cell = a_actor->GetParentCell();
-                if (!cell) {
-                    return result;
-                }
+            RE::TESObjectCELL *cell = a_actor->GetParentCell();
+            if (!cell) {
+                return result;
+            }
 
-                RE::bhkWorld *world = cell->GetbhkWorld();
-                if (!world) {
-                    return result;
-                }
+            RE::bhkWorld *world = cell->GetbhkWorld();
+            if (!world) {
+                return result;
+            }
 
-                // Havok works in its own scaled units, not game units.
-                const float scale = RE::bhkWorld::GetWorldScale();
+            // Havok works in its own scaled units, not game units.
+            const float scale = RE::bhkWorld::GetWorldScale();
 
-                RE::bhkPickData pick;
-                pick.rayInput.from = RE::hkVector4(a_from.x * scale, a_from.y * scale, a_from.z * scale, 0.0f);
-                pick.rayInput.to = RE::hkVector4(a_to.x * scale, a_to.y * scale, a_to.z * scale, 0.0f);
-                pick.ray = RE::hkVector4((a_to.x - a_from.x) * scale, (a_to.y - a_from.y) * scale,
-                                         (a_to.z - a_from.z) * scale, 0.0f);
-                pick.rayInput.enableShapeCollectionFilter = false;
-                pick.rayInput.filterInfo.SetCollisionLayer(a_layer);
+            RE::bhkPickData pick;
+            pick.rayInput.from = RE::hkVector4(a_from.x * scale, a_from.y * scale, a_from.z * scale, 0.0f);
+            pick.rayInput.to = RE::hkVector4(a_to.x * scale, a_to.y * scale, a_to.z * scale, 0.0f);
+            pick.ray = RE::hkVector4((a_to.x - a_from.x) * scale, (a_to.y - a_from.y) * scale,
+                                     (a_to.z - a_from.z) * scale, 0.0f);
+            pick.rayInput.enableShapeCollectionFilter = false;
+            pick.rayInput.filterInfo.SetCollisionLayer(a_layer);
 
-                {
-                    // PickObject walks the broadphase; hold a read lock so a concurrent
-                    // physics step can't tear the world out from under us.
-                    RE::BSReadLockGuard lock(world->worldLock);
-                    world->PickObject(pick);
-                }
+            {
+                // PickObject walks the broadphase; hold a read lock so a concurrent
+                // physics step can't tear the world out from under us.
+                RE::BSReadLockGuard lock(world->worldLock);
+                world->PickObject(pick);
+            }
 
-                if (pick.rayOutput.HasHit()) {
-                    result.hit = true;
-                    result.fraction = pick.rayOutput.hitFraction;
-                }
-            } catch (...) {
-                // Cell/world access faulted - return the empty (no-hit) result.
+            if (pick.rayOutput.HasHit()) {
+                result.hit = true;
+                result.fraction = pick.rayOutput.hitFraction;
             }
 
             return result;

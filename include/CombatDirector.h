@@ -8,6 +8,7 @@
 #include "ParryFeedbackTracker.h"
 #include "ThreadSafeMap.h"
 #include "pch.h"
+#include <atomic>
 
 namespace CombatAI
 {
@@ -43,12 +44,16 @@ namespace CombatAI
         // Cleanup (remove invalid actors)
         void Cleanup();
 
+        // Record a hit for target switching (called from the TESHitEvent sink)
+        void OnActorHit(RE::Actor *a_victim, RE::Actor *a_attacker);
+
       private:
         CombatDirector() = default;
         ~CombatDirector() = default;
 
         // Check if actor should be processed
         bool ShouldProcessActor(RE::Actor *a_actor, RE::FormID a_formID, float a_deltaTime);
+        void MaybeSwitchTarget(RE::Actor *a_actor, RE::FormID a_formID, const ActorStateData &a_state);
         DecisionResult ApplyCombatPacing(RE::Actor *a_actor, RE::FormID a_formID, const ActorStateData &a_state,
                                          DecisionResult a_decision);
         void ExecuteDecision(RE::Actor *a_actor, RE::FormID a_formID, const DecisionResult &a_decision,
@@ -74,10 +79,28 @@ namespace CombatAI
         // Thread-safe to prevent crashes from concurrent access
         ThreadSafeMap<RE::FormID, float> m_actorProcessTimers;
 
-        // Track actor spawn times to delay processing newly spawned actors
-        // Prevents processing actors before they're fully initialized
-        // Thread-safe to prevent crashes from concurrent access
-        ThreadSafeMap<RE::FormID, float> m_actorSpawnTimes;
+        // Seconds each actor has been in combat (evicted when it leaves). Gates the
+        // spawn warmup and drives humanizer fatigue.
+        ThreadSafeMap<RE::FormID, float> m_actorCombatTimes;
+
+        // Target switching: last hit taken per actor and the earliest time it may roll again
+        struct RecentHit
+        {
+            RE::ActorHandle attacker;
+            float time = 0.0f;
+        };
+        ThreadSafeMap<RE::FormID, RecentHit> m_recentHits;
+        // Pacing: who last hit this actor, and until when it may fight back without a slot
+        struct Retaliation
+        {
+            RE::FormID attacker = 0;
+            float until = 0.0f;
+        };
+        ThreadSafeMap<RE::FormID, Retaliation> m_retaliation;
+        ThreadSafeMap<RE::FormID, float> m_nextTargetSwitchTime;
+        // When each actor entered its current melee kDraw (stale-windup watchdog)
+        ThreadSafeMap<RE::FormID, float> m_drawStart;
+        std::atomic<float> m_time{0.0f}; // Seconds since load, advanced in Update()
 
         // Processing throttle (don't process every frame)
         float m_processTimer = 0.0f;
@@ -85,5 +108,7 @@ namespace CombatAI
 
         // Minimum time before processing newly spawned actors (safety delay)
         static constexpr float SPAWN_WARMUP_DELAY = 0.5f; // 500ms delay
+        // Real windups last under ~1s; a kDraw this old has no attack behind it
+        static constexpr float STALE_DRAW_TIMEOUT = 3.0f;
     };
 } // namespace CombatAI

@@ -8,7 +8,7 @@ A SKSE plugin that enhances Skyrim's combat AI to make NPCs more reactive and ta
 - **Tactical Decision Making**: NPCs evaluate combat situations and make intelligent decisions
 - **Priority-Based Rules**: Interrupt > Evasion > Survival
 - **Reactive Behavior**: NPCs respond to player actions (blocking, power attacks, etc.)
-- **Organic Feel**: Reaction latency, mistake probability, and cooldowns prevent robotic behavior
+- **Organic Feel**: Level-scaled skill rolls (one per opportunity), a combat-entry reaction delay, and cooldowns
 
 ### Combat Actions
 - **Bash Interrupts**: NPCs bash when target is power attacking within reach
@@ -21,7 +21,7 @@ A SKSE plugin that enhances Skyrim's combat AI to make NPCs more reactive and ta
 
 ### Mod Integrations
 - **Combat Pathing Revolution (CPR)**: Enhanced movement control via animation graph variables
-- **BFCO Attack Framework**: Enhanced attack animations and state management
+- **Attack frameworks (MCO, BFCO, SCAR)**: Attacks start with the vanilla events, which every framework takes over from
 - **TK Dodge RE**: NPC dodging system for evasion
 - **Precision**: Accurate weapon reach calculations
 
@@ -34,7 +34,6 @@ A SKSE plugin that enhances Skyrim's combat AI to make NPCs more reactive and ta
 
 ### Optional (for enhanced features)
 - **Combat Pathing Revolution (CPR)**: For advanced movement control (circling, fallback, advance)
-- **BFCO Attack Framework**: For enhanced attack animations
 - **TK Dodge RE**: For NPC dodging/evasion
 - **Precision**: For accurate weapon reach calculations
 - **SKSE Menu Framework**: For the in-game runtime configuration menu (edit settings live)
@@ -71,9 +70,8 @@ The `[ScoringWeights]` section exposes the high-impact decision priorities (per-
 - `EnableDebugLog` - Enable debug logging
 
 #### Humanizer
-- `ReactionDelayMin/Max` - Reaction latency range (milliseconds)
-- `MistakeChanceBase` - Base mistake probability
-- `MistakeChancePerLevel` - Mistake reduction per NPC level
+- `BaseReactionDelayMs` - Combat-entry reaction delay (milliseconds)
+- `SkillBase` / `SkillPerLevel` - Chance to act on an opportunity, scaled by NPC level
 - `BashCooldown` - Bash action cooldown (seconds)
 - `DodgeCooldown` - Dodge action cooldown (seconds)
 
@@ -109,11 +107,11 @@ ActorStateObserver → Gathers combat state
     ↓
 DecisionMatrix → Evaluates rules (Interrupt/Evasion/Survival)
     ↓
-Humanizer → Applies latency/mistakes/cooldowns
+Humanizer → Applies skill rolls/cooldowns
     ↓
 ActionExecutor → Executes actions (animations/movement)
     ↓
-CPR/BFCO/TK Dodge → Mod integrations
+CPR/TK Dodge/SCAR → Mod integrations
 ```
 
 ### Decision Priority
@@ -158,10 +156,9 @@ NPCs are enhanced based on their combat style:
 
 ### Compatible Mods
 - **Combat Pathing Revolution (CPR)**: Fully integrated, auto-detected
-- **BFCO Attack Framework**: Fully integrated, auto-detected
 - **TK Dodge RE**: Fully integrated, auto-detected
 - **Precision**: Fully integrated, auto-detected
-- **Modern Combat Overhaul (MCO)**: Compatible via BFCO integration
+- **MCO / BFCO / SCAR movesets**: Compatible; attacks use the vanilla attack events
 
 ### How Integration Works
 - Mods are auto-detected at runtime
@@ -219,7 +216,6 @@ src/
 - `PLAN.md` - Original implementation plan
 - `CHANGELOG.md` - Recent changes and updates
 - `CPR_INTEGRATION.md` - CPR integration guide
-- `BFCO_INTEGRATION.md` - BFCO integration guide
 - `DODGE_INTEGRATION.md` - TK Dodge integration guide
 - `PRECISION_INTEGRATION.md` - Precision integration guide
 - `COMBAT_STYLE_ENHANCEMENT.md` - Combat style system
@@ -230,7 +226,7 @@ src/
 
 - Inspired by ProjectGapClose's approach to combat AI
 - Uses CommonLibSSE-NG for Skyrim engine access
-- Integrates with Combat Pathing Revolution, BFCO, TK Dodge RE, and Precision
+- Integrates with Combat Pathing Revolution, SCAR, TK Dodge RE, and Precision
 
 ## License
 

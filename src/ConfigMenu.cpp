@@ -48,6 +48,22 @@ namespace CombatAI
             spdlog::flush_on(lvl);
         };
 
+        // Presets overwrite every tuning tab (not General/Performance/Integrations); Save to keep.
+        ImGuiMCP::Text("Preset:");
+        constexpr std::pair<const char *, Config::Preset> presets[] = {
+            {"Default", Config::Preset::Default},
+            {"Vanilla+", Config::Preset::VanillaPlus},
+            {"Souls-like", Config::Preset::Soulslike},
+            {"Chaos", Config::Preset::Chaos},
+        };
+        for (const auto &[label, preset] : presets) {
+            ImGuiMCP::SameLine();
+            if (ImGuiMCP::Button(label)) {
+                config.ApplyPreset(preset);
+            }
+        }
+        ImGuiMCP::Separator();
+
         if (ImGuiMCP::BeginTabBar("ECAConfigTabs")) {
             if (ImGuiMCP::BeginTabItem("General")) {
                 ImGuiMCP::Checkbox("Enable plugin", &config.m_general.enablePlugin);
@@ -59,38 +75,50 @@ namespace CombatAI
             }
 
             if (ImGuiMCP::BeginTabItem("Humanizer")) {
+                ImGuiMCP::Text("Combat-entry reaction delay");
                 humanFloat("Base reaction delay (ms)", &config.m_humanizer.baseReactionDelayMs, 0.0f, 500.0f, "%.0f");
                 humanFloat("Reaction variance (ms)", &config.m_humanizer.reactionVarianceMs, 0.0f, 300.0f, "%.0f");
                 humanFloat("Reaction reduction/level (ms)", &config.m_humanizer.reactionDelayReductionPerLevelMs, 0.0f,
                            10.0f);
                 humanFloat("Min reaction delay (ms)", &config.m_humanizer.minReactionDelayMs, 0.0f, 300.0f, "%.0f");
                 ImGuiMCP::Separator();
-                humanFloat("Base mistake chance", &config.m_humanizer.baseMistakeChance, 0.0f, 1.0f);
-                humanFloat("Mistake reduction/level", &config.m_humanizer.mistakeChanceReductionPerLevel, 0.0f, 0.1f,
-                           "%.3f");
-                humanFloat("Min mistake chance", &config.m_humanizer.minMistakeChance, 0.0f, 1.0f);
+                ImGuiMCP::Text("Skill rolls: one roll per opportunity for dodge/parry/block/bash/jump/attacks");
+                if (ImGuiMCP::Checkbox("Enable skill rolls", &config.m_humanizer.enableSkillRolls)) {
+                    config.MarkHumanizerDirty();
+                }
+                humanFloat("Skill at level 1", &config.m_humanizer.skillBase, 0.0f, 1.0f);
+                humanFloat("Skill per level", &config.m_humanizer.skillPerLevel, 0.0f, 0.05f, "%.3f");
+                humanFloat("Skill min", &config.m_humanizer.skillMin, 0.0f, 1.0f);
+                humanFloat("Skill max", &config.m_humanizer.skillMax, 0.0f, 1.0f);
+                humanFloat("Re-roll window (s)", &config.m_humanizer.skillRerollSeconds, 0.1f, 5.0f);
                 ImGuiMCP::Separator();
                 humanFloat("Bash cooldown (s)", &config.m_humanizer.bashCooldownSeconds, 0.0f, 10.0f);
+                humanFloat("Sprint attack cooldown (s)", &config.m_humanizer.sprintAttackCooldownSeconds, 0.0f, 10.0f);
                 humanFloat("Dodge cooldown (s)", &config.m_humanizer.dodgeCooldownSeconds, 0.0f, 10.0f);
                 humanFloat("Jump cooldown (s)", &config.m_humanizer.jumpCooldownSeconds, 0.0f, 10.0f);
-                if (ImGuiMCP::CollapsingHeader("Mistake multipliers")) {
-                    humanFloat("Bash", &config.m_humanizer.bashMistakeMultiplier, 0.0f, 3.0f);
-                    humanFloat("Dodge", &config.m_humanizer.dodgeMistakeMultiplier, 0.0f, 3.0f);
-                    humanFloat("Jump", &config.m_humanizer.jumpMistakeMultiplier, 0.0f, 3.0f);
-                    humanFloat("Strafe", &config.m_humanizer.strafeMistakeMultiplier, 0.0f, 3.0f);
-                    humanFloat("Power attack", &config.m_humanizer.powerAttackMistakeMultiplier, 0.0f, 3.0f);
-                    humanFloat("Attack", &config.m_humanizer.attackMistakeMultiplier, 0.0f, 3.0f);
-                    humanFloat("Sprint attack", &config.m_humanizer.sprintAttackMistakeMultiplier, 0.0f, 3.0f);
-                    humanFloat("Retreat", &config.m_humanizer.retreatMistakeMultiplier, 0.0f, 3.0f);
-                    humanFloat("Backoff", &config.m_humanizer.backoffMistakeMultiplier, 0.0f, 3.0f);
-                    humanFloat("Advancing", &config.m_humanizer.advancingMistakeMultiplier, 0.0f, 3.0f);
-                    humanFloat("Flanking", &config.m_humanizer.flankingMistakeMultiplier, 0.0f, 3.0f);
+                if (ImGuiMCP::CollapsingHeader("Fatigue and panic")) {
+                    if (ImGuiMCP::Checkbox("Enable fatigue", &config.m_humanizer.enableFatigue)) {
+                        config.MarkHumanizerDirty();
+                    }
+                    humanFloat("Fatigue onset (s)", &config.m_humanizer.fatigueOnsetSeconds, 0.0f, 300.0f, "%.0f");
+                    humanFloat("Fatigue full (s)", &config.m_humanizer.fatigueFullSeconds, 1.0f, 600.0f, "%.0f");
+                    humanFloat("Low-stamina threshold", &config.m_humanizer.fatigueStaminaThreshold, 0.0f, 1.0f);
+                    humanFloat("Fatigue skill penalty", &config.m_humanizer.fatigueSkillPenalty, 0.0f, 3.0f);
+                    if (ImGuiMCP::Checkbox("Enable panic", &config.m_humanizer.enablePanic)) {
+                        config.MarkHumanizerDirty();
+                    }
+                    humanFloat("Panic health threshold", &config.m_humanizer.panicHealthThreshold, 0.0f, 1.0f);
+                    humanFloat("Panic skill penalty", &config.m_humanizer.panicSkillPenalty, 0.0f, 3.0f);
                 }
                 ImGuiMCP::EndTabItem();
             }
 
             if (ImGuiMCP::BeginTabItem("Dodge")) {
                 liveFloat("Dodge stamina cost", &config.m_dodgeSystem.dodgeStaminaCost, 0.0f, 100.0f, "%.0f");
+                liveFloat("Forward dodge: max gap beyond reach", &config.m_dodgeSystem.forwardDodgeMaxGap, 0.0f,
+                          1000.0f, "%.0f");
+                liveFloat("Forward dodge: counter window (s)", &config.m_dodgeSystem.forwardDodgeCounterWindowSeconds,
+                          0.0f, 5.0f);
                 liveFloat("I-frame duration (s)", &config.m_dodgeSystem.iFrameDuration, 0.0f, 1.0f);
                 ImGuiMCP::Checkbox("Enable step dodge", &config.m_dodgeSystem.enableStepDodge);
                 ImGuiMCP::Checkbox("Enable dodge attack-cancel", &config.m_dodgeSystem.enableDodgeAttackCancel);
@@ -110,10 +138,13 @@ namespace CombatAI
                           100.0f, "%.0f");
                 liveFloat("Interrupt reach multiplier", &config.m_decisionMatrix.interruptReachMultiplier, 0.5f, 3.0f);
                 liveFloat("Evasion min distance", &config.m_decisionMatrix.evasionMinDistance, 0.0f, 600.0f, "%.0f");
+                liveFloat("Jump height", &config.m_decisionMatrix.jumpHeight, 20.0f, 300.0f, "%.0f");
                 liveFloat("Sprint attack min dist", &config.m_decisionMatrix.sprintAttackMinDistance, 0.0f, 800.0f,
                           "%.0f");
                 liveFloat("Sprint attack max dist", &config.m_decisionMatrix.sprintAttackMaxDistance, 0.0f, 1200.0f,
                           "%.0f");
+                liveFloat("Sprint attack launch dist (0 = 3x reach)", &config.m_decisionMatrix.sprintAttackLaunchDistance,
+                          0.0f, 1000.0f, "%.0f");
                 ImGuiMCP::Separator();
                 liveFloat("Stamina threshold", &config.m_decisionMatrix.staminaThreshold, 0.0f, 1.0f);
                 liveFloat("Health threshold", &config.m_decisionMatrix.healthThreshold, 0.0f, 1.0f);
@@ -148,7 +179,6 @@ namespace CombatAI
             }
 
             if (ImGuiMCP::BeginTabItem("Performance")) {
-                ImGuiMCP::Checkbox("Only process combat actors", &config.m_performance.onlyProcessCombatActors);
                 liveFloat("Cleanup interval (s)", &config.m_performance.cleanupInterval, 1.0f, 30.0f, "%.1f");
                 ImGuiMCP::Separator();
                 ImGuiMCP::Text("Adaptive processing interval (LOD)");
@@ -194,6 +224,11 @@ namespace CombatAI
                 liveFloat("Slot window min (s)", &config.m_combatPacing.slotWindowMinSeconds, 0.5f, 10.0f, "%.1f");
                 liveFloat("Slot window max (s)", &config.m_combatPacing.slotWindowMaxSeconds, 0.5f, 12.0f, "%.1f");
                 ImGuiMCP::Checkbox("Pace player target only", &config.m_combatPacing.paceTargetPlayerOnly);
+                liveFloat("Engage margin beyond reach", &config.m_combatPacing.engageMargin, 0.0f, 600.0f, "%.0f");
+                liveFloat("Waiting circle margin beyond reach", &config.m_combatPacing.waitDistanceMargin, 0.0f, 600.0f,
+                          "%.0f");
+                liveFloat("Retaliate min (s)", &config.m_combatPacing.retaliateMinSeconds, 0.0f, 10.0f, "%.1f");
+                liveFloat("Retaliate max (s)", &config.m_combatPacing.retaliateMaxSeconds, 0.0f, 10.0f, "%.1f");
                 ImGuiMCP::EndTabItem();
             }
 
@@ -221,12 +256,58 @@ namespace CombatAI
                 ImGuiMCP::EndTabItem();
             }
 
+            if (ImGuiMCP::BeginTabItem("Tactics")) {
+                ImGuiMCP::Text("Target switching. Applied live.");
+                ImGuiMCP::Checkbox("Enable target switching", &config.m_targetSwitching.enableTargetSwitching);
+                liveFloat("Switch cooldown (s)", &config.m_targetSwitching.switchCooldownSeconds, 0.5f, 30.0f, "%.1f");
+                liveFloat("Retaliate window (s)", &config.m_targetSwitching.retaliateWindowSeconds, 0.1f, 10.0f,
+                          "%.1f");
+                liveFloat("Retaliate chance", &config.m_targetSwitching.retaliateChance, 0.0f, 1.0f);
+                liveFloat("Retaliate max distance", &config.m_targetSwitching.retaliateMaxDistance, 0.0f, 3000.0f,
+                          "%.0f");
+                liveFloat("Finisher health", &config.m_targetSwitching.finisherHealthThreshold, 0.0f, 1.0f);
+                liveFloat("Finisher max distance", &config.m_targetSwitching.finisherMaxDistance, 0.0f, 2000.0f,
+                          "%.0f");
+                liveFloat("Finisher chance", &config.m_targetSwitching.finisherChance, 0.0f, 1.0f);
+                ImGuiMCP::Separator();
+                ImGuiMCP::Text("Armor weight shapes behavior.");
+                ImGuiMCP::Checkbox("Enable armor style", &config.m_armorStyle.enableArmorStyle);
+                liveFloat("Light: evasion bonus", &config.m_armorStyle.lightEvasionBonus, 0.0f, 1.0f);
+                liveFloat("Heavy: evasion penalty", &config.m_armorStyle.heavyEvasionPenalty, 0.0f, 1.0f);
+                liveFloat("Heavy: bash/block bonus", &config.m_armorStyle.heavyGuardBonus, 0.0f, 1.0f);
+                ImGuiMCP::Separator();
+                ImGuiMCP::Text("Followers flank whatever the player is fighting.");
+                ImGuiMCP::Checkbox("Enable follower pincer", &config.m_teamwork.enableFollowerPincer);
+                liveFloat("Follower pincer bonus", &config.m_teamwork.followerPincerBonus, 0.0f, 1.0f);
+                ImGuiMCP::Separator();
+                ImGuiMCP::Text("Sidestep projectiles on course to hit (engine threat list).");
+                ImGuiMCP::Checkbox("Enable projectile dodge", &config.m_projectileAwareness.enableProjectileDodge);
+                liveFloat("Projectile: react from (s)", &config.m_projectileAwareness.reactMinSeconds, 0.0f, 2.0f);
+                liveFloat("Projectile: react until (s)", &config.m_projectileAwareness.reactMaxSeconds, 0.05f, 3.0f);
+                liveFloat("Projectile: dodge chance", &config.m_projectileAwareness.dodgeChance, 0.0f, 1.0f);
+                liveFloat("Projectile: hit margin", &config.m_projectileAwareness.hitMargin, 0.0f, 200.0f, "%.0f");
+                liveFloat("Projectile: dodge priority", &config.m_projectileAwareness.dodgePriority, 0.0f, 5.0f);
+                ImGuiMCP::Separator();
+                ImGuiMCP::Text("Shapes the attacks vanilla AI picks (chance multipliers).");
+                ImGuiMCP::Checkbox("Enable vanilla attack shaping", &config.m_vanillaAttacks.enable);
+                liveFloat("Veto after our defense (s)", &config.m_vanillaAttacks.defenseVetoSeconds, 0.0f, 3.0f);
+                liveFloat("Opening: power attack x", &config.m_vanillaAttacks.openingPowerMult, 0.0f, 5.0f);
+                liveFloat("Opening: normal attack x", &config.m_vanillaAttacks.openingNormalMult, 0.0f, 5.0f);
+                liveFloat("Target blocking: power attack x", &config.m_vanillaAttacks.blockedPowerMult, 0.0f, 5.0f);
+                liveFloat("Target blocking: normal attack x", &config.m_vanillaAttacks.blockedNormalMult, 0.0f, 5.0f);
+                ImGuiMCP::EndTabItem();
+            }
+
             if (ImGuiMCP::BeginTabItem("Integrations")) {
                 ImGuiMCP::Text("Applied on game load - restart to re-detect mods.");
                 ImGuiMCP::Checkbox("CPR integration", &config.m_modIntegrations.enableCPRIntegration);
-                ImGuiMCP::Checkbox("BFCO integration", &config.m_modIntegrations.enableBFCOIntegration);
                 ImGuiMCP::Checkbox("Precision integration", &config.m_modIntegrations.enablePrecisionIntegration);
                 ImGuiMCP::Checkbox("TK Dodge integration", &config.m_modIntegrations.enableTKDodgeIntegration);
+                ImGuiMCP::Separator();
+                ImGuiMCP::Text("SCAR (live): patched movesets keep SCAR's attack selection.");
+                ImGuiMCP::Checkbox("SCAR integration", &config.m_modIntegrations.enableSCARIntegration);
+                liveFloat("SCAR combo window (s)", &config.m_modIntegrations.scarComboWindowSeconds, 1.0f, 120.0f);
+                liveFloat("SCAR stall fallback (s)", &config.m_modIntegrations.scarStallSeconds, 0.5f, 15.0f);
                 ImGuiMCP::EndTabItem();
             }
 

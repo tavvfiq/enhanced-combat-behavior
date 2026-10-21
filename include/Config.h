@@ -24,29 +24,34 @@ namespace CombatAI
 
         struct HumanizerSettings
         {
+            // One-time delay before an actor that just entered combat acts
             float baseReactionDelayMs = 200.0f;            // Base delay at level 1
             float reactionDelayReductionPerLevelMs = 2.0f; // Reduce delay by 2ms per level
             float minReactionDelayMs = 50.0f;              // Minimum possible delay
             float reactionVarianceMs = 100.0f;
 
-            float baseMistakeChance = 0.5f;               // 50% chance at level 1
-            float mistakeChanceReductionPerLevel = 0.01f; // Reduce chance by 1% per level
-            float minMistakeChance = 0.0f;                // Minimum mistake chance
+            // Skill rolls: deliberate actions roll once per opportunity (see Humanizer)
+            bool enableSkillRolls = true;
+            float skillBase = 0.55f;          // Chance at level 1
+            float skillPerLevel = 0.008f;     // Added per level above 1
+            float skillMin = 0.2f;
+            float skillMax = 0.95f;
+            float skillRerollSeconds = 1.0f;  // Openings that aren't one swing re-roll this often
             float bashCooldownSeconds = 3.0f;
+            float sprintAttackCooldownSeconds = 3.0f;
             float dodgeCooldownSeconds = 2.0f;
             float jumpCooldownSeconds = 3.0f;
-            // Action-specific mistake chance multipliers
-            float bashMistakeMultiplier = 0.5f;
-            float dodgeMistakeMultiplier = 1.5f;
-            float jumpMistakeMultiplier = 1.5f;
-            float strafeMistakeMultiplier = 1.2f;
-            float powerAttackMistakeMultiplier = 1.0f;
-            float attackMistakeMultiplier = 0.8f;
-            float sprintAttackMistakeMultiplier = 1.2f;
-            float retreatMistakeMultiplier = 0.3f;
-            float backoffMistakeMultiplier = 0.5f;
-            float advancingMistakeMultiplier = 0.7f;
-            float flankingMistakeMultiplier = 1.0f;
+
+            // Fatigue: long fights and low stamina make the actor sloppier
+            bool enableFatigue = true;
+            float fatigueOnsetSeconds = 45.0f;     // Combat time before fatigue starts building
+            float fatigueFullSeconds = 180.0f;     // Combat time at full fatigue
+            float fatigueStaminaThreshold = 0.25f; // Below this stamina fraction, fatigue rises to full at 0
+            float fatigueSkillPenalty = 0.5f;      // Failure chance x(1 + this) at full fatigue
+            // Panic: low health makes everything except retreating sloppier
+            bool enablePanic = true;
+            float panicHealthThreshold = 0.3f; // Below this health fraction, panic rises to full at 0
+            float panicSkillPenalty = 0.75f;   // Failure chance x(1 + this) at full panic
         };
 
         struct DodgeSystemSettings
@@ -55,6 +60,21 @@ namespace CombatAI
             float iFrameDuration = 0.3f;
             bool enableStepDodge = false;
             bool enableDodgeAttackCancel = true;
+            // Forward dodge only closes the last stretch: up to this far beyond attack reach
+            float forwardDodgeMaxGap = 200.0f;
+            // Counter: dodge in when the target is recovering from a swing we evaded this recently
+            float forwardDodgeCounterWindowSeconds = 1.5f;
+            // Animation events sent per dodge direction (TK Dodge RE by default). Another dodge
+            // framework's events can go here; the fallback is tried when the graph rejects one.
+            std::string eventForward = "TKDodgeForward";
+            std::string eventBack = "TKDodgeBack";
+            std::string eventLeft = "TKDodgeLeft";
+            std::string eventRight = "TKDodgeRight";
+            std::string eventFallback;
+            // Stamina an NPC must have to start a dodge, without being charged it (for dodge
+            // frameworks that charge their own cost). The check uses the larger of this and the cost.
+            float minDodgeStamina = 0.0f;
+            float RequiredStamina() const { return (std::max)(dodgeStaminaCost, minDodgeStamina); }
         };
 
         struct DecisionMatrixSettings
@@ -67,6 +87,7 @@ namespace CombatAI
             float jumpEvasionDistanceMin = 500.0f;
             float jumpEvasionDistanceMax = 1500.0f;
             float evasionJumpChance = 0.5f;
+            float jumpHeight = 100.0f; // Jump apex height in game units
             float staminaThreshold = 0.2f;
             float healthThreshold = 0.3f;
             bool enableSurvivalRetreat = true;
@@ -75,6 +96,7 @@ namespace CombatAI
             float offenseReachSafetyMargin = 20.0f;
             bool enableSprintAttack = true; // Master toggle for NPC sprint (gap-closer) attacks
             bool enableSprintCharge = true; // Sprint toward target while advancing (gap-close)
+            float sprintAttackLaunchDistance = 0.0f; // Launch only while sprinting and this close; 0 = 3 x weapon reach
             float sprintAttackMinDistance = 300.0f;
             float sprintAttackMaxDistance = 800.0f;
             float attackStaminaCost =
@@ -115,7 +137,6 @@ namespace CombatAI
 
         struct PerformanceSettings
         {
-            bool onlyProcessCombatActors = true;
             float cleanupInterval = 5.0f;
             std::uint32_t maxActorsPerFrame = 0;
 
@@ -129,9 +150,11 @@ namespace CombatAI
         struct ModIntegrationSettings
         {
             bool enableCPRIntegration = true;
-            bool enableBFCOIntegration = true;
             bool enablePrecisionIntegration = true;
             bool enableTKDodgeIntegration = true;
+            bool enableSCARIntegration = true;
+            float scarComboWindowSeconds = 20.0f; // A SCAR_ComboStart this recent marks the moveset as SCAR-driven
+            float scarStallSeconds = 3.0f;        // SCAR actor wanting to attack this long without one: we attack
         };
 
         struct ParrySettings
@@ -168,6 +191,10 @@ namespace CombatAI
             float slotWindowMinSeconds = 2.0f;   // Min time a slot is held before rotating
             float slotWindowMaxSeconds = 4.0f;   // Max time a slot is held before rotating
             bool paceTargetPlayerOnly = true;    // Only pace attacks against the player
+            float engageMargin = 150.0f;         // Within reach + this (or attacking) = engaging, needs a slot
+            float waitDistanceMargin = 120.0f;   // Waiting NPCs circle at reach + this
+            float retaliateMinSeconds = 1.0f;    // A waiting NPC hit by its target may fight back
+            float retaliateMaxSeconds = 3.0f;    // for a random time in this range
         };
 
         // Damage momentum: NPC aggression scales with how hard its recent hits landed.
@@ -190,6 +217,65 @@ namespace CombatAI
             bool enableCliffSafeDodge = true;       // Never dodge off a ledge/cliff
             float dodgeLedgeProbeDistance = 180.0f; // How far ahead a dodge is assumed to land (game units)
             float dodgeMaxDrop = 200.0f;            // Drop beyond this below the landing spot = treat as cliff
+        };
+
+        // Target switching: turn on whoever just hit us, or finish off a nearly dead enemy.
+        struct TargetSwitchingSettings
+        {
+            bool enableTargetSwitching = true;
+            float switchCooldownSeconds = 5.0f;   // Min time between switch rolls per actor
+            float retaliateWindowSeconds = 2.0f;  // A hit counts this long after it lands
+            float retaliateChance = 0.5f;         // Chance to turn on the attacker
+            float retaliateMaxDistance = 600.0f;  // Ignore attackers farther than this (archers/mages)
+            float finisherHealthThreshold = 0.25f; // Enemy health fraction that counts as "nearly dead"
+            float finisherMaxDistance = 500.0f;   // Only switch to nearby finishers
+            float finisherChance = 0.35f;         // Chance to switch to a nearly dead enemy
+        };
+
+        // Behavior shaped by the armor class worn on the body slot.
+        struct ArmorStyleSettings
+        {
+            bool enableArmorStyle = true;
+            float lightEvasionBonus = 0.15f;   // Light armor: more dodge/strafe/jump/flank
+            float heavyEvasionPenalty = 0.2f;  // Heavy armor: less dodge/strafe/jump
+            float heavyGuardBonus = 0.15f;     // Heavy armor: more bash/timed block
+        };
+
+        // Followers treat the player as their flanking partner.
+        struct TeamworkSettings
+        {
+            bool enableFollowerPincer = true;
+            float followerPincerBonus = 0.3f; // Extra flanking priority when the player engages the target
+        };
+
+        // Sidestep projectiles on course to hit the actor (engine threat list).
+        struct ProjectileAwarenessSettings
+        {
+            bool enableProjectileDodge = true;
+            float reactMinSeconds = 0.2f;  // Closer than this to impact: too late to react
+            float reactMaxSeconds = 0.9f;  // Farther than this: not yet
+            float dodgeChance = 0.6f;      // Rolled once per projectile
+            float hitMargin = 40.0f;       // Extra radius counted as "on course"
+            float dodgePriority = 2.2f;    // Beats melee evasion (~1.5-2.2) and offense
+        };
+
+        // Shapes the attacks the vanilla melee AI picks (per-attack chance multipliers).
+        struct VanillaAttackSettings
+        {
+            bool enable = true;
+            float defenseVetoSeconds = 0.6f; // No vanilla attack this long after our dodge/block/parry/retreat
+            float openingPowerMult = 2.0f;   // Target staggered, recovering or casting
+            float openingNormalMult = 1.5f;
+            float blockedPowerMult = 1.5f;   // Target blocking and facing us: power attacks break guard
+            float blockedNormalMult = 0.25f; // ... normal attacks just bounce
+        };
+
+        enum class Preset
+        {
+            Default,
+            VanillaPlus,
+            Soulslike,
+            Chaos
         };
 
         static Config &GetInstance()
@@ -215,6 +301,16 @@ namespace CombatAI
 
         // Get settings
         const GeneralSettings &GetGeneral() const { return m_general; }
+
+        // Per-actor debug logs only follow the actor selected in the console
+        bool IsDebugTarget(RE::FormID a_formID) const
+        {
+            if (!m_general.enableDebugLog || a_formID == 0) {
+                return false;
+            }
+            const auto selected = RE::Console::GetSelectedRef();
+            return selected && selected->GetFormID() == a_formID;
+        }
         const HumanizerSettings &GetHumanizer() const { return m_humanizer; }
         const DodgeSystemSettings &GetDodgeSystem() const { return m_dodgeSystem; }
         const DecisionMatrixSettings &GetDecisionMatrix() const { return m_decisionMatrix; }
@@ -226,6 +322,15 @@ namespace CombatAI
         const CombatPacingSettings &GetCombatPacing() const { return m_combatPacing; }
         const DamageMomentumSettings &GetDamageMomentum() const { return m_damageMomentum; }
         const EnvSensorSettings &GetEnvSensor() const { return m_envSensor; }
+        const TargetSwitchingSettings &GetTargetSwitching() const { return m_targetSwitching; }
+        const ArmorStyleSettings &GetArmorStyle() const { return m_armorStyle; }
+        const TeamworkSettings &GetTeamwork() const { return m_teamwork; }
+        const VanillaAttackSettings &GetVanillaAttacks() const { return m_vanillaAttacks; }
+        const ProjectileAwarenessSettings &GetProjectileAwareness() const { return m_projectileAwareness; }
+
+        // Overwrite the tuning sections with a preset (General, Performance and mod
+        // integrations are kept). Marks the humanizer dirty; does not save.
+        void ApplyPreset(Preset a_preset);
 
         // Check if plugin is enabled
         bool IsEnabled() const { return m_general.enablePlugin; }
@@ -247,6 +352,11 @@ namespace CombatAI
         void ReadCombatPacingSettings(CSimpleIniA &a_ini);
         void ReadDamageMomentumSettings(CSimpleIniA &a_ini);
         void ReadEnvSensorSettings(CSimpleIniA &a_ini);
+        void ReadTargetSwitchingSettings(CSimpleIniA &a_ini);
+        void ReadArmorStyleSettings(CSimpleIniA &a_ini);
+        void ReadTeamworkSettings(CSimpleIniA &a_ini);
+        void ReadVanillaAttackSettings(CSimpleIniA &a_ini);
+        void ReadProjectileAwarenessSettings(CSimpleIniA &a_ini);
 
         GeneralSettings m_general;
         HumanizerSettings m_humanizer;
@@ -260,6 +370,11 @@ namespace CombatAI
         CombatPacingSettings m_combatPacing;
         DamageMomentumSettings m_damageMomentum;
         EnvSensorSettings m_envSensor;
+        TargetSwitchingSettings m_targetSwitching;
+        ArmorStyleSettings m_armorStyle;
+        TeamworkSettings m_teamwork;
+        VanillaAttackSettings m_vanillaAttacks;
+        ProjectileAwarenessSettings m_projectileAwareness;
 
         std::atomic<bool> m_humanizerDirty{false};
     };

@@ -68,7 +68,7 @@ namespace CombatAI
         // Check stamina
         auto actorValueOwner = ActorUtils::SafeAsActorValueOwner(a_actor);
         float currentStamina = actorValueOwner->GetActorValue(RE::ActorValue::kStamina);
-        if (currentStamina < m_config.dodgeStaminaCost) {
+        if (currentStamina < (std::max)(m_config.dodgeStaminaCost, config.GetDodgeSystem().minDodgeStamina)) {
             return false;
         }
 
@@ -106,8 +106,16 @@ namespace CombatAI
         // Set i-frame duration
         a_actor->SetGraphVariableFloat(RE::BSFixedString("TKDR_IframeDuration"), m_config.iFrameDuration);
 
-        // Trigger dodge animation
+        // Trigger dodge animation; the fallback covers graphs that only take one dodge event
         bool success = a_actor->NotifyAnimationGraph(RE::BSFixedString(dodgeEvent.c_str()));
+        const auto &fallback = ::CombatAI::Config::GetInstance().GetDodgeSystem().eventFallback;
+        if (!success && !fallback.empty() && fallback != dodgeEvent) {
+            success = a_actor->NotifyAnimationGraph(RE::BSFixedString(fallback.c_str()));
+            dodgeEvent = fallback;
+        }
+        if (::CombatAI::Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+            LOG_DEBUG("Dodge 0x{:08X}: event {} {}", a_actor->GetFormID(), dodgeEvent, success ? "accepted" : "rejected");
+        }
 
         // Apply stamina cost if dodge was successful
         // This matches TK Dodge RE's behavior (applies cost when dodge starts)
@@ -171,8 +179,9 @@ namespace CombatAI
 
     std::string DodgeSystem::DetermineDodgeDirection(RE::Actor *a_actor, const RE::NiPoint3 &a_dodgeDirection)
     {
+        const auto &events = ::CombatAI::Config::GetInstance().GetDodgeSystem();
         if (!a_actor) {
-            return "TKDodgeBack";
+            return events.eventBack;
         }
 
         // Get actor's forward vector
@@ -206,13 +215,13 @@ namespace CombatAI
         // Left: -3*PI/4 to -PI/4
 
         if (angleDiff >= -2.0f * PI8 && angleDiff < 2.0f * PI8) {
-            return "TKDodgeForward";
+            return events.eventForward;
         } else if (angleDiff >= 2.0f * PI8 && angleDiff < 6.0f * PI8) {
-            return "TKDodgeRight";
+            return events.eventRight;
         } else if (angleDiff >= -6.0f * PI8 && angleDiff < -2.0f * PI8) {
-            return "TKDodgeLeft";
+            return events.eventLeft;
         } else {
-            return "TKDodgeBack";
+            return events.eventBack;
         }
     }
 

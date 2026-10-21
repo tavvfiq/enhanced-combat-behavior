@@ -3,12 +3,15 @@
 #include "pch.h"
 #include <excpt.h> // SEH (__try/__except, EXCEPTION_EXECUTE_HANDLER)
 #include <optional>
+#include <xmmintrin.h> // _mm_store_ps (reading hkVector4)
 
 namespace CombatAI
 {
-    // Utility functions for safe actor access with built-in error handling
-    // These functions wrap actor property access in try-catch to prevent crashes
-    // from stale actors
+    // Null-checked wrappers for actor access with safe defaults.
+    // NOTE: the plugin builds with /EHsc, so C++ try/catch does NOT catch access
+    // violations from stale game pointers. Guard real fault-prone engine calls with
+    // SEH (__try/__except) in a function holding no C++ objects - see
+    // SEHRequestDetectionLevel below.
 
     namespace ActorUtils
     {
@@ -18,11 +21,7 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                return !a_actor->IsDead() && a_actor->IsInCombat();
-            } catch (...) {
-                return false;
-            }
+            return !a_actor->IsDead() && a_actor->IsInCombat();
         }
 
         // Safe GetFormID - returns optional to handle failures
@@ -31,11 +30,7 @@ namespace CombatAI
             if (!a_actor) {
                 return std::nullopt;
             }
-            try {
-                return a_actor->GetFormID();
-            } catch (...) {
-                return std::nullopt;
-            }
+            return a_actor->GetFormID();
         }
 
         // Safe GetEquippedObject
@@ -44,11 +39,7 @@ namespace CombatAI
             if (!a_actor) {
                 return nullptr;
             }
-            try {
-                return a_actor->GetEquippedObject(a_leftHand);
-            } catch (...) {
-                return nullptr;
-            }
+            return a_actor->GetEquippedObject(a_leftHand);
         }
 
         // Safe AsActorState
@@ -80,11 +71,7 @@ namespace CombatAI
             if (!a_actor) {
                 return nullptr;
             }
-            try {
-                return a_actor->GetActorBase();
-            } catch (...) {
-                return nullptr;
-            }
+            return a_actor->GetActorBase();
         }
 
         // Safe Get3D
@@ -93,11 +80,7 @@ namespace CombatAI
             if (!a_actor) {
                 return nullptr;
             }
-            try {
-                return a_actor->Get3D();
-            } catch (...) {
-                return nullptr;
-            }
+            return a_actor->Get3D();
         }
 
         // Horizontal body radius (game units) from the actor's bounding box.
@@ -110,19 +93,15 @@ namespace CombatAI
             if (!a_actor) {
                 return kDefaultRadius;
             }
-            try {
-                RE::NiPoint3 boundMax = a_actor->GetBoundMax();
-                RE::NiPoint3 boundMin = a_actor->GetBoundMin();
-                float halfX = (boundMax.x - boundMin.x) * 0.5f;
-                float halfY = (boundMax.y - boundMin.y) * 0.5f;
-                float radius = (halfX > halfY) ? halfX : halfY;
-                if (radius < kMinRadius) {
-                    return kMinRadius;
-                }
-                return radius;
-            } catch (...) {
-                return kDefaultRadius;
+            RE::NiPoint3 boundMax = a_actor->GetBoundMax();
+            RE::NiPoint3 boundMin = a_actor->GetBoundMin();
+            float halfX = (boundMax.x - boundMin.x) * 0.5f;
+            float halfY = (boundMax.y - boundMin.y) * 0.5f;
+            float radius = (halfX > halfY) ? halfX : halfY;
+            if (radius < kMinRadius) {
+                return kMinRadius;
             }
+            return radius;
         }
 
         // Safe WhoIsCasting
@@ -131,11 +110,7 @@ namespace CombatAI
             if (!a_actor) {
                 return 0;
             }
-            try {
-                return a_actor->WhoIsCasting();
-            } catch (...) {
-                return 0;
-            }
+            return a_actor->WhoIsCasting();
         }
 
         // Safe SetGraphVariableBool
@@ -144,11 +119,7 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                return a_actor->SetGraphVariableBool(a_varName, a_value);
-            } catch (...) {
-                return false;
-            }
+            return a_actor->SetGraphVariableBool(a_varName, a_value);
         }
 
         // Safe SetGraphVariableFloat
@@ -157,11 +128,7 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                return a_actor->SetGraphVariableFloat(a_varName, a_value);
-            } catch (...) {
-                return false;
-            }
+            return a_actor->SetGraphVariableFloat(a_varName, a_value);
         }
 
         // Safe SetGraphVariableInt
@@ -170,11 +137,7 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                return a_actor->SetGraphVariableInt(a_varName, a_value);
-            } catch (...) {
-                return false;
-            }
+            return a_actor->SetGraphVariableInt(a_varName, a_value);
         }
 
         // Safe GetGraphVariableBool
@@ -183,11 +146,7 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                return a_actor->GetGraphVariableBool(a_varName, a_outValue);
-            } catch (...) {
-                return false;
-            }
+            return a_actor->GetGraphVariableBool(a_varName, a_outValue);
         }
 
         // Safe NotifyAnimationGraph
@@ -196,12 +155,8 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                RE::BSFixedString eventName(a_eventName);
-                return a_actor->NotifyAnimationGraph(eventName);
-            } catch (...) {
-                return false;
-            }
+            RE::BSFixedString eventName(a_eventName);
+            return a_actor->NotifyAnimationGraph(eventName);
         }
 
         // Safe GetAttackState
@@ -210,13 +165,9 @@ namespace CombatAI
             if (!a_actor) {
                 return RE::ATTACK_STATE_ENUM::kNone;
             }
-            try {
-                RE::ActorState *state = SafeAsActorState(a_actor);
+            RE::ActorState *state = SafeAsActorState(a_actor);
                 if (state) {
-                    return state->GetAttackState();
-                }
-            } catch (...) {
-                // Actor access failed
+                return state->GetAttackState();
             }
             return RE::ATTACK_STATE_ENUM::kNone;
         }
@@ -227,13 +178,9 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                RE::ActorState *state = SafeAsActorState(a_actor);
+            RE::ActorState *state = SafeAsActorState(a_actor);
                 if (state) {
-                    return state->IsSprinting();
-                }
-            } catch (...) {
-                // Actor access failed
+                return state->IsSprinting();
             }
             return false;
         }
@@ -244,13 +191,9 @@ namespace CombatAI
             if (!a_actor) {
                 return;
             }
-            try {
-                RE::ActorState *state = SafeAsActorState(a_actor);
+            RE::ActorState *state = SafeAsActorState(a_actor);
                 if (state) {
-                    state->actorState1.sprinting = a_sprinting ? 1 : 0;
-                }
-            } catch (...) {
-                // Actor access failed
+                state->actorState1.sprinting = a_sprinting ? 1 : 0;
             }
         }
 
@@ -260,11 +203,7 @@ namespace CombatAI
             if (!a_actor) {
                 return std::nullopt;
             }
-            try {
-                return a_actor->GetPosition();
-            } catch (...) {
-                return std::nullopt;
-            }
+            return a_actor->GetPosition();
         }
 
         // Safe IsDead
@@ -273,11 +212,7 @@ namespace CombatAI
             if (!a_actor) {
                 return true; // Consider null as dead
             }
-            try {
-                return a_actor->IsDead();
-            } catch (...) {
-                return true; // On error, assume dead to be safe
-            }
+            return a_actor->IsDead();
         }
 
         // Safe IsInCombat
@@ -286,11 +221,7 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                return a_actor->IsInCombat();
-            } catch (...) {
-                return false;
-            }
+            return a_actor->IsInCombat();
         }
 
         // Safe IsHostileToActor
@@ -299,11 +230,7 @@ namespace CombatAI
             if (!a_actor || !a_target) {
                 return false;
             }
-            try {
-                return a_actor->IsHostileToActor(a_target);
-            } catch (...) {
-                return false;
-            }
+            return a_actor->IsHostileToActor(a_target);
         }
 
         // RequestDetectionLevel runs the game's detection calc, which walks actor/process
@@ -335,11 +262,7 @@ namespace CombatAI
             if (!a_actor) {
                 return 1; // Default level
             }
-            try {
-                return a_actor->GetLevel();
-            } catch (...) {
-                return 1; // Default level on error
-            }
+            return a_actor->GetLevel();
         }
 
         // Safe IsPlayerRef
@@ -348,11 +271,7 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                return a_actor->IsPlayerRef();
-            } catch (...) {
-                return false;
-            }
+            return a_actor->IsPlayerRef();
         }
 
         // Liveness guards. An actor can be in combat yet mid-teardown (3D unloaded,
@@ -364,11 +283,7 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                return a_actor->Is3DLoaded();
-            } catch (...) {
-                return false;
-            }
+            return a_actor->Is3DLoaded();
         }
 
         inline bool SafeIsDeleted(RE::Actor *a_actor)
@@ -376,11 +291,7 @@ namespace CombatAI
             if (!a_actor) {
                 return true;
             }
-            try {
-                return a_actor->IsDeleted();
-            } catch (...) {
-                return true;
-            }
+            return a_actor->IsDeleted();
         }
 
         inline bool SafeIsDisabled(RE::Actor *a_actor)
@@ -388,11 +299,7 @@ namespace CombatAI
             if (!a_actor) {
                 return true;
             }
-            try {
-                return a_actor->IsDisabled();
-            } catch (...) {
-                return true;
-            }
+            return a_actor->IsDisabled();
         }
 
         // Safe HasKeywordString
@@ -401,11 +308,7 @@ namespace CombatAI
             if (!a_actor || !a_keyword) {
                 return false;
             }
-            try {
-                return a_actor->HasKeywordString(a_keyword);
-            } catch (...) {
-                return false;
-            }
+            return a_actor->HasKeywordString(a_keyword);
         }
 
         // Safe CalculateCachedOwnerIsNPC
@@ -414,11 +317,7 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                return a_actor->CalculateCachedOwnerIsNPC();
-            } catch (...) {
-                return false;
-            }
+            return a_actor->CalculateCachedOwnerIsNPC();
         }
 
         // Safe IsAIEnabled
@@ -427,11 +326,7 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                return a_actor->IsAIEnabled();
-            } catch (...) {
-                return false;
-            }
+            return a_actor->IsAIEnabled();
         }
 
         // Safe HasMagicEffect - Check if actor has a specific magic effect active
@@ -440,15 +335,11 @@ namespace CombatAI
             if (!a_actor || !a_effect) {
                 return false;
             }
-            try {
-                auto magicTarget = a_actor->GetMagicTarget();
-                if (!magicTarget) {
-                    return false;
-                }
-                return magicTarget->HasMagicEffect(a_effect);
-            } catch (...) {
+            auto magicTarget = a_actor->GetMagicTarget();
+            if (!magicTarget) {
                 return false;
             }
+            return magicTarget->HasMagicEffect(a_effect);
         }
 
         // Safe IsBlocking
@@ -457,11 +348,7 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                return a_actor->IsBlocking();
-            } catch (...) {
-                return false;
-            }
+            return a_actor->IsBlocking();
         }
 
         // Safe IsAttacking
@@ -470,11 +357,7 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                return a_actor->IsAttacking();
-            } catch (...) {
-                return false;
-            }
+            return a_actor->IsAttacking();
         }
 
         // Safe IsWalking
@@ -483,13 +366,9 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                RE::ActorState *state = SafeAsActorState(a_actor);
-                if (state) {
-                    return state->IsWalking();
-                }
-            } catch (...) {
-                // Actor access failed
+            RE::ActorState *state = SafeAsActorState(a_actor);
+            if (state) {
+                return state->IsWalking();
             }
             return false;
         }
@@ -500,13 +379,9 @@ namespace CombatAI
             if (!a_actor) {
                 return RE::KNOCK_STATE_ENUM::kNormal;
             }
-            try {
-                RE::ActorState *state = SafeAsActorState(a_actor);
-                if (state) {
-                    return state->GetKnockState();
-                }
-            } catch (...) {
-                // Actor access failed - common when actor is transitioning states
+            RE::ActorState *state = SafeAsActorState(a_actor);
+            if (state) {
+                return state->GetKnockState();
             }
             return RE::KNOCK_STATE_ENUM::kNormal;
         }
@@ -517,11 +392,7 @@ namespace CombatAI
             if (!a_actor) {
                 return nullptr;
             }
-            try {
-                return a_actor->GetActorRuntimeData().combatController;
-            } catch (...) {
-                return nullptr;
-            }
+            return a_actor->GetActorRuntimeData().combatController;
         }
 
         // Safe IsFleeing (from CombatController)
@@ -530,13 +401,9 @@ namespace CombatAI
             if (!a_actor) {
                 return false;
             }
-            try {
-                RE::CombatController *combatController = SafeGetCombatController(a_actor);
-                if (combatController) {
-                    return combatController->IsFleeing();
-                }
-            } catch (...) {
-                // Combat controller access failed
+            RE::CombatController *combatController = SafeGetCombatController(a_actor);
+            if (combatController) {
+                return combatController->IsFleeing();
             }
             return false;
         }
@@ -547,30 +414,29 @@ namespace CombatAI
             if (!a_actor) {
                 return std::nullopt;
             }
-            try {
-                return a_actor->GetHeading(a_absolute);
-            } catch (...) {
-                return std::nullopt;
-            }
+            return a_actor->GetHeading(a_absolute);
         }
 
-        // Safe ApplyVelocity - Direct Physics Control
-        inline void SafeApplyVelocity(RE::Actor *a_actor, const RE::NiPoint3 &a_velocity)
+        // Direct physics control: set the controller's horizontal velocity.
+        // a_velocity is in game units/s (Z ignored); the controller takes Havok units/s
+        // (game units * world scale, ~1/70). The current vertical speed is kept so this
+        // never cancels gravity, falling, or a jump in progress.
+        inline void SafeApplyHorizontalVelocity(RE::Actor *a_actor, const RE::NiPoint3 &a_velocity)
         {
             if (!a_actor) {
                 return;
             }
-            try {
-                RE::bhkCharacterController *charController = a_actor->GetCharController();
-                if (charController) {
-                    // Convert NiPoint3 to hkVector4 (Skyrim uses Havok physics)
-                    // Quads must be 16-byte aligned, hkVector4 handles this
-                    RE::hkVector4 hkVel(a_velocity.x, a_velocity.y, a_velocity.z, 0.0f);
-                    charController->SetLinearVelocityImpl(hkVel);
-                }
-            } catch (...) {
-                // Physics access failed
+            RE::bhkCharacterController *charController = a_actor->GetCharController();
+            if (!charController) {
+                return;
             }
+            RE::hkVector4 current{};
+            charController->GetLinearVelocityImpl(current);
+            alignas(16) float v[4]{};
+            _mm_store_ps(v, current.quad);
+            const float vz = std::isfinite(v[2]) ? v[2] : 0.0f;
+            const float scale = RE::bhkWorld::GetWorldScale();
+            charController->SetLinearVelocityImpl(RE::hkVector4(a_velocity.x * scale, a_velocity.y * scale, vz, 0.0f));
         }
     } // namespace ActorUtils
 } // namespace CombatAI

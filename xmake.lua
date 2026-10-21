@@ -8,7 +8,7 @@ includes("extern/styyx-util")
 
 -- set project
 set_project("EnhancedCombatAI")
-set_version("1.9.0")
+set_version("1.10.2")
 set_license("GPL-3.0")
 
 -- set defaults

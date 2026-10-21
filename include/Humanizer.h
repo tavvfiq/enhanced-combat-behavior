@@ -1,61 +1,45 @@
 #pragma once
 
+#include "ActorStateData.h"
+#include "Config.h"
 #include "DecisionResult.h"
 #include "ThreadSafeMap.h"
 #include "pch.h"
-#include <chrono>
-#include <unordered_map>
+#include <atomic>
 
 namespace CombatAI
 {
-    // Manages organic feel: reaction latency, mistakes, cooldowns
+    // Organic feel: a one-time combat-entry reaction delay, skill rolls and cooldowns.
+    //
+    // Skill rolls replace per-tick "mistakes" and the delay on every action change (both
+    // mostly added stutter and ate timing windows). A deliberate action (dodge, parry, timed
+    // block, bash, jump, attacks, feint) rolls once per opportunity - one incoming swing, or
+    // one offense window - and a failed roll lets that opportunity pass: a real mistake.
+    // Movement never rolls.
     class Humanizer
     {
       public:
-        struct Config
-        {
-            float baseReactionDelayMs = 200.0f;            // Base delay at level 1
-            float reactionDelayReductionPerLevelMs = 2.0f; // Reduce delay by 2ms per level
-            float minReactionDelayMs = 50.0f;              // Minimum possible delay
-            float reactionVarianceMs = 100.0f;
-
-            float baseMistakeChance = 0.5f;               // 50% chance at level 1
-            float mistakeChanceReductionPerLevel = 0.01f; // Reduce chance by 1% per level
-            float minMistakeChance = 0.0f;                // Minimum mistake chance
-            float bashCooldownSeconds = 3.0f;
-            float dodgeCooldownSeconds = 2.0f;
-            float jumpCooldownSeconds = 3.0f;
-            // Action-specific mistake chance multipliers (applied to base mistake chance)
-            float bashMistakeMultiplier = 0.5f;         // Bash is easier, lower mistake chance
-            float dodgeMistakeMultiplier = 1.5f;        // Dodge requires timing, higher mistake chance
-            float jumpMistakeMultiplier = 1.5f;         // Jump requires timing, higher mistake chance
-            float strafeMistakeMultiplier = 1.2f;       // Strafe is moderately difficult
-            float powerAttackMistakeMultiplier = 1.0f;  // Power attack is standard difficulty
-            float attackMistakeMultiplier = 0.8f;       // Regular attack is easier
-            float sprintAttackMistakeMultiplier = 1.2f; // Sprint attack requires timing
-            float retreatMistakeMultiplier = 0.3f;      // Retreat is easy, very low mistake chance
-            float backoffMistakeMultiplier = 0.5f;      // Backoff is relatively easy
-            float advancingMistakeMultiplier = 0.7f;    // Advancing is moderately easy
-            float flankingMistakeMultiplier = 1.0f;     // Flanking is tactical but requires coordination
-        };
+        using Settings = Config::HumanizerSettings;
 
         Humanizer() = default;
         ~Humanizer() = default;
 
-        // Check if actor can react (reaction delay)
-        bool CanReact(RE::Actor *a_actor, RE::FormID a_formID, float a_deltaTime);
+        // Combat-entry reaction delay: false until the actor has been in combat for one rolled delay
+        bool CanReact(RE::Actor *a_actor, RE::FormID a_formID);
 
-        // Check if actor should make a mistake (based on level and action type)
-        bool ShouldMakeMistake(RE::Actor *a_actor, ActionType a_action);
+        // Skill roll for a deliberate action, cached per opportunity. True = go ahead
+        // (also for actions that never roll).
+        bool PassesSkillCheck(RE::Actor *a_actor, RE::FormID a_formID, ActionType a_action,
+                              const ActorStateData &a_state, float a_combatTime);
+
+        // Skill chance for this actor right now (level, fatigue, panic)
+        float SkillChance(RE::Actor *a_actor, ActionType a_action, float a_combatTime, const SelfState &a_self) const;
 
         // Check if action is on cooldown
         bool IsOnCooldown(RE::FormID a_formID, ActionType a_action);
 
         // Mark action as used (start cooldown)
         void MarkActionUsed(RE::FormID a_formID, ActionType a_action);
-
-        // Reset reaction state (call after action is executed)
-        void ResetReactionState(RE::Actor *a_actor);
 
         // Update internal state (call per frame)
         void Update(float a_deltaTime);
@@ -66,57 +50,57 @@ namespace CombatAI
         // Emergency recovery: clear corrupted maps if they become unusable
         void RecoverFromCorruption();
 
+        void Evict(RE::FormID a_formID) { m_skillRolls.Erase(a_formID); }
+
         // Configuration
-        void SetConfig(const Config &a_config) { m_config = a_config; }
-        const Config &GetConfig() const { return m_config; }
+        void SetConfig(const Settings &a_config) { m_config = a_config; }
+        const Settings &GetConfig() const { return m_config; }
 
       private:
+        // Times are seconds on m_time (advanced in Update)
         struct ActorReactionState
         {
-            float reactionTimer = 0.0f;
-            float reactionDelay = 0.0f;
-            bool canReact = false;
+            float entryReadyTime = -1.0f; // Combat-entry delay ends here (-1 = not rolled yet)
         };
+
+        // Last roll per action class, valid while the opportunity key matches
+        struct SkillState
+        {
+            std::uint64_t defenseKey = 0;
+            bool defensePassed = false;
+            std::uint64_t offenseKey = 0;
+            bool offensePassed = false;
+        };
+
+        std::atomic<float> m_time{0.0f};
 
         struct ActorCooldownState
         {
             ThreadSafeMap<ActionType, float> cooldowns;
 
-            // Default constructor
             ActorCooldownState() = default;
-
-            // Move constructor (needed because ThreadSafeMap is non-copyable)
             ActorCooldownState(ActorCooldownState &&) = default;
             ActorCooldownState &operator=(ActorCooldownState &&) = default;
-
-            // Delete copy constructor (ThreadSafeMap is non-copyable)
             ActorCooldownState(const ActorCooldownState &) = delete;
             ActorCooldownState &operator=(const ActorCooldownState &) = delete;
         };
 
-        Config m_config;
+        Settings m_config;
 
-        // Per-actor reaction states (keyed by FormID for safety - FormIDs don't become invalid like pointers)
-        // Thread-safe to prevent crashes from concurrent access
         ThreadSafeMap<RE::FormID, ActorReactionState> m_reactionStates;
-
-        // Per-actor cooldowns (keyed by FormID for safety)
-        // Thread-safe to prevent crashes from concurrent access
+        ThreadSafeMap<RE::FormID, SkillState> m_skillRolls;
         ThreadSafeMap<RE::FormID, ActorCooldownState> m_cooldownStates;
 
-        // Calculate mistake probability based on level and action type
-        float CalculateMistakeChance(std::uint16_t a_level, ActionType a_action) const;
+        // Extra skill penalty from fatigue (combat time, low stamina) and panic (low health)
+        float CalculateStress(ActionType a_action, float a_combatTime, const SelfState &a_self) const;
 
-        // Initialize reaction delay for actor (scales with level)
-        void InitializeReactionDelay(RE::Actor *a_actor);
+        // Level-scaled delay plus random variance, in seconds
+        float RollReactionDelaySeconds(RE::Actor *a_actor) const;
 
         // Calculate reaction delay based on actor level
         float CalculateReactionDelay(std::uint16_t a_level) const;
 
         // Get cooldown duration for an action type
         float GetCooldownForAction(ActionType a_action) const;
-
-        // Get mistake chance multiplier for an action type
-        float GetMistakeMultiplierForAction(ActionType a_action) const;
     };
 } // namespace CombatAI

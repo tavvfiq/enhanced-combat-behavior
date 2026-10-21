@@ -45,7 +45,8 @@ namespace ECA_API
         Feint,        // 11
         Flanking,     // 12
         Parry,        // 13
-        TimedBlock    // 14
+        TimedBlock,   // 14
+        ForwardDodge  // 15
     };
 
     struct Vector3

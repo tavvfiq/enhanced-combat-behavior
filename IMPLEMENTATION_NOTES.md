@@ -122,7 +122,7 @@ See `HOOK_PATTERN_EXPLANATION.md` for detailed comparison of pre-hook vs post-ho
 - **Purpose**: Enhanced attack animations and state management
 - **Method**: Animation events (BFCOAttackStart_Comb, attackStartSprint) and graph variables
 - **Usage**: Automatically detected and used for attack animations
-- **Documentation**: See `BFCO_INTEGRATION.md`
+- **Removed (2026-10-14)**: the graph variables it set don't exist in BFCO 3.x and the power-attack path sent a normal attack; attacks now use the vanilla events every framework takes over from
 
 ### TK Dodge RE
 - **Purpose**: Evasion system for dodging attacks
@@ -212,7 +212,6 @@ src/
 - `brief.md` - Project brief and goals
 - `role.md` - Development guidelines
 - `CPR_INTEGRATION.md` - Combat Pathing Revolution integration guide
-- `BFCO_INTEGRATION.md` - BFCO attack framework integration guide
 - `DODGE_INTEGRATION.md` - TK Dodge integration guide
 - `PRECISION_INTEGRATION.md` - Precision mod integration guide
 - `COMBAT_STYLE_ENHANCEMENT.md` - Combat style enhancement system

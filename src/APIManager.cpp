@@ -48,7 +48,7 @@ namespace CombatAI
         std::shared_lock lock(m_mutex);
         for (const auto &[handle, callback] : m_callbacks) {
             if (callback) {
-                // Wrap in try-catch to protect against external crashes
+                // Listener callbacks are third-party code: keep a C++ exception from escaping into the game
                 try {
                     callback(a_actor, data);
                 } catch (...) {

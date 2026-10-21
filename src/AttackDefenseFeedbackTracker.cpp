@@ -235,17 +235,13 @@ namespace CombatAI
 
         // Sample the target's current health fraction (for damage-momentum). -1 = unknown.
         float currentHealthPct = -1.0f;
-        try {
-            auto avo = ActorUtils::SafeAsActorValueOwner(a_target);
-            if (avo) {
-                float mx = a_target->GetActorValueMax(RE::ActorValue::kHealth);
-                float cur = avo->GetActorValue(RE::ActorValue::kHealth);
-                if (mx > 0.0f) {
-                    currentHealthPct = cur / mx;
-                }
+        auto avo = ActorUtils::SafeAsActorValueOwner(a_target);
+        if (avo) {
+            float mx = a_target->GetActorValueMax(RE::ActorValue::kHealth);
+            float cur = avo->GetActorValue(RE::ActorValue::kHealth);
+            if (mx > 0.0f) {
+                currentHealthPct = cur / mx;
             }
-        } catch (...) {
-            currentHealthPct = -1.0f;
         }
 
         // Damage momentum: sample on EVERY confirmed hit (the TESHitEvent already proved
@@ -345,7 +341,7 @@ namespace CombatAI
                     // If attempt is old enough and hasn't been matched, it's a miss
                     if (age >= MISS_DETECTION_TIME && !attempt.matchedParry && !attempt.matchedTimedBlock &&
                         !attempt.matchedHit) {
-                        if (Config::GetInstance().GetGeneral().enableDebugLog) {
+                        if (Config::GetInstance().IsDebugTarget(attackerFormID)) {
                             LOG_DEBUG("Unmatched attack timeout: actor=0x{:08X} target=0x{:08X} power={} "
                                       "reachSource={} reach={:.1f} targetRadius={:.1f} distance={:.1f} "
                                       "threshold={:.1f} overshoot={:.1f}",

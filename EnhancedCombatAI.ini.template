@@ -15,63 +15,47 @@ EnableDebugLog = false
 ProcessingInterval = 0.1
 
 [Humanizer]
-# Base reaction delay in milliseconds (delay at level 1, reduced per level)
-# NPCs wait this long before reacting to threats
+# One-time reaction delay (ms) before an NPC that just entered combat acts.
+# Delay = BaseReactionDelayMs - level * ReactionDelayReductionPerLevelMs (never below
+# MinReactionDelayMs), plus up to ReactionVarianceMs of random variance.
 BaseReactionDelayMs = 200.0
-
-# Random variance added to reaction delay (0-100ms)
-# Makes reactions feel more organic
 ReactionVarianceMs = 100.0
-
-# Reaction delay reduction per level in milliseconds
-# Delay reduced by this amount for each level above 1
-# Formula: Delay = Base - (Level * Reduction)
 ReactionDelayReductionPerLevelMs = 2.0
-
-# Minimum reaction delay in milliseconds
-# Delay will never go below this value
 MinReactionDelayMs = 50.0
 
-# Mistake probability at level 1 (0.0 to 1.0)
-# This is the starting mistake chance for level 1 NPCs
-BaseMistakeChance = 0.5
+# Skill rolls. A deliberate action (dodge, parry, timed block, bash, jump, attack,
+# power/sprint attack, feint) rolls once per opportunity: one roll covers a whole
+# incoming swing; other openings re-roll every SkillRerollSeconds. A failed roll lets
+# that opportunity pass (the NPC eats that hit / misses that opening). Movement never
+# rolls; projectile sidesteps use [ProjectileAwareness] DodgeChance instead.
+# Skill = SkillBase + SkillPerLevel * (level - 1), clamped to SkillMin..SkillMax,
+# then fatigue/panic raise the failure chance (below).
+EnableSkillRolls = true
+SkillBase = 0.55
+SkillPerLevel = 0.008
+SkillMin = 0.2
+SkillMax = 0.95
+SkillRerollSeconds = 1.0
 
-# Mistake chance reduction per level
-# Chance reduced by this amount for each level above 1
-# Formula: Chance = Base - (Level * Reduction)
-MistakeChanceReductionPerLevel = 0.01
-
-# Minimum mistake chance (0.0 to 1.0)
-# Mistake chance will never go below this value
-MinMistakeChance = 0.0
-
-# Bash cooldown in seconds
-# Prevents bash spam
+# Cooldowns (seconds) - prevent spam
 BashCooldownSeconds = 3.0
-
-# Dodge cooldown in seconds
-# Prevents dodge spam
+SprintAttackCooldownSeconds = 3.0
 DodgeCooldownSeconds = 2.0
-
-# Jump cooldown in seconds
-# Prevents jump spam
 JumpCooldownSeconds = 3.0
 
-# Action-specific mistake chance multipliers
-# These multiply the base mistake chance (from level) for each action type
-# Lower values = fewer mistakes for that action, higher values = more mistakes
-# Values typically range from 0.0 to 3.0
-BashMistakeMultiplier = 0.5
-DodgeMistakeMultiplier = 1.5
-JumpMistakeMultiplier = 1.5
-StrafeMistakeMultiplier = 1.2
-PowerAttackMistakeMultiplier = 1.0
-AttackMistakeMultiplier = 0.8
-SprintAttackMistakeMultiplier = 1.2
-RetreatMistakeMultiplier = 0.3
-BackoffMistakeMultiplier = 0.5
-AdvancingMistakeMultiplier = 0.7
-FlankingMistakeMultiplier = 1.0
+# Fatigue: long fights and low stamina raise the failure chance, up to x(1 + FatigueSkillPenalty)
+EnableFatigue = true
+# Combat time (seconds) before fatigue starts, and when it is full
+FatigueOnsetSeconds = 45.0
+FatigueFullSeconds = 180.0
+# Below this stamina fraction fatigue rises, reaching full at 0 stamina
+FatigueStaminaThreshold = 0.25
+FatigueSkillPenalty = 0.5
+
+# Panic: low health raises the failure chance (not retreating), up to x(1 + PanicSkillPenalty)
+EnablePanic = true
+PanicHealthThreshold = 0.3
+PanicSkillPenalty = 0.75
 
 [DodgeSystem]
 # Stamina cost for dodging
@@ -87,6 +71,27 @@ EnableStepDodge = false
 
 # Allow dodging during attacks (attack cancel)
 EnableDodgeAttackCancel = true
+# Forward dodge (TK Dodge) closes the last stretch only: when the target is at most this
+# far beyond attack reach (game units) and open - casting, drawing a bow, recovering
+# from a swing, staggered, fleeing or facing away. Never at a ready, facing target.
+ForwardDodgeMaxGap = 200.0
+# Counter: also dodge in when the target is recovering from a swing the NPC evaded
+# (dodge/jump) within this many seconds.
+ForwardDodgeCounterWindowSeconds = 1.5
+
+# Animation events sent per dodge direction. Defaults are TK Dodge RE's. Another dodge
+# framework can be used by naming its events, e.g. The Ultimate Dodge Mod:
+#   Forward = ForwardRollStart, Back = BackwardRollStart, Left = Left_RollStart,
+#   Right = Right_RollStart, Fallback = RollStart (and DodgeStaminaCost = 0, TUDM charges its own)
+DodgeEventForward = TKDodgeForward
+DodgeEventBack = TKDodgeBack
+DodgeEventLeft = TKDodgeLeft
+DodgeEventRight = TKDodgeRight
+# Tried when the graph rejects the direction's event. Empty = no second try.
+DodgeEventFallback =
+# Stamina an NPC needs to start a dodge, without being charged it (the larger of this and
+# DodgeStaminaCost is checked). For dodge frameworks that charge their own cost, e.g. TUDM.
+MinDodgeStamina = 0.0
 
 [DecisionMatrix]
 # Priority 1: Interrupt (Counter-Play)
@@ -120,6 +125,9 @@ JumpEvasionDistanceMax = 1500.0
 # Chance to perform a jump evasion instead of a dodge (0.0 to 1.0)
 EvasionJumpChance = 0.5
 
+# Jump apex height in game units (20 to 300). Player jump is roughly 100.
+JumpHeight = 100.0
+
 # Priority 3: Survival (Fallback)
 # Stamina threshold percentage (0.0 to 1.0)
 # NPCs will retreat when stamina falls below this
@@ -140,6 +148,9 @@ EnableOffense = true
 # Higher values = more aggressive attacks
 OffenseReachMultiplier = 1.0
 
+# Units subtracted from the reach padding so NPCs commit only when clearly in range
+OffenseReachSafetyMargin = 20.0
+
 # Enable NPC sprint (gap-closer) attacks
 # If false, NPCs will advance/run toward the target instead of sprint attacking
 EnableSprintAttack = true
@@ -148,6 +159,11 @@ EnableSprintAttack = true
 # When advancing, melee NPCs sprint toward the target to close distance (then let
 # CPR/vanilla path the charge). If false, advancing only sets CPR advance radii.
 EnableSprintCharge = true
+# Sprint attacks only launch while the NPC is actually sprinting (CPR sprints it beyond its
+# outer advance radius, which is kept at this distance) and the target is within this
+# distance (center to center, game units). 0 = 3 x weapon reach. Whether it goes for it
+# is the humanizer skill roll.
+SprintAttackLaunchDistance = 0.0
 
 # Minimum distance for sprint attack (game units)
 SprintAttackMinDistance = 220.0
@@ -233,10 +249,6 @@ FlankingAttackBonus = 0.3
 AllyCoverBonus = 0.2
 
 [Performance]
-# Only process actors in combat
-# Set to false to process all actors (not recommended)
-OnlyProcessCombatActors = true
-
 # Cleanup interval in seconds
 # How often to clean up invalid actor references
 CleanupInterval = 5.0
@@ -278,10 +290,6 @@ ProcessingIntervalFar = 0.5
 # CPR provides enhanced movement control (circling, fallback, advance)
 EnableCPRIntegration = true
 
-# Enable BFCO Attack Framework integration
-# If false, BFCO features will not be used even if BFCO is installed
-# BFCO provides enhanced attack animations
-EnableBFCOIntegration = true
 
 # Enable Precision mod integration
 # If false, will use fallback weapon reach calculations
@@ -292,6 +300,17 @@ EnablePrecisionIntegration = true
 # If false, NPCs will not use TK Dodge for evasion
 # TK Dodge provides dodge/evasion animations
 EnableTKDodgeIntegration = true
+
+# SCAR (Skyrim Combos AI Revolution). Auto-detected via SCAR.dll.
+# Movesets patched for SCAR raise SCAR_ComboStart; on those NPCs SCAR picks normal/power
+# attacks and this mod handles defense, movement and sprint attacks. Unpatched movesets
+# keep this mod's offense.
+EnableSCARIntegration = true
+# A SCAR_ComboStart within this many seconds marks the NPC's moveset as SCAR-driven
+SCARComboWindowSeconds = 20.0
+# Badly patched movesets: if a SCAR NPC wants to attack this long without attacking,
+# this mod attacks for it
+SCARStallSeconds = 3.0
 
 [Parry]
 # Enable parry mechanism (timed bash for parrying incoming attacks)
@@ -402,6 +421,20 @@ SlotWindowMaxSeconds = 4.0
 # to NPC-vs-NPC fights.
 PaceTargetPlayerOnly = true
 
+# An NPC needs a slot once it is engaging: attacking (its own AI, SCAR or this mod) or
+# within its attack reach + EngageMargin of the target. NPCs without a slot wait their
+# turn: they circle at reach + WaitDistanceMargin (or back off if already inside reach),
+# their vanilla attacks are vetoed, and a swing already in progress is never cancelled.
+# SCAR movesets choose their own attacks; keeping waiters outside their lunge range is
+# what stops them, so raise WaitDistanceMargin if SCAR NPCs still lunge from the ring.
+EngageMargin = 150.0
+WaitDistanceMargin = 120.0
+
+# A waiting NPC that gets hit by its target may fight back for a random time in this
+# range (no free hits on enemies waiting their turn)
+RetaliateMinSeconds = 1.0
+RetaliateMaxSeconds = 3.0
+
 [DamageMomentum]
 # NPC aggression scales with how hard its recent hits land. Big hits (large chunk of
 # the target's health) -> press the advantage (offensive). Chip damage -> cautious and
@@ -428,3 +461,73 @@ MomentumDecaySeconds = 5.0
 
 # Smoothing of the per-hit damage fraction (0.0-1.0; higher = reacts faster)
 EwmaAlpha = 0.5
+
+[TargetSwitching]
+# NPCs turn on whoever just hit them, or switch to a nearly dead enemy nearby.
+# Each actor rolls at most once per SwitchCooldownSeconds.
+EnableTargetSwitching = true
+SwitchCooldownSeconds = 5.0
+# A hit can provoke a switch for this long after it lands
+RetaliateWindowSeconds = 2.0
+RetaliateChance = 0.5
+# Ignore attackers farther than this (game units), e.g. archers across the room
+RetaliateMaxDistance = 600.0
+# An enemy at or below this health fraction counts as "nearly dead"
+FinisherHealthThreshold = 0.25
+FinisherMaxDistance = 500.0
+FinisherChance = 0.35
+
+[ArmorStyle]
+# Body armor weight shapes behavior. Light: more dodge/strafe/jump/flank.
+# Heavy: fewer dodges, more bash and timed block. Clothing/none: unchanged.
+EnableArmorStyle = true
+LightEvasionBonus = 0.15
+HeavyEvasionPenalty = 0.2
+HeavyGuardBonus = 0.15
+
+[Teamwork]
+# Followers treat the player as their flanking partner and circle around
+# whatever the player is fighting.
+EnableFollowerPincer = true
+# Extra flanking priority when the target is engaged with the player
+FollowerPincerBonus = 0.3
+
+[VanillaAttacks]
+# Shapes the attacks the vanilla melee AI picks. The engine still chooses and plays the
+# moveset's own attack data; these multiply each candidate attack's chance (0 = never).
+# Not used on SkyrimVR. NPCs on SCAR-patched movesets keep SCAR's attack choice.
+EnableVanillaAttackShaping = true
+# No vanilla attack this long after this mod makes the NPC dodge, block, parry or retreat
+DefenseVetoSeconds = 0.6
+# Target staggered, recovering from an attack, or casting
+OpeningPowerMult = 2.0
+OpeningNormalMult = 1.5
+# Target blocking and facing the attacker: power attacks break guard, normal ones bounce
+BlockedPowerMult = 1.5
+BlockedNormalMult = 0.25
+
+[ProjectileAwareness]
+# NPCs sidestep (TK Dodge) projectiles on course to hit them: arrows, bolts, spell
+# projectiles, flame streams. Read from the engine's own combat threat list. The usual
+# dodge cooldown and stamina cost still apply; DodgeChance replaces the skill roll.
+EnableProjectileDodge = true
+# React only when impact is this many seconds away (closer = too late, farther = not yet).
+# An arrow at 3000 u/s crosses 600-2700 units in this window.
+ReactMinSeconds = 0.2
+ReactMaxSeconds = 0.9
+# Chance to react to a given projectile (rolled once per projectile)
+DodgeChance = 0.6
+# Extra radius (game units) counted as "on course to hit"
+HitMargin = 40.0
+# Decision priority; melee evasion is ~1.5-2.2
+DodgePriority = 2.2
+
+[EnvSensor]
+# Don't swing at a target behind a wall/railing (line-of-sight ray at torso height)
+EnableLosGate = true
+LosEyeHeight = 96.0
+# Never dodge or strafe off a ledge: probe for ground where the move would land, and treat
+# a drop deeper than DodgeMaxDrop as a cliff
+EnableCliffSafeDodge = true
+DodgeLedgeProbeDistance = 180.0
+DodgeMaxDrop = 200.0

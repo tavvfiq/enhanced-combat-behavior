@@ -39,12 +39,12 @@ Section `[ModIntegrations]`. These auto-detect, but set them explicitly so your 
 
 | Setting | Turn on when you run… |
 |---|---|
-| `EnableBFCOIntegration` | BFCO / MCO (via BFCO) / any MCO-framework attacks |
 | `EnablePrecisionIntegration` | Precision (strongly recommended for everyone) |
 | `EnableCPRIntegration` | Combat Pathing Revolution (adds circling / fallback / advance) |
 | `EnableTKDodgeIntegration` | TK Dodge RE (lets NPCs dodge) |
+| `EnableSCARIntegration` | SCAR - patched movesets keep SCAR's attack choice; unpatched ones use this mod's offense (live, no restart) |
 
-If you run **MCO without BFCO's NPC attack framework**, keep `EnableBFCOIntegration = true` anyway — the mod falls back gracefully and still drives normal/power attacks; it just won't fire BFCO-specific directional attacks.
+Attack frameworks (MCO, BFCO, SCAR movesets) need no setting: the mod starts attacks with the vanilla events (`attackStart`, `attackPowerStartInPlace`, `attackStartSprint`) and the framework's behavior takes over from there.
 
 ---
 
@@ -88,10 +88,10 @@ Tuning these live in the menu is the fastest way to find a feel — sliders upda
 
 Section `[Humanizer]`. This is combat *feel*, independent of your combat overhaul.
 
-- **`BaseReactionDelayMs`** — delay before reacting (at level 1, shrinks with NPC level). Lower = sharper/harder. `150–200` is a good band.
-- **`MinMistakeChance`** — floor on mistake chance so even max-level NPCs occasionally slip. `0.0` = robotic-perfect elites; `0.05` = they stay human.
+- **Skill** (`SkillBase`, `SkillPerLevel`, `SkillMin`, `SkillMax`) — chance an NPC acts on an opportunity (defends a swing, takes an opening). Rolled once per opportunity; a failure lets it pass. Lower = easier. `SkillMax < 1` keeps elites fallible.
+- **`BaseReactionDelayMs`** — one-time delay before an NPC that just entered combat acts.
 - **Cooldowns** (`BashCooldownSeconds`, `DodgeCooldownSeconds`) — prevent spam. Lower bash cooldown = more counter-play.
-- **Mistake multipliers** — per-action error scaling. Raise `DodgeMistakeMultiplier` if NPCs dodge too perfectly, etc.
+- **Fatigue / panic** (`FatigueSkillPenalty`, `PanicSkillPenalty`) — long fights, low stamina and low health lower skill.
 
 ---
 
@@ -112,7 +112,7 @@ EnableSprintAttackStaminaCheck = true
 
 [Humanizer]
 BaseReactionDelayMs = 180.0
-MinMistakeChance    = 0.05
+SkillMax            = 0.9
 BashCooldownSeconds = 2.5
 
 [ScoringWeights]
@@ -133,7 +133,7 @@ EnableSprintAttackStaminaCheck = true
 
 [Humanizer]
 BaseReactionDelayMs = 180.0
-MinMistakeChance    = 0.05
+SkillMax            = 0.9
 BashCooldownSeconds = 2.5
 
 [ScoringWeights]
@@ -151,7 +151,7 @@ EnableEvasionDodge = true
 
 [Humanizer]
 BaseReactionDelayMs = 120.0
-MinMistakeChance    = 0.0
+SkillBase           = 0.7
 BashCooldownSeconds = 2.0
 DodgeCooldownSeconds = 1.5
 
@@ -160,7 +160,7 @@ EvasionDodgeBase   = 1.5
 OpeningRiskPenalty = 0.5
 BackoffBase        = 1.9
 ```
-Rationale: fast reactions, no mistakes, more spacing/dodging and interrupts. Pair with a higher `OffenseReachMultiplier` from preset A/B for your combat base.
+Rationale: high skill, more spacing/dodging and interrupts. Pair with a higher `OffenseReachMultiplier` from preset A/B for your combat base.
 
 ---
 
@@ -172,7 +172,7 @@ Rationale: fast reactions, no mistakes, more spacing/dodging and interrupts. Pai
 | NPCs attack from visibly too far | Lower `OffenseReachMultiplier`. |
 | Too passive / circle forever | Raise `AttackBase` / `SprintAttackBase`; lower `EvasionDodgeBase`, `OpeningRiskPenalty`. |
 | Too aggressive / suicidal | Raise `OpeningRiskPenalty`, `EvasionDodgeBase`, `BackoffBase`; enable stamina checks. |
-| Feels robotic | Raise `MinMistakeChance` (e.g. `0.05`) and `BaseReactionDelayMs`. |
+| Feels robotic | Lower `SkillMax` (e.g. `0.85`) so even elites miss some openings. |
 | Sprint attacks look janky (vanilla) | `EnableSprintAttack = false`. |
 
 To diagnose reach/range issues, set `EnableDebugLog = true` and read the per-actor lines in `Documents\My Games\Skyrim Special Edition\SKSE\EnhancedCombatAI.log`: `RangeCat`, `InAtkRange`, `WeaponReach`, and `TargetBoundRadius` tell you exactly what the AI thinks the geometry is.
