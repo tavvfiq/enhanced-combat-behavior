@@ -8,7 +8,7 @@
  */
 namespace ECA_API
 {
-    constexpr const auto PluginName = "EnhancedCombatAI";
+    constexpr const auto PluginName = "CombatAITree";
     constexpr const auto PluginAuthor = "tavvfiq";
 
     // Available interface versions

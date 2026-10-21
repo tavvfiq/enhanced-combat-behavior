@@ -7,6 +7,7 @@
 #include "EngineProbes.h"
 #include "ProjectileAwareness.h"
 #include "GuardCounterFeedbackTracker.h"
+#include "Intents.h"
 #include "Logger.h"
 #include "ModEventSinks.h"
 #include "ParryFeedbackTracker.h"
@@ -594,6 +595,7 @@ namespace CombatAI
         m_executor.EvictActor(a_formID);
         ProjectileAwareness::GetInstance().Evict(a_formID);
         VanillaAttackShaper::GetInstance().Evict(a_formID);
+        Intents::Evict(a_formID);
         m_observer.EvictActor(a_formID);
     }
 

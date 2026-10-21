@@ -1,3 +1,5 @@
+> **CombatAITree 0.1.0** - fork of EnhancedCombatAI that executes attacks, blocks and bashes through its own behavior trees (vanilla leaf nodes) instead of raw animation events. See `TREE_DESIGN.md` and `CHANGELOG.md`. Do not install alongside EnhancedCombatAI or FenixCombatAI.
+
 # EnhancedCombatAI
 
 A SKSE plugin that enhances Skyrim's combat AI to make NPCs more reactive and tactical, moving beyond probability-based combat styles.

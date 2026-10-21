@@ -288,10 +288,10 @@ namespace CombatAI
         Config &operator=(const Config &) = delete;
 
         // Load configuration from INI file
-        bool Load(const std::string &a_filePath = "Data/SKSE/Plugins/EnhancedCombatAI.ini");
+        bool Load(const std::string &a_filePath = "Data/SKSE/Plugins/CombatAITree.ini");
 
         // Save current configuration back to the INI file (used by the runtime menu)
-        bool Save(const std::string &a_filePath = "Data/SKSE/Plugins/EnhancedCombatAI.ini");
+        bool Save(const std::string &a_filePath = "Data/SKSE/Plugins/CombatAITree.ini");
 
         // Humanizer settings are copied into the Humanizer at init, so changes made at
         // runtime must be re-applied on the game thread. The menu marks them dirty;

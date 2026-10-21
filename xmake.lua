@@ -7,8 +7,8 @@ includes(path.join(commonlibsse_ng_dir, "xmake.lua"))
 includes("extern/styyx-util")
 
 -- set project
-set_project("EnhancedCombatAI")
-set_version("1.10.2")
+set_project("CombatAITree")
+set_version("0.1.0")
 set_license("GPL-3.0")
 
 -- set defaults
@@ -28,7 +28,7 @@ add_requires("simpleini")
 add_requires("spdlog v1.16.0", { configs = { header_only = false, wchar = true, std_format = true } })
 
 -- targets
-target("EnhancedCombatAI")
+target("CombatAITree")
 -- add dependencies to target
 add_deps("commonlibsse-ng")
 add_deps("styyx-util")
@@ -43,9 +43,9 @@ end
 
 -- add commonlibsse-ng plugin
 add_rules("commonlibsse-ng.plugin", {
-    name = "EnhancedCombatAI",
+    name = "CombatAITree",
     author = "tavvfiq",
-    description = "enhanced combat ai for skyrim"
+    description = "combat ai on custom behavior trees (fork of EnhancedCombatAI)"
 })
 
 

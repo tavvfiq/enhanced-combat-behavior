@@ -57,9 +57,8 @@ namespace CombatAI
         {
             LOG_INFO("Installing hooks...");
 
-            // Get trampoline
+            // Trampoline is allocated once in SKSEPlugin_Load (the tree hooks need it before kDataLoaded)
             auto &trampoline = SKSE::GetTrampoline();
-            trampoline.create(128);
 
             // Hook Character::Update at vtable index 0xAD (inspired by ProjectGapClose)
             // Using RE::Character instead of RE::Actor for more reliable hooking

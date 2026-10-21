@@ -1,5 +1,25 @@
 # Changelog
 
+## CombatAITree 0.1.0 (2026-10-22) - fork of EnhancedCombatAI 1.10.2
+
+First version of the in-tree actuator (design: `TREE_DESIGN.md`).
+
+- **Our own Melee and Block behavior trees** replace the vanilla tree builders (SE 48151/46640,
+  AE 49182/47843). They are built from vanilla node classes (node layer ported from FenixCombatAI-NG),
+  so vanilla's Attack, Special Attack, Block, Block Attack and Bash nodes execute every action:
+  real `TESActionData` actions, proper attack data, vanilla's Action-resource arbitration.
+- **Intent board** (`Intents.h`): the brain's Attack / PowerAttack / Bash / Parry / TimedBlock
+  decisions post a one-shot intent instead of sending raw `attackStart`, `attackPowerStartInPlace`,
+  `bashStart` or `blockStart` animation events. The intent branch sits first in its tree.
+- **Attack kind**: an intent-driven attack only picks attack data of the requested kind (light or
+  power) through the existing attack-chance hook, and always passes the vanilla roll.
+- **Vanilla behaviour without intents**: every other branch rolls vanilla's own chance function,
+  rescaled because our trees re-read every 0.05 s instead of 0.25 s (same per-second rate).
+- Renamed: `CombatAITree.dll`, `CombatAITree.log`, `CombatAITree.ini`, API plugin name `CombatAITree`.
+  Do not install together with EnhancedCombatAI or FenixCombatAI (both replace the same trees).
+- Unchanged for now (still the old actuator): movement (CPR graph variables), dodge, jump, feint,
+  forward dodge and sprint attack (`attackStartSprint`).
+
 ## Recent Updates
 
 ### Action Types

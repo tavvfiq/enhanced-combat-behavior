@@ -3,6 +3,7 @@
 #include "ActorUtils.h"
 #include "AttackCoordinator.h"
 #include "Config.h"
+#include "Intents.h"
 #include "Logger.h"
 #include "SCARIntegration.h"
 #include "pch.h"
@@ -54,6 +55,21 @@ namespace CombatAI
     float VanillaAttackShaper::Adjust(RE::Actor *a_attacker, RE::Actor *a_target, RE::BGSAttackData *a_data,
                                       float a_chance)
     {
+        // An attack the brain asked for (taken by our Melee tree) picks only attack data of its
+        // kind, and 1.0 passes StartAttack's second roll. No match leaves no candidate, which
+        // StartAttack handles as a clean failure (SE 48139+0x328).
+        if (a_attacker && a_data && a_chance > 0.0f) {
+            const auto committed = Intents::CommittedAttack(a_attacker);
+            if (committed != Intents::Attack::None) {
+                const auto flags = a_data->data.flags;
+                const bool power = flags.any(RE::AttackData::AttackFlag::kPowerAttack);
+                const bool wanted = !flags.any(RE::AttackData::AttackFlag::kBashAttack) &&
+                                    power == (committed == Intents::Attack::Power);
+                return Logged(a_attacker, a_data, a_chance, wanted ? 1.0f : 0.0f,
+                              wanted ? "intent" : "intent: other kind");
+            }
+        }
+
         const auto &settings = Config::GetInstance().GetVanillaAttacks();
         if (!settings.enable || a_chance <= 0.0f || !a_attacker || !a_target || !a_data) {
             return a_chance;

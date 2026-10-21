@@ -1,4 +1,5 @@
 #include "ActionExecutor.h"
+#include "Intents.h"
 #include "ActorUtils.h"
 #include "Config.h"
 #include "EnvSensor.h"
@@ -238,8 +239,8 @@ namespace CombatAI
             return false;
         }
 
-        // Trigger bash animation (regular bash, not parry)
-        return NotifyAnimation(a_actor, "bashStart");
+        // Our Block tree runs the vanilla Bash node (real action, attack data, arbitration)
+        return Intents::PostDefend(a_actor, Intents::Defend::Bash);
     }
 
     bool ActionExecutor::ExecuteParry(RE::Actor *a_actor, const ActorStateData &a_state)
@@ -276,11 +277,9 @@ namespace CombatAI
             }
         }
 
-        // Trigger bash animation for parry
-        // EldenParry mod will automatically detect this via animation events and handle
-        // the parry timing. The decision matrix already evaluated the timing window,
-        // so this bash is timed correctly for parrying.
-        return NotifyAnimation(a_actor, "bashStart");
+        // Parry = a timed bash. The decision matrix already timed it; our Block tree runs the
+        // vanilla Bash node as soon as it re-reads (every 0.05 s).
+        return Intents::PostDefend(a_actor, Intents::Defend::Bash);
     }
 
     bool ActionExecutor::ExecuteTimedBlock(RE::Actor *a_actor, const ActorStateData &a_state)
@@ -324,10 +323,8 @@ namespace CombatAI
             }
         }
 
-        // Trigger block animation/state
-        // Simple Timed Block mod will automatically detect hits during the window
-        // and handle the timed block success (damage prevention, stagger, etc.)
-        return NotifyAnimation(a_actor, "blockStart");
+        // Our Block tree runs the vanilla Block node; the timed-block window above is already applied
+        return Intents::PostDefend(a_actor, Intents::Defend::Block);
     }
 
     bool ActionExecutor::ExecuteDodge(RE::Actor *a_actor, const ActorStateData &a_state)
@@ -792,7 +789,7 @@ namespace CombatAI
         }
 
         // The vanilla event; MCO, BFCO and SCAR movesets all take over from it
-        return NotifyAnimation(a_actor, "attackStart");
+        return Intents::PostAttack(a_actor, Intents::Attack::Light); // run by our Melee tree
     }
 
     bool ActionExecutor::ExecutePowerAttack(RE::Actor *a_actor, const ActorStateData &a_state)
@@ -825,10 +822,8 @@ namespace CombatAI
             }
         }
 
-        // The vanilla power-attack event (attackPowerStartInPlace/Forward/Backward/Left/Right
-        // exist in the behavior graph; there is no "powerAttack" event). Framework movesets
-        // take over from it like they do from "attackStart".
-        return NotifyAnimation(a_actor, "attackPowerStartInPlace");
+        // Our Melee tree runs the vanilla Attack node, restricted to power attack data
+        return Intents::PostAttack(a_actor, Intents::Attack::Power);
     }
 
     bool ActionExecutor::ExecuteJump(RE::Actor *a_actor, const ActorStateData &a_state)

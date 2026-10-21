@@ -5,6 +5,7 @@
 #include "ConfigMenu.h"
 #include "Hooks.h"
 #include "Logger.h"
+#include "Trees.h"
 #include "pch.h"
 
 extern "C" __declspec(dllexport) void *__cdecl RequestPluginAPI(ECA_API::InterfaceVersion a_interfaceVersion)
@@ -21,18 +22,19 @@ extern "C" __declspec(dllexport) void *__cdecl RequestPluginAPI(ECA_API::Interfa
 extern "C" __declspec(dllexport) bool __cdecl SKSEPlugin_Load(const SKSE::LoadInterface *a_skse)
 {
     // Initialize SKSE
-    SKSE::Init(a_skse);
+    // One trampoline for every hook (tree builders at load, the rest at kDataLoaded)
+    SKSE::Init(a_skse, {.trampoline = true, .trampolineSize = 256});
 
     auto logsFolder = SKSE::log::log_directory();
     if (!logsFolder)
         SKSE::stl::report_and_fail("SKSE log_directory not provided, logs disabled.");
-    auto logFilePath = *logsFolder / std::format("{}.log", "EnhancedCombatAI");
+    auto logFilePath = *logsFolder / std::format("{}.log", "CombatAITree");
     auto fileLoggerPtr = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFilePath.string(), true);
     auto loggerPtr = std::make_shared<spdlog::logger>("log", std::move(fileLoggerPtr));
     spdlog::set_default_logger(std::move(loggerPtr));
 
     // Initialize logger
-    LOG_INFO("EnhancedCombatAI v{} loading...", "1.9.0");
+    LOG_INFO("CombatAITree v{} loading...", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string());
 
     // Load configuration
     auto &config = CombatAI::Config::GetInstance();
@@ -40,9 +42,13 @@ extern "C" __declspec(dllexport) bool __cdecl SKSEPlugin_Load(const SKSE::LoadIn
 
     // Check if plugin is enabled
     if (!config.IsEnabled()) {
-        LOG_INFO("EnhancedCombatAI is disabled in configuration file");
+        LOG_INFO("CombatAITree is disabled in configuration file");
         return true; // Plugin loaded but disabled
     }
+
+    // The engine builds its behavior trees before kDataLoaded, so the tree builders are replaced
+    // here, not with the other hooks.
+    CombatAI::Trees::Install();
 
     // Set debug log level if enabled
     if (config.GetGeneral().enableDebugLog) {
@@ -74,7 +80,7 @@ extern "C" __declspec(dllexport) bool __cdecl SKSEPlugin_Load(const SKSE::LoadIn
         logger::error("Failed to register messaging listener");
     }
 
-    LOG_INFO("EnhancedCombatAI loaded successfully");
+    LOG_INFO("CombatAITree loaded successfully");
 
     return true;
 }

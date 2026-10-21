@@ -1,3 +1,5 @@
+> **CombatAITree fork:** the current plan is `TREE_DESIGN.md` (roadmap section 7). The text below is the original EnhancedCombatAI plan, kept for reference.
+
 # Combat AI Enhancement - Implementation Plan
 
 ## Overview
