@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.3.2 (2026-10-22)
+
+Run 5 (0.3.1): every in-range offense skip (102 of 102) was `line of sight blocked`, so the brain never got to score an attack. Feint dropped out of the decisions (0 picks; it had 198 in run 4).
+- **Line of sight ignores bodies.** The `kLOS` ray hits actors as well as walls, and it reports only the closest hit, so the target's or the attacker's own body read as a wall at melee range. Now an actor hit (self, target or bystander) is not an obstruction; terrain and statics still are. The hit object is resolved with `TESHavokUtilities::FindCollidableRef` (ID 25466/26003, checked on SE, AE 1.6.1170 and 1.7.104).
+- **Debug:** a blocked check logs `LOS 0x..: blocked at F of the ray by <name> 0x<ref>` ("geometry" when the hit has no reference).
 ## CombatAITree 0.3.1 (2026-10-22)
 
 Run 4 (0.3.0, 3 bandits, ~4 min) ran clean, but the brain still never chose an attack: 0 Attack/PowerAttack candidates in 1508 decisions. All 115 bash intents were taken by the tree, and vanilla attacks still ran inside the tree.

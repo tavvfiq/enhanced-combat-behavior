@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.3.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.3.2 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -15,16 +15,16 @@ version so any step can be rolled back.
   taken (115/114). Movement intents ran. Vanilla attacks ran in the tree. **The brain still never picked
   an attack** (0 Attack candidates in 1508 decisions). Feint reset the attack timer (fixed in 0.3.1).
   288 in-range ticks fail on a gate we can't yet see; 0.3.1 logs which one.
-- 0.3.1: build-validated only.
+- 0.3.1, run 5 (~1 min): no errors. Every in-range offense skip was `line of sight blocked` (102/102):
+  the kLOS ray hits bodies. 0.3.2 ignores actor hits.
+- 0.3.2: build-validated only.
 
 **Next (for the user):**
-1. Install 0.3.1 and fight bandits with one selected in the console. Send the log. Look for
-   `Offense 0x..: in range ... but no attack - <reason>`: its count by reason tells the next fix. If
-   the reason is mostly `line of sight blocked`, the LOS ray is hitting the target. Then check the
-   `Intents (last 60s ...)` line for `light`/`power` above 0.
-2. Then (dev): fix that gate; movement preemption probe (TREE_DESIGN §9); own leaf class (§6).
-
-**Last good version:** 0.3.0 (runtime-evidenced, run 4). Before that 0.2.2, then EnhancedCombatAI 1.10.2.
+1. Install 0.3.2, fight bandits with one selected. Expect `post attack 1/2`, `tree took attack`, and
+   `light`/`power` above 0 in the `Intents (last 60s ...)` line. Remaining `Offense ... no attack` reasons
+   and `LOS ... blocked by <name>` lines show whatever still blocks.
+2. Then (dev): movement preemption probe (TREE_DESIGN §9); own leaf class (§6).
+**Last good version:** 0.3.1 (runtime-evidenced, run 5). Then 0.3.0 (run 4). Before that 0.2.2, then EnhancedCombatAI 1.10.2.
 **Log:** `Documents\My Games\Skyrim Special Edition\SKSE\CombatAITree.log`
 (debug lines need `EnableDebugLog = true` under `[General]` in `CombatAITree.ini`, the shipped default;
 they cover the actor selected in the console).

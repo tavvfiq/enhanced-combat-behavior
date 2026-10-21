@@ -1,5 +1,6 @@
 #include "EnvSensor.h"
 #include "ActorUtils.h"
+#include "Config.h"
 #include "pch.h"
 
 namespace CombatAI
@@ -50,6 +51,7 @@ namespace CombatAI
             if (pick.rayOutput.HasHit()) {
                 result.hit = true;
                 result.fraction = pick.rayOutput.hitFraction;
+                result.ref = RE::TESHavokUtilities::FindCollidableRef(*pick.rayOutput.rootCollidable);
             }
 
             return result;
@@ -75,8 +77,14 @@ namespace CombatAI
             RayHit hit = CastRay(a_self, from, to, RE::COL_LAYER::kLOS);
 
             // A static/terrain hit before the target's position = wall between us.
-            // The kLOS filter ignores the target actor itself, so any hit is geometry.
-            return !(hit.hit && hit.fraction < kLosBlockFraction);
+            // kLOS still hits actors (run 5: every in-range check was blocked, 102/102), and the
+            // ray reports only the closest hit, so a body (self, target, bystander) is not a wall.
+            const bool blocked = hit.hit && hit.fraction < kLosBlockFraction && !(hit.ref && hit.ref->As<RE::Actor>());
+            if (blocked && Config::GetInstance().IsDebugTarget(a_self->GetFormID())) {
+                LOG_DEBUG("LOS 0x{:08X}: blocked at {:.2f} of the ray by {} 0x{:08X}", a_self->GetFormID(),
+                          hit.fraction, hit.ref ? hit.ref->GetName() : "geometry", hit.ref ? hit.ref->GetFormID() : 0);
+            }
+            return !blocked;
         }
 
         bool HasGroundAhead(RE::Actor *a_actor, const RE::NiPoint3 &a_horizDir, float a_horizDist, float a_maxDrop)

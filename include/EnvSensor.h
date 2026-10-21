@@ -17,11 +17,12 @@ namespace CombatAI
         {
             bool hit = false;       // something was struck before the ray end
             float fraction = 1.0f;  // 0..1 position of the hit along the ray
+            RE::TESObjectREFR *ref = nullptr;  // what was struck, when it has a reference
         };
 
         // Cast a ray between two world-space points (game units). a_layer selects the
         // collision filter; kLOS collides with terrain/static geometry (what blocks
-        // sight and stands as walkable ground) while ignoring actors and clutter.
+        // sight and stands as walkable ground) - and, run 5 showed, with actors too.
         RayHit CastRay(RE::Actor *a_actor, const RE::NiPoint3 &a_from, const RE::NiPoint3 &a_to,
                        RE::COL_LAYER a_layer = RE::COL_LAYER::kLOS);
 
