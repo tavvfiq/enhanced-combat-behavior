@@ -23,7 +23,8 @@ namespace CombatAI::Intents
         Bash
     };
 
-    // Brain side. Always succeeds; the tree decides when (and whether) it can act on it.
+    // Brain side. False if the same intent is still pending: the tree hasn't been able to run it yet,
+    // so the brain must not count it as executed again (the old raw events failed the same way).
     bool PostAttack(RE::Actor *a_actor, Attack a_kind);
     bool PostDefend(RE::Actor *a_actor, Defend a_kind);
 

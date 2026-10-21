@@ -91,10 +91,14 @@ namespace CombatAI::Trees
             return !a_me || Intents::HasPending(a_me) ? 0.0f : Rescaled(Vanilla1(kBlockChance, a_me));
         }
 
-        // Post-block counter bash: one roll when a block ends, as in vanilla, so no rescale.
+        // Post-block counter bash: one roll when a block ends, as in vanilla, so no rescale. A bash
+        // the brain asked for while the Block node was holding fires here, as the block ends.
         float VanillaCounterBash(RE::Actor *a_me, RE::Actor *a_target)
         {
-            return a_me ? Vanilla2(kBashChance, a_me, a_target) : 0.0f;
+            if (!a_me) {
+                return 0.0f;
+            }
+            return Intents::TakeDefend(a_me, Intents::Defend::Bash) ? 1.0f : Vanilla2(kBashChance, a_me, a_target);
         }
 
         Node *Checked(Node *a_node, const char *a_what)

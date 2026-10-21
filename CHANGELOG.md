@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.1.1 (2026-10-22)
+
+- Fix (0.1.0 regression): posting an intent that is still pending now fails, like the old raw events did when the graph refused them. In 0.1.0 Feint re-posted a bash every brain tick (29 posts, 4 taken in the first test log).
+- A bash the brain asked for while a Block node was holding now fires as the block ends (post-block counter-bash branch) instead of expiring.
+
 ## CombatAITree 0.1.0 (2026-10-22) - fork of EnhancedCombatAI 1.10.2
 
 First version of the in-tree actuator (design: `TREE_DESIGN.md`).

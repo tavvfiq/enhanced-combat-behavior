@@ -43,13 +43,20 @@ namespace CombatAI::Intents
         if (!a_actor) {
             return false;
         }
-        const auto until = Clock::now() + std::chrono::duration_cast<Clock::duration>(kAttackTTL);
+        const auto now = Clock::now();
+        bool posted = false;
         g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
+            if (e.attack == a_kind && now < e.attackUntil) {
+                return; // still waiting for the tree
+            }
             e.attack = a_kind;
-            e.attackUntil = until;
+            e.attackUntil = now + std::chrono::duration_cast<Clock::duration>(kAttackTTL);
+            posted = true;
         });
-        Debug(a_actor, "post attack", static_cast<int>(a_kind));
-        return true;
+        if (posted) {
+            Debug(a_actor, "post attack", static_cast<int>(a_kind));
+        }
+        return posted;
     }
 
     bool PostDefend(RE::Actor *a_actor, Defend a_kind)
@@ -57,13 +64,20 @@ namespace CombatAI::Intents
         if (!a_actor) {
             return false;
         }
-        const auto until = Clock::now() + std::chrono::duration_cast<Clock::duration>(kDefendTTL);
+        const auto now = Clock::now();
+        bool posted = false;
         g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
+            if (e.defend == a_kind && now < e.defendUntil) {
+                return; // still waiting for the tree
+            }
             e.defend = a_kind;
-            e.defendUntil = until;
+            e.defendUntil = now + std::chrono::duration_cast<Clock::duration>(kDefendTTL);
+            posted = true;
         });
-        Debug(a_actor, "post defend", static_cast<int>(a_kind));
-        return true;
+        if (posted) {
+            Debug(a_actor, "post defend", static_cast<int>(a_kind));
+        }
+        return posted;
     }
 
     Attack TakeAttack(RE::Actor *a_actor)
