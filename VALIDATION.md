@@ -9,6 +9,14 @@
 | 0.1.0 | In game, AE 1.7.104, 7 min, 3 marauders + Tsun, no CPR/Precision/TK Dodge | loads, both trees built once, no errors; vanilla Attack branch runs StartAttack (attack-chance hook 6 candidates x 110 / x 48); bash intent taken 36 ms after post. Regression: Feint re-posted bash every tick (fixed in 0.1.1). Attack/Parry/TimedBlock intents not exercised (brain chose none; Parry/TimedBlock off in INI) |
 | 0.1.1 | Build | pass |
 | 0.1.1 | In game | not run yet |
+| 0.2.0 | CloseMovement SetRoot call site: one E8 to initNodes in SE 46731 (+0x512), AE 1.6.1170 and 1.7.104 47928 (+0xE9C) | pass (tool-validated) |
+| 0.2.0 | Build | pass |
+| 0.2.0 | In game | not run yet |
+
+## In-game test for 0.2.0 (no CPR)
+1. Log: `Tree: CloseMovement SetRoot hooked` at load, `Tree: CloseMovement tree extended` when the first fight starts. If `unexpected shape` or `site does not match` appears, report it.
+2. Select a bandit in the console and fight it: debug `Intent ... post move 1..4` lines, and the NPC visibly circles, backs off, falls back and closes in (it did nothing for these decisions in the 0.1.0 run).
+3. Watch for NPCs that circle forever and never swing: the existing DefenseVetoSeconds = 0.6 blocks vanilla attacks after every Strafe/Backoff/Retreat.
 
 ## In-game test for 0.1.0 (AE 1.7.104)
 1. Check `EnableDebugLog = true` under `[General]` in CombatAITree.ini (shipped default). Load a save, open the console, click a bandit, close the console.

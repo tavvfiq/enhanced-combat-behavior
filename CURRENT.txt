@@ -1,3 +1,3 @@
-CombatAITree 0.1.1 (git, branch master)
-Last known good: none yet (0.1.0 ran 7 min in game without errors; 0.1.1 untested)
+CombatAITree 0.2.0 (git, branch master)
+Last known good: none yet (0.1.0 ran 7 min in game without errors; 0.1.1 and 0.2.0 untested)
 Parent: EnhancedCombatAI 1.10.2 working tree, D:\Modding\combat-ai-ng @ 4ed7e86 + uncommitted changes

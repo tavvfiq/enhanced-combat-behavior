@@ -23,6 +23,17 @@ namespace CombatAI::Intents
         Bash
     };
 
+    // Movement node our CloseMovement branches run. Unlike attack/defend this is a state, not a
+    // one-shot: the brain refreshes it every decision and the branch runs while it holds.
+    enum class Move : std::uint8_t
+    {
+        None,
+        Advance,
+        Circle,
+        Fallback,
+        Backoff
+    };
+
     // Brain side. False if the same intent is still pending: the tree hasn't been able to run it yet,
     // so the brain must not count it as executed again (the old raw events failed the same way).
     bool PostAttack(RE::Actor *a_actor, Attack a_kind);
@@ -33,7 +44,14 @@ namespace CombatAI::Intents
     // the pending defense only if it is a_kind (bash and block are separate tree branches).
     Attack TakeAttack(RE::Actor *a_actor);
     bool TakeDefend(RE::Actor *a_actor, Defend a_kind);
-    // Pending (not consumed) intents exist - used to keep vanilla branches out of the way.
+    // Brain side, movement: (re)start the movement intent; always true (refreshing is expected).
+    bool PostMove(RE::Actor *a_actor, Move a_kind);
+    // Drop any movement intent (e.g. no backing off mid-swing).
+    void ClearMove(RE::Actor *a_actor);
+    // Tree side, movement: the brain currently wants a_kind (not consumed).
+    bool WantsMove(RE::Actor *a_actor, Move a_kind);
+
+    // Pending (not consumed) attack/defend intents exist - keeps vanilla branches out of the way.
     bool HasPending(RE::Actor *a_actor);
 
     // Attack kind the Attack node is currently choosing attack data for (None = vanilla choice).

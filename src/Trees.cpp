@@ -13,6 +13,11 @@ namespace CombatAI::Trees
         // trees and the 1.7.104 bodies match Fenix-NG's).
         constexpr REL::RelocationID kMeleeTree{48151, 49182};
         constexpr REL::RelocationID kBlockTree{46640, 47843};
+        // The vanilla CloseMovement builder is kept; we hook its final SetRoot call and splice our
+        // movement branches in above its Movement Selector (one E8 call in each build).
+        constexpr REL::RelocationID kCloseMovementTree{46731, 47928};
+        constexpr std::size_t kCloseMovementSetRootSE = 0x512;
+        constexpr std::size_t kCloseMovementSetRootAE = 0xE9C;
 
         // Vanilla chance functions the stock RandomNodes roll (SE->AE pairs from the two tree
         // builders; every pair is +927, like the attack-chance pair 49748/50675).
@@ -162,6 +167,44 @@ namespace CombatAI::Trees
                 LOG_INFO("Tree: Block tree built (intent bash/block + vanilla branches, re-read every {}s)", kHold);
             }
         }
+        float WantAdvance(RE::Actor *a_me, RE::Actor *) { return Intents::WantsMove(a_me, Intents::Move::Advance) ? 1.0f : 0.0f; }
+        float WantCircle(RE::Actor *a_me, RE::Actor *) { return Intents::WantsMove(a_me, Intents::Move::Circle) ? 1.0f : 0.0f; }
+        float WantFallback(RE::Actor *a_me, RE::Actor *) { return Intents::WantsMove(a_me, Intents::Move::Fallback) ? 1.0f : 0.0f; }
+        float WantBackoff(RE::Actor *a_me, RE::Actor *) { return Intents::WantsMove(a_me, Intents::Move::Backoff) ? 1.0f : 0.0f; }
+
+        std::atomic<std::uint32_t> g_closeBuilt{0};
+
+        // Vanilla CloseMovement: Context > Repeat > Movement Selector{ OutOfRange.., OutOfPosition.., InRange.. }.
+        // Ours:    Context > Repeat > NextSelector{ brain Advance, Circle, Fallback, Backoff, <vanilla Movement Selector> }.
+        // The brain's branches only run while it keeps asking (WantsMove); otherwise vanilla runs as before.
+        // A running movement node finishes before the selector re-reads (no preemption yet).
+        struct CloseMovementSetRoot
+        {
+            static void thunk(void *a_tree, Node *a_root)
+            {
+                Node *repeat = a_root && a_root->childCount == 1 ? a_root->children[0] : nullptr;
+                Node *vanilla = repeat && repeat->childCount == 1 ? repeat->children[0] : nullptr;
+                if (!Is(a_root, Id::vtContextCloseMovement) || !Is(repeat, Id::vtRepeat) || !vanilla) {
+                    LOG_ERROR("Tree: CloseMovement tree has an unexpected shape - left vanilla");
+                    func(a_tree, a_root);
+                    return;
+                }
+                auto *selector = Checked(Named(NextSelector(), "Intent Movement Selector"), "Intent Movement Selector");
+                SetChildren(selector,
+                            {Checked(RandomNode(Named(Advance(), "Advance"), WantAdvance, "Intent - Advance"), "intent advance"),
+                             Checked(RandomNode(Named(Circle(), "Circle"), WantCircle, "Intent - Circle"), "intent circle"),
+                             Checked(RandomNode(Named(Fallback(), "Fallback"), WantFallback, "Intent - Fallback"), "intent fallback"),
+                             Checked(RandomNode(Named(Backoff(), "Backoff"), WantBackoff, "Intent - Backoff"), "intent backoff"),
+                             vanilla}); // re-parents the vanilla selector under ours
+                repeat->children[0] = selector; // Repeat keeps its one-slot child array
+                selector->parent = repeat;
+                func(a_tree, a_root);
+                if (g_closeBuilt.fetch_add(1) == 0) {
+                    LOG_INFO("Tree: CloseMovement tree extended (intent Advance/Circle/Fallback/Backoff over vanilla)");
+                }
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
     } // namespace
 
     void Install()
@@ -171,5 +214,17 @@ namespace CombatAI::Trees
         trampoline.write_branch<5>(kMeleeTree.address(), reinterpret_cast<std::uintptr_t>(&MeleeTree));
         trampoline.write_branch<5>(kBlockTree.address(), reinterpret_cast<std::uintptr_t>(&BlockTree));
         LOG_INFO("Tree: Melee and Block tree builders replaced");
+
+        const auto site = kCloseMovementTree.address() +
+                          (REL::Module::IsAE() ? kCloseMovementSetRootAE : kCloseMovementSetRootSE);
+        const REL::Relocation<std::uintptr_t> setRoot{Id::initNodes};
+        const auto *bytes = reinterpret_cast<const std::uint8_t *>(site);
+        const auto target = site + 5 + *reinterpret_cast<const std::int32_t *>(site + 1);
+        if (bytes[0] == 0xE8 && target == setRoot.address()) {
+            CloseMovementSetRoot::func = trampoline.write_call<5>(site, CloseMovementSetRoot::thunk);
+            LOG_INFO("Tree: CloseMovement SetRoot hooked");
+        } else {
+            LOG_ERROR("Tree: CloseMovement SetRoot site does not match (byte {:02X}) - movement intents disabled", bytes[0]);
+        }
     }
 } // namespace CombatAI::Trees

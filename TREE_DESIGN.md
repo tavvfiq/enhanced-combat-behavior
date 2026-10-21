@@ -140,7 +140,8 @@ dodge event) from inside the tree thread. That means implementing the node vtabl
 | Version | Content | Pass criteria (runtime, AE 1.7.104) |
 |---|---|---|
 | 0.1.0 | Fork. Intent blackboard. Melee + Block trees. Attack-chance hook driven by intent. `ActionExecutor` attack/block/bash paths removed; movement left vanilla | Marked bandit attacks, power attacks, blocks and bashes only when the brain says so (probe-verified); no crash for 10 min; save/load in combat OK |
-| 0.2.0 | CloseMovement tree + getter hooks (Advance/Circle/Fallback/Backoff/Surround) | Strafe/retreat/advance visibly follow the intent; no movement-tree freeze (Fenix-NG's earlier "inert Advance" trap) |
+| 0.2.0 | **Done (build):** our branches spliced above the vanilla Movement Selector via a hook on its SetRoot call; Advance/Circle/Fallback/Backoff; Flanking = Circle; Surround and parameter getters deferred | Strafe/retreat/advance visibly follow the intent; no movement-tree freeze |
+| 0.2.x | Movement preemption (vanilla DynamicSelector RE) + parameter getters (circle side/radius, fallback distance) | brain changes take effect within ~0.25 s |
 | 0.3.0 | Feedback channel to the brain (leaf Enter/Exit, anim events) | The brain stops reissuing actions that already run |
 | 0.4.0 | Own leaf class: dodge / jump / feint | after §6 is resolved |
 

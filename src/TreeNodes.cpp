@@ -71,6 +71,10 @@ namespace CombatAI::TreeNodes
     Node *SpecialAttack() { return Create(0x28, Id::vtSpecialAttack); }
     Node *Block() { return Create(0x28, Id::vtBlock); }
     Node *BlockAttack() { return Create(0x28, Id::vtBlockAttack); }
+    Node *Advance() { return Create(0x28, Id::vtAdvance); }
+    Node *Circle() { return Create(0x28, Id::vtCircle); }
+    Node *Fallback() { return Create(0x28, Id::vtFallback); }
+    Node *Backoff() { return Create(0x28, Id::vtBackoff); }
 
     // Idle (size 0x30) holds for the float at +0x28 before the tree re-selects.
     Node *Idle(float a_holdSeconds)
@@ -99,6 +103,11 @@ namespace CombatAI::TreeNodes
             return nullptr;
         }
         return result[0]->parent;
+    }
+
+    bool Is(const Node *a_node, const REL::RelocationID &a_vtable)
+    {
+        return a_node && reinterpret_cast<std::uintptr_t>(a_node->vtable) == a_vtable.address();
     }
 
     Node *Named(Node *a_node, const char *a_name)

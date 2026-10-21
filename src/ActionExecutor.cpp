@@ -399,6 +399,9 @@ namespace CombatAI
             return false; // Can't strafe without a valid target
         }
 
+        // Our CloseMovement tree runs the vanilla Circle node; CPR (below) only shapes it if present
+        Intents::PostMove(a_actor, Intents::Move::Circle);
+
         // Get movement direction from decision (could be normal strafe or flanking)
         RE::NiPoint3 movementDir = a_decision.direction;
 
@@ -426,10 +429,8 @@ namespace CombatAI
             return true;
         }
 
-        // No CPR available, or CPR only works for melee-only actors: the direct velocity
-        // nudge fights Skyrim's own combat AI and produces jittery, unpathed movement.
-        // Let the native combat AI handle positioning instead.
-        return false;
+        // No direct velocity nudge (it fights the engine and moves unpathed): the Circle node moves it
+        return true;
     }
 
     bool ActionExecutor::ExecuteFlanking(RE::Actor *a_actor, const DecisionResult &a_decision,
@@ -443,6 +444,9 @@ namespace CombatAI
         if (!a_state.target.isValid) {
             return false; // Can't flank without a valid target
         }
+
+        // Flanking circles like Strafe (vanilla Circle node); CPR below shapes the ring if present
+        Intents::PostMove(a_actor, Intents::Move::Circle);
 
         // Flanking is similar to strafe but with tactical positioning
         // Use the calculated flanking direction from decision (perpendicular to target, away from ally)
@@ -473,9 +477,7 @@ namespace CombatAI
             return true;
         }
 
-        // No CPR available, or CPR only works for melee-only actors: let the native
-        // combat AI handle positioning instead of nudging with raw velocity.
-        return false;
+        return true; // the Circle node moves it
     }
 
     bool ActionExecutor::ExecuteRetreat(RE::Actor *a_actor, [[maybe_unused]] const DecisionResult &a_decision,
@@ -484,6 +486,9 @@ namespace CombatAI
         if (!a_actor) {
             return false;
         }
+
+        // Our CloseMovement tree runs the vanilla Fallback node; CPR (below) only shapes it if present
+        Intents::PostMove(a_actor, Intents::Move::Fallback);
 
         // Try CPR fallback if available
         // NOTE: CPR fallback works for all actors (not just melee-only)
@@ -500,8 +505,7 @@ namespace CombatAI
             return true;
         }
 
-        // No CPR: let the native combat AI handle retreat instead of nudging with raw velocity.
-        return false;
+        return true; // the Fallback node moves it
     }
 
     bool ActionExecutor::CanLaunchSprintAttack(RE::Actor *a_actor, const ActorStateData &a_state)
@@ -563,6 +567,9 @@ namespace CombatAI
 
     void ActionExecutor::SuspendRetreat(RE::Actor *a_actor)
     {
+        if (Intents::WantsMove(a_actor, Intents::Move::Fallback) || Intents::WantsMove(a_actor, Intents::Move::Backoff)) {
+            Intents::ClearMove(a_actor);
+        }
         for (const char *var : {"CPR_EnableFallback", "CPR_EnableBackoff"}) {
             bool enabled = false;
             if (ActorUtils::SafeGetGraphVariableBool(a_actor, var, enabled) && enabled) {
@@ -1038,6 +1045,9 @@ namespace CombatAI
             return false;
         }
 
+        // Our CloseMovement tree runs the vanilla Backoff node; CPR (below) only shapes it if present
+        Intents::PostMove(a_actor, Intents::Move::Backoff);
+
         // Try CPR backoff if available
         // NOTE: CPR backoff works for all actors (not just melee-only)
         if (IsCPRAvailable(a_actor)) {
@@ -1046,8 +1056,7 @@ namespace CombatAI
             return true;
         }
 
-        // No CPR: let the native combat AI handle backoff instead of nudging with raw velocity.
-        return false;
+        return true; // the Backoff node moves it
     }
 
     bool ActionExecutor::ExecuteFeint(RE::Actor *a_actor, const DecisionResult &a_decision,
@@ -1151,6 +1160,9 @@ namespace CombatAI
         bool isMeleeOnly = IsMeleeOnlyActor(a_actor);
         bool cprAvailable = IsCPRAvailable(a_actor);
 
+        // Our CloseMovement tree runs the vanilla Advance node; CPR (below) only shapes it if present
+        Intents::PostMove(a_actor, Intents::Move::Advance);
+
         // Sprint-charge: CPR (like ProjectGapClose) only shapes movement while the actor
         // is already advancing; it won't move a standing NPC. So actively put a melee
         // NPC into a sprint toward the target and give it a heading, then let vanilla +
@@ -1190,8 +1202,6 @@ namespace CombatAI
             return true;
         }
 
-        // No CPR available, or CPR only works for melee-only actors: let the native combat
-        // AI handle advancing instead of nudging with raw velocity.
-        return false;
+        return true; // the Advance node moves it
     }
 } // namespace CombatAI

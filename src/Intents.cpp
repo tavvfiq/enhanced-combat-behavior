@@ -14,6 +14,8 @@ namespace CombatAI::Intents
         // so these only cover the wait for a running node (e.g. an earlier swing) to finish.
         constexpr Seconds kAttackTTL{0.5f};
         constexpr Seconds kDefendTTL{0.3f};
+        // Movement is refreshed by every brain decision (~0.1 s); a little slack covers skipped ticks.
+        constexpr Seconds kMoveTTL{0.4f};
         // How long a taken attack kind steers the attack-chance hook (StartAttack runs right
         // after the branch is taken; this only has to outlast that one call).
         constexpr Seconds kCommitWindow{1.0f};
@@ -26,6 +28,8 @@ namespace CombatAI::Intents
             Clock::time_point defendUntil{};
             Attack committed = Attack::None;
             Clock::time_point committedUntil{};
+            Move move = Move::None;
+            Clock::time_point moveUntil{};
         };
 
         ThreadSafeMap<RE::FormID, Entry> g_board;
@@ -118,6 +122,40 @@ namespace CombatAI::Intents
             Debug(a_actor, "tree took defend", static_cast<int>(a_kind));
         }
         return taken;
+    }
+
+    bool PostMove(RE::Actor *a_actor, Move a_kind)
+    {
+        if (!a_actor) {
+            return false;
+        }
+        const auto until = Clock::now() + std::chrono::duration_cast<Clock::duration>(kMoveTTL);
+        bool changed = false;
+        g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
+            changed = e.move != a_kind;
+            e.move = a_kind;
+            e.moveUntil = until;
+        });
+        if (changed) {
+            Debug(a_actor, "post move", static_cast<int>(a_kind));
+        }
+        return true;
+    }
+
+    void ClearMove(RE::Actor *a_actor)
+    {
+        if (a_actor) {
+            g_board.Modify(a_actor->GetFormID(), [](Entry &e) { e.move = Move::None; });
+        }
+    }
+
+    bool WantsMove(RE::Actor *a_actor, Move a_kind)
+    {
+        if (!a_actor) {
+            return false;
+        }
+        const auto e = g_board.Find(a_actor->GetFormID());
+        return e && e->move == a_kind && Clock::now() < e->moveUntil;
     }
 
     bool HasPending(RE::Actor *a_actor)

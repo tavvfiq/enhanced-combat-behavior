@@ -36,6 +36,12 @@ namespace CombatAI::TreeNodes
         inline constexpr REL::RelocationID vtIdle{256701, 205318};
         inline constexpr REL::RelocationID vtContextMelee{266745, 213763};
         inline constexpr REL::RelocationID vtContextBlock{265984, 212569};
+        inline constexpr REL::RelocationID vtContextCloseMovement{266093, 212655};
+        inline constexpr REL::RelocationID vtRepeat{256697, 205278};
+        inline constexpr REL::RelocationID vtAdvance{266096, 212694};
+        inline constexpr REL::RelocationID vtCircle{266102, 212772};
+        inline constexpr REL::RelocationID vtFallback{266101, 212759};
+        inline constexpr REL::RelocationID vtBackoff{266103, 212785};
     } // namespace Id
 
     // Base engine node (size 0x28).
@@ -61,11 +67,17 @@ namespace CombatAI::TreeNodes
     Node *Block();
     Node *BlockAttack();
     Node *Idle(float a_holdSeconds);
+    Node *Advance();
+    Node *Circle();
+    Node *Fallback();
+    Node *Backoff();
     Node *ContextMelee();
     Node *ContextBlock();
     // ConditionalNode that rolls a_probability(attacker, target) and runs a_child on success.
     Node *RandomNode(Node *a_child, Probability a_probability, const char *a_name);
 
+    // True if a_node is an instance of the class whose vtable is a_vtable.
+    bool Is(const Node *a_node, const REL::RelocationID &a_vtable);
     Node *Named(Node *a_node, const char *a_name);
     Node *AddChild(Node *a_parent, Node *a_child); // single-child nodes; returns the parent
     void SetChildren(Node *a_parent, std::initializer_list<Node *> a_children);
