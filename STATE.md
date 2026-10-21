@@ -5,24 +5,26 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.3.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.3.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
 - 0.1.0 ran 7 min clean. 0.2.0 hung the game (tree cycle), fixed in 0.2.1. 0.2.1 and 0.2.2 ran clean
   (no hang, movement through the tree works without CPR).
-- 0.2.3 / 0.2.4 / 0.3.0: build-validated only.
+- 0.3.0 (includes 0.2.3/0.2.4), run 4: ~4 min against 3 bandits, no hang. The bash intents were all
+  taken (115/114). Movement intents ran. Vanilla attacks ran in the tree. **The brain still never picked
+  an attack** (0 Attack candidates in 1508 decisions). Feint reset the attack timer (fixed in 0.3.1).
+  288 in-range ticks fail on a gate we can't yet see; 0.3.1 logs which one.
+- 0.3.1: build-validated only.
 
-**Next (for the user, in order):**
-1. Install 0.3.0 and fight a bandit camp with the debug NPC selected. Check: brain attacks now
-   (`post attack`, `tree took attack`, the `Intents (last 60s ...)` summary), the `Circle ...` side line
-   matches the side the bandit circles, no hang. If anything is wrong, step back through 0.2.4 / 0.2.3.
-2. Then (dev): movement preemption probe (TREE_DESIGN §9), own leaf class (§6), Surround + fallback
-   distance parameters.
+**Next (for the user):**
+1. Install 0.3.1 and fight bandits with one selected in the console. Send the log. Look for
+   `Offense 0x..: in range ... but no attack - <reason>`: its count by reason tells the next fix. If
+   the reason is mostly `line of sight blocked`, the LOS ray is hitting the target. Then check the
+   `Intents (last 60s ...)` line for `light`/`power` above 0.
+2. Then (dev): fix that gate; movement preemption probe (TREE_DESIGN §9); own leaf class (§6).
 
-**Last good version:** 0.2.2 (ran clean in game; bandits attack, movement works). Rollback before that:
-EnhancedCombatAI 1.10.2.
-
+**Last good version:** 0.3.0 (runtime-evidenced, run 4). Before that 0.2.2, then EnhancedCombatAI 1.10.2.
 **Log:** `Documents\My Games\Skyrim Special Edition\SKSE\CombatAITree.log`
 (debug lines need `EnableDebugLog = true` under `[General]` in `CombatAITree.ini`, the shipped default;
 they cover the actor selected in the console).

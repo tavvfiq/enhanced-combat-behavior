@@ -39,3 +39,7 @@
 4. Fight a group (2-3 bandits + a follower), then a mage and an archer: no freezes, no CTD.
 5. Save in combat, reload: combat resumes, no CTD.
 6. Report: any NPC that stops attacking or never blocks, and the log.
+## 0.3.1 (2026-10-22)
+- Build: xmake releasedbg SE+AE, ok (pre-existing C4100 warnings only). DLL FileVersion 0.3.1.0.
+- Ship-gate validator: PASS. Zip sha256 99CE7810FE2A81413318A60A075E0DFCF1CDA257F565715DE6003338A2EBD1A3.
+- Runtime: untested. 0.3.0 runtime-evidenced clean in run 4 (log 2026-10-22 06:43-06:47).

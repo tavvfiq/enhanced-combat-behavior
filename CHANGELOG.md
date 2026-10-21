@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.3.1 (2026-10-22)
+
+Run 4 (0.3.0, 3 bandits, ~4 min) ran clean, but the brain still never chose an attack: 0 Attack/PowerAttack candidates in 1508 decisions. All 115 bash intents were taken by the tree, and vanilla attacks still ran inside the tree.
+- **Feint no longer resets the attack timer.** Feint is re-issued every decision (~0.1 s) while it wins, just as locomotion was before 0.2.3. It blocked 126 of the 146 in-range ticks that failed the 0.3 s rule. Its own feint timer is unchanged.
+- **Offense skip reason (debug).** The other 288 in-range ticks passed the timer but still produced no attack, and none of the target-attacking, own-recovery or priority checks explains them on the logged state. Each skip now logs `Offense 0x..: in range (dist N) but no attack - <reason> <value>`, where the reason is line of sight blocked, target is attacking, last action too recent, own swing recovering, or priority too low. The prime suspect is the line-of-sight ray; that is unverified.
 ## CombatAITree 0.3.0 (2026-10-22)
 
 - **Feedback summary**: once a minute (info level, only when something happened) the log shows, per kind, how many intents the brain posted, how many the trees took, and for attacks how many found attack data of the requested kind (light/power) in the Attack node - plus movement intent changes. Posted >> taken means the tree was busy; taken >> found means the actor has no attack data of that kind or not enough stamina.

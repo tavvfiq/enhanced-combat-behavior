@@ -1291,7 +1291,10 @@ namespace CombatAI
             // The anti-spam gate (no attack within 0.3 s of the last action) counts deliberate
             // actions only. Locomotion is re-issued every decision while it runs, so counting it
             // kept the timer at ~0 and offense was never evaluated (0 Attack candidates in 1398).
+            // Feint is re-issued the same way (126 of 146 blocked in-range ticks in run 4); its
+            // own timer (timeSinceLastFeint) still runs.
             switch (a_action) {
+            case ActionType::Feint:
             case ActionType::Advancing:
             case ActionType::Strafe:
             case ActionType::Flanking:

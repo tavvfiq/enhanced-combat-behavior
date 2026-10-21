@@ -1401,11 +1401,21 @@ namespace CombatAI
         // Only consider attacks when in attack range (use range category for more
         // precise check)
         if (a_state.combatContext.isInAttackRange || a_state.target.distance <= maxAttackDistance) {
+            // In range but no attack: say which gate stopped it (0 Attack candidates in run 4)
+            const bool debugOffense = a_actor && config.IsDebugTarget(a_actor->GetFormID());
+            const auto skip = [&](const char *a_reason, float a_value = 0.0f) {
+                if (debugOffense) {
+                    LOG_DEBUG("Offense 0x{:08X}: in range (dist {:.0f}) but no attack - {} {:.2f}",
+                              a_actor->GetFormID(), a_state.target.distance, a_reason, a_value);
+                }
+                return result;
+            };
+
             // Line-of-sight gate: don't swing at a target on the far side of a wall,
             // railing, or pillar even when they're within reach. Skip the strike and
             // let flanking/evasion (evaluated in parallel) reposition to a clear angle.
             if (config.GetEnvSensor().enableLosGate && a_state.env.losChecked && !a_state.env.losToTarget) {
-                return result;
+                return skip("line of sight blocked");
             }
 
             // TACTICAL CONSIDERATIONS: Don't attack blindly - need good opening
@@ -1414,7 +1424,7 @@ namespace CombatAI
             // evasion/strafe) Exception: if target is in attack recovery
             // (kFollowThrough), we can attack during their recovery window
             if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && !a_state.target.isInAttackRecovery) {
-                return result; // Let evasion handle this - strafe/dodge instead
+                return skip("target is attacking"); // Let evasion handle this - strafe/dodge instead
             }
 
             // Use temporal state: Prevent action spam - don't attack too quickly after
@@ -1422,7 +1432,7 @@ namespace CombatAI
             float timeSinceLastAction = a_state.temporal.self.timeSinceLastAction;
             if (timeSinceLastAction < 0.3f) {
                 // Just executed an action < 0.3s ago - too soon, prevent spam
-                return result;
+                return skip("last action too recent, s", timeSinceLastAction);
             }
 
             // Don't attack if we just finished an attack (should reposition first)
@@ -1432,7 +1442,7 @@ namespace CombatAI
                                       a_state.target.isCasting || a_state.target.isDrawingBow ||
                                       a_state.target.isInAttackRecovery;
             if (a_state.self.attackState == RE::ATTACK_STATE_ENUM::kFollowThrough && !targetIsVulnerable) {
-                return result; // Prefer strafe/repositioning after attack (unless target
+                return skip("own swing recovering"); // Prefer strafe/repositioning after attack (unless target
                                // is vulnerable)
             }
 
@@ -1827,7 +1837,7 @@ namespace CombatAI
             // Only proceed if priority is reasonable (don't attack with very low
             // priority)
             if (finalPriority < 0.5f) {
-                return result; // Priority too low - prefer other actions
+                return skip("priority too low", finalPriority); // Priority too low - prefer other actions
             }
 
             // Power Attack vs Normal Attack decision
