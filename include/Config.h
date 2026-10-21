@@ -263,8 +263,7 @@ namespace CombatAI
         struct VanillaAttackSettings
         {
             bool enable = true;
-            float defenseVetoSeconds = 0.6f; // No vanilla attack this long after our dodge/block/parry/retreat
-            float openingPowerMult = 2.0f;   // Target staggered, recovering or casting
+                float openingPowerMult = 2.0f;   // Target staggered, recovering or casting
             float openingNormalMult = 1.5f;
             float blockedPowerMult = 1.5f;   // Target blocking and facing us: power attacks break guard
             float blockedNormalMult = 0.25f; // ... normal attacks just bounce

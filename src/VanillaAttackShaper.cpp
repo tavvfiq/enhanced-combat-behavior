@@ -12,22 +12,6 @@ namespace CombatAI
 {
     namespace
     {
-        bool IsDefensiveAction(ActionType a_action)
-        {
-            switch (a_action) {
-            case ActionType::Dodge:
-            case ActionType::Strafe:
-            case ActionType::Jump:
-            case ActionType::Backoff:
-            case ActionType::Retreat:
-            case ActionType::TimedBlock:
-            case ActionType::Parry:
-                return true;
-            default:
-                return false;
-            }
-        }
-
         float Logged(RE::Actor *a_attacker, RE::BGSAttackData *a_data, float a_chance, float a_result,
                      const char *a_reason)
         {
@@ -76,12 +60,6 @@ namespace CombatAI
         }
 
         const RE::FormID formID = a_attacker->GetFormID();
-        if (const auto lastDefense = m_lastDefense.Find(formID)) {
-            if (Clock::now() - *lastDefense < std::chrono::duration<float>(settings.defenseVetoSeconds)) {
-                return Logged(a_attacker, a_data, a_chance, 0.0f, "veto: our defense");
-            }
-        }
-
         // Pacing: waiting its turn
         if (AttackCoordinator::GetSingleton().IsHeld(formID)) {
             return Logged(a_attacker, a_data, a_chance, 0.0f, "veto: waiting its turn");
@@ -105,13 +83,5 @@ namespace CombatAI
                           a_chance * (power ? settings.blockedPowerMult : settings.blockedNormalMult), "target blocking");
         }
         return Logged(a_attacker, a_data, a_chance, a_chance, "unchanged");
-    }
-
-    void VanillaAttackShaper::OnActionExecuted(RE::FormID a_formID, ActionType a_action)
-    {
-        if (IsDefensiveAction(a_action)) {
-            const auto now = Clock::now();
-            m_lastDefense.ModifyOrCreate(a_formID, [&](Clock::time_point &a_time) { a_time = now; });
-        }
     }
 } // namespace CombatAI

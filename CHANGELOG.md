@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.2.2 (2026-10-22)
+
+- **Removed the "our defense" attack veto** (and `DefenseVetoSeconds`). It stopped vanilla attacks for 0.6 s after every brain dodge, block, parry, retreat, backoff or strafe, which in the 0.2.1 test vetoed 299 of 440 attack checks and left bandits passive once movement actually ran. Its job is covered now: vanilla branches already yield while a brain bash/block intent is pending, and the Block/Bash nodes are vanilla's own. The pacing veto ("waiting its turn") stays.
+- Debug log: `tree runs move N` when one of our movement branches is entered (separates our movement from vanilla's in the log).
+
 ## CombatAITree 0.2.1 (2026-10-22)
 
 - **Fix: game hang when a hostile NPC entered combat (0.2.0).** The engine's AddChildren helper (SE 46305 / AE 47549) climbs each node's parent chain and adds the topmost ancestor. 0.2.0 passed vanilla's Movement Selector while it was still attached, so the tree root itself became a child and the CloseMovement tree contained a cycle. The selector is now detached first, and SetChildren refuses attached nodes.

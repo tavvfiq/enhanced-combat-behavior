@@ -178,7 +178,6 @@ Shapes the attacks the vanilla melee AI picks by multiplying each candidate atta
 plays the moveset's own attack data. Not used on SkyrimVR; SCAR-driven NPCs keep SCAR's choice.
 
 - **EnableVanillaAttackShaping** (bool, default: `true`)
-- **DefenseVetoSeconds** (`0.6`) - no vanilla attack this long after this mod makes the NPC dodge, block, parry or retreat
 - **OpeningPowerMult** (`2.0`), **OpeningNormalMult** (`1.5`) - target staggered, recovering or casting
 - **BlockedPowerMult** (`1.5`), **BlockedNormalMult** (`0.25`) - target blocking and facing the attacker
 

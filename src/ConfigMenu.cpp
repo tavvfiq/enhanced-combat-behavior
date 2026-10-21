@@ -290,8 +290,7 @@ namespace CombatAI
                 ImGuiMCP::Separator();
                 ImGuiMCP::Text("Shapes the attacks vanilla AI picks (chance multipliers).");
                 ImGuiMCP::Checkbox("Enable vanilla attack shaping", &config.m_vanillaAttacks.enable);
-                liveFloat("Veto after our defense (s)", &config.m_vanillaAttacks.defenseVetoSeconds, 0.0f, 3.0f);
-                liveFloat("Opening: power attack x", &config.m_vanillaAttacks.openingPowerMult, 0.0f, 5.0f);
+                        liveFloat("Opening: power attack x", &config.m_vanillaAttacks.openingPowerMult, 0.0f, 5.0f);
                 liveFloat("Opening: normal attack x", &config.m_vanillaAttacks.openingNormalMult, 0.0f, 5.0f);
                 liveFloat("Target blocking: power attack x", &config.m_vanillaAttacks.blockedPowerMult, 0.0f, 5.0f);
                 liveFloat("Target blocking: normal attack x", &config.m_vanillaAttacks.blockedNormalMult, 0.0f, 5.0f);

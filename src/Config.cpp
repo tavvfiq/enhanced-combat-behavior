@@ -258,7 +258,6 @@ namespace CombatAI
 
         // Vanilla attacks
         B("VanillaAttacks", "EnableVanillaAttackShaping", m_vanillaAttacks.enable);
-        D("VanillaAttacks", "DefenseVetoSeconds", m_vanillaAttacks.defenseVetoSeconds);
         D("VanillaAttacks", "OpeningPowerMult", m_vanillaAttacks.openingPowerMult);
         D("VanillaAttacks", "OpeningNormalMult", m_vanillaAttacks.openingNormalMult);
         D("VanillaAttacks", "BlockedPowerMult", m_vanillaAttacks.blockedPowerMult);
@@ -783,7 +782,6 @@ namespace CombatAI
                                  a_max);
         };
         s.enable = a_ini.GetBoolValue("VanillaAttacks", "EnableVanillaAttackShaping", s.enable);
-        F("DefenseVetoSeconds", s.defenseVetoSeconds, 0.0f, 3.0f);
         F("OpeningPowerMult", s.openingPowerMult, 0.0f, 5.0f);
         F("OpeningNormalMult", s.openingNormalMult, 0.0f, 5.0f);
         F("BlockedPowerMult", s.blockedPowerMult, 0.0f, 5.0f);

@@ -1,9 +1,6 @@
 #pragma once
 
-#include "DecisionResult.h"
-#include "ThreadSafeMap.h"
 #include "pch.h"
-#include <chrono>
 
 namespace CombatAI
 {
@@ -26,16 +23,8 @@ namespace CombatAI
         // Called from AI threads with the engine's chance for one candidate attack
         float Adjust(RE::Actor *a_attacker, RE::Actor *a_target, RE::BGSAttackData *a_data, float a_chance);
 
-        // Record our executed actions so vanilla doesn't swing over a committed defense
-        void OnActionExecuted(RE::FormID a_formID, ActionType a_action);
-
-        void Evict(RE::FormID a_formID) { m_lastDefense.Erase(a_formID); }
-
       private:
         VanillaAttackShaper() = default;
         ~VanillaAttackShaper() = default;
-
-        using Clock = std::chrono::steady_clock;
-        ThreadSafeMap<RE::FormID, Clock::time_point> m_lastDefense;
     };
 } // namespace CombatAI

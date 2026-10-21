@@ -33,6 +33,8 @@ namespace CombatAI::Intents
         };
 
         ThreadSafeMap<RE::FormID, Entry> g_board;
+        // Last movement branch each actor's tree entered (debug log only, so we see when it changes)
+        ThreadSafeMap<RE::FormID, Move> g_moveRun;
 
         void Debug(RE::Actor *a_actor, const char *a_what, int a_kind)
         {
@@ -155,7 +157,13 @@ namespace CombatAI::Intents
             return false;
         }
         const auto e = g_board.Find(a_actor->GetFormID());
-        return e && e->move == a_kind && Clock::now() < e->moveUntil;
+        const bool wants = e && e->move == a_kind && Clock::now() < e->moveUntil;
+        if (wants && Config::GetInstance().IsDebugTarget(a_actor->GetFormID()) &&
+            g_moveRun.GetOrDefault(a_actor->GetFormID(), Move::None) != a_kind) {
+            g_moveRun.ModifyOrCreate(a_actor->GetFormID(), [&](Move &m) { m = a_kind; });
+            Debug(a_actor, "tree runs move", static_cast<int>(a_kind));
+        }
+        return wants;
     }
 
     bool HasPending(RE::Actor *a_actor)
@@ -178,5 +186,9 @@ namespace CombatAI::Intents
         return e && Clock::now() < e->committedUntil ? e->committed : Attack::None;
     }
 
-    void Evict(RE::FormID a_formID) { g_board.Erase(a_formID); }
+    void Evict(RE::FormID a_formID)
+    {
+        g_board.Erase(a_formID);
+        g_moveRun.Erase(a_formID);
+    }
 } // namespace CombatAI::Intents

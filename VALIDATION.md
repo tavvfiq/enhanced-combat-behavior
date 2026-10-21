@@ -13,12 +13,15 @@
 | 0.2.0 | Build | pass |
 | 0.2.0 | In game | **FAIL**: game hangs when a hostile bandit is spawned (combat start); spawned ally Tsun fine. Cause found statically: tree cycle (AddChildren climbs parents), fixed in 0.2.1 |
 | 0.2.1 | Build | pass |
-| 0.2.1 | In game | not run yet |
+| 0.2.1 | In game, AE 1.7.104, 2.5 min, 3 bandits at a camp, no CPR | no hang; 754 movement decisions executed (0 in 0.1.0 without CPR), 72 intent changes, positions follow; bash 6 posted / 6 taken; vanilla blocks present. Problem: bandits passive - "our defense" veto blocked 299/440 attack checks after Backoff/Strafe/Retreat (stamina 0 after a vanilla power attack -> brain offers only Retreat/Backoff). Veto removed in 0.2.2 |
+| 0.2.2 | Build | pass |
+| 0.2.2 | In game | not run yet |
 
 ## In-game test for 0.2.0 (no CPR)
 1. Log: `Tree: CloseMovement SetRoot hooked` at load, `Tree: CloseMovement tree extended` when the first fight starts. If `unexpected shape` or `site does not match` appears, report it.
 2. Select a bandit in the console and fight it: debug `Intent ... post move 1..4` lines, and the NPC visibly circles, backs off, falls back and closes in (it did nothing for these decisions in the 0.1.0 run).
-3. Watch for NPCs that circle forever and never swing: the existing DefenseVetoSeconds = 0.6 blocks vanilla attacks after every Strafe/Backoff/Retreat.
+3. Watch for NPCs that circle forever and never swing (the defense veto that caused this in 0.2.1 is gone in 0.2.2).
+4. `tree runs move 1..4` lines show when our branch (not vanilla's) is moving the NPC.
 
 ## In-game test for 0.1.0 (AE 1.7.104)
 1. Check `EnableDebugLog = true` under `[General]` in CombatAITree.ini (shipped default). Load a save, open the console, click a bandit, close the console.

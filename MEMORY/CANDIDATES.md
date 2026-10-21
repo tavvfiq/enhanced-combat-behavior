@@ -6,4 +6,4 @@
   tree root a child of its own descendant: a cycle, and the game hung as soon as a hostile NPC entered combat.
 - Rule: detach (parent = nullptr) before AddChildren / initChildrensParents. The RandomNode factory relies on this
   behaviour (it returns the leaf and AddChildren climbs to the wrapper).
-- Status: assistant-claimed root cause from static evidence; runtime confirmation pending (0.2.1 retest).
+- Status: runtime-evidenced - 0.2.1 (detached) ran 2.5 min against camp bandits with no hang.

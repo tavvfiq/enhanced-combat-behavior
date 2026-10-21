@@ -482,7 +482,6 @@ namespace CombatAI
 
         m_processedActors.Insert(a_formID);
         m_humanizer.MarkActionUsed(a_formID, executedDecision.action);
-        VanillaAttackShaper::GetInstance().OnActionExecuted(a_formID, executedDecision.action);
         m_observer.NotifyActionExecuted(a_actor, executedDecision.action);
         APIManager::GetSingleton()->NotifyDecision(a_actor, executedDecision);
     }
@@ -594,7 +593,6 @@ namespace CombatAI
         SCARIntegration::GetInstance().Evict(a_formID);
         m_executor.EvictActor(a_formID);
         ProjectileAwareness::GetInstance().Evict(a_formID);
-        VanillaAttackShaper::GetInstance().Evict(a_formID);
         Intents::Evict(a_formID);
         m_observer.EvictActor(a_formID);
     }
