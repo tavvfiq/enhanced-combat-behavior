@@ -11,7 +11,9 @@
 | 0.1.1 | In game | not run yet |
 | 0.2.0 | CloseMovement SetRoot call site: one E8 to initNodes in SE 46731 (+0x512), AE 1.6.1170 and 1.7.104 47928 (+0xE9C) | pass (tool-validated) |
 | 0.2.0 | Build | pass |
-| 0.2.0 | In game | not run yet |
+| 0.2.0 | In game | **FAIL**: game hangs when a hostile bandit is spawned (combat start); spawned ally Tsun fine. Cause found statically: tree cycle (AddChildren climbs parents), fixed in 0.2.1 |
+| 0.2.1 | Build | pass |
+| 0.2.1 | In game | not run yet |
 
 ## In-game test for 0.2.0 (no CPR)
 1. Log: `Tree: CloseMovement SetRoot hooked` at load, `Tree: CloseMovement tree extended` when the first fight starts. If `unexpected shape` or `site does not match` appears, report it.

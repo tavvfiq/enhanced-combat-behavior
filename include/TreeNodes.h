@@ -80,6 +80,7 @@ namespace CombatAI::TreeNodes
     bool Is(const Node *a_node, const REL::RelocationID &a_vtable);
     Node *Named(Node *a_node, const char *a_name);
     Node *AddChild(Node *a_parent, Node *a_child); // single-child nodes; returns the parent
+    // Children must be detached (parent == nullptr): the engine adds each one's top ancestor.
     void SetChildren(Node *a_parent, std::initializer_list<Node *> a_children);
     void SetRoot(void *a_tree, Node *a_root);
 } // namespace CombatAI::TreeNodes

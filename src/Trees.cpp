@@ -189,6 +189,7 @@ namespace CombatAI::Trees
                     func(a_tree, a_root);
                     return;
                 }
+                vanilla->parent = nullptr; // detach, or SetChildren would add the whole tree's root
                 auto *selector = Checked(Named(NextSelector(), "Intent Movement Selector"), "Intent Movement Selector");
                 SetChildren(selector,
                             {Checked(RandomNode(Named(Advance(), "Advance"), WantAdvance, "Intent - Advance"), "intent advance"),

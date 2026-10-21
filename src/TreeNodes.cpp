@@ -127,8 +127,14 @@ namespace CombatAI::TreeNodes
 
     void SetChildren(Node *a_parent, std::initializer_list<Node *> a_children)
     {
+        // The engine helper (SE 46305 +0x7F) climbs each item's parent chain and adds the TOP
+        // ancestor, not the item. An attached node would add its tree's root and make a cycle
+        // (0.2.0 hung the game this way), so only detached nodes are allowed.
         RE::BSTArray<Node *> items;
         for (auto *c : a_children) {
+            if (!c || c->parent) {
+                SKSE::stl::report_and_fail("CombatAITree: tree child is null or still attached to a parent");
+            }
             items.push_back(c);
         }
         REL::Relocation<void (*)(Node *, RE::BSTArray<Node *> &)> f{Id::initChildrensParents};
