@@ -60,5 +60,12 @@ namespace CombatAI::Intents
     // Attack kind the Attack node is currently choosing attack data for (None = vanilla choice).
     Attack CommittedAttack(RE::Actor *a_actor);
 
+    // Attack-chance hook found attack data of the committed kind (feedback: the intent really ran).
+    void NoteAttackMatched(RE::Actor *a_actor);
+
+    // Feedback summary (posted / taken / attack data matched per kind) at info level; call once
+    // per frame from the main thread, it logs at most once a minute and only if something happened.
+    void LogSummary(float a_deltaTime);
+
     void Evict(RE::FormID a_formID);
 } // namespace CombatAI::Intents

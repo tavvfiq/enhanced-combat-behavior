@@ -49,6 +49,9 @@ namespace CombatAI
                 const bool power = flags.any(RE::AttackData::AttackFlag::kPowerAttack);
                 const bool wanted = !flags.any(RE::AttackData::AttackFlag::kBashAttack) &&
                                     power == (committed == Intents::Attack::Power);
+                if (wanted) {
+                    Intents::NoteAttackMatched(a_attacker);
+                }
                 return Logged(a_attacker, a_data, a_chance, wanted ? 1.0f : 0.0f,
                               wanted ? "intent" : "intent: other kind");
             }

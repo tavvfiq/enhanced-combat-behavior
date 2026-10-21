@@ -21,6 +21,8 @@
 | 0.2.4 | Circle angle call site: SE 46720+0x299, AE 1.6.1170 / 1.7.104 47916+0x22B -> getter 49721 / 50648 (E8) | pass (tool-validated) |
 | 0.2.4 | Build | pass |
 | 0.2.4 | In game | not run yet: check a `Circle ...` debug line against the side the bandit actually circles (brain side +1 should be the bandit's left) |
+| 0.3.0 | Build | pass |
+| 0.3.0 | In game | not run yet: read the `Intents (last 60s ...)` lines |
 
 ## In-game test for 0.2.0 (no CPR)
 1. Log: `Tree: CloseMovement SetRoot hooked` at load, `Tree: CloseMovement tree extended` when the first fight starts. If `unexpected shape` or `site does not match` appears, report it.

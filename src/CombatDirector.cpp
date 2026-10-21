@@ -492,6 +492,7 @@ namespace CombatAI
 
         // Update per-frame systems (must be called once per frame, not per actor)
         m_humanizer.Update(a_deltaTime);
+        Intents::LogSummary(a_deltaTime);
         SCARIntegration::GetInstance().Update(a_deltaTime);
         m_executor.UpdateJumps(a_deltaTime);
         m_observer.Update(a_deltaTime);

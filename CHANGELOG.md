@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.3.0 (2026-10-22)
+
+- **Feedback summary**: once a minute (info level, only when something happened) the log shows, per kind, how many intents the brain posted, how many the trees took, and for attacks how many found attack data of the requested kind (light/power) in the Attack node - plus movement intent changes. Posted >> taken means the tree was busy; taken >> found means the actor has no attack data of that kind or not enough stamina.
+
 ## CombatAITree 0.2.4 (2026-10-22)
 
 - **Circle on the brain's side.** Strafe and Flanking now pass their direction (left/right of the line to the target) with the Circle intent, and the Circle node's angle-getter call (SE 46720+0x299 / AE 47916+0x22B, byte- and target-checked) keeps vanilla's angle size but sets its sign. Without a side, vanilla's random side is kept. Sign convention (positive = left) comes from Fenix-NG and is not verified in game: debug line `Circle ...: vanilla angle a -> b (brain side +1/-1)`.

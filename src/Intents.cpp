@@ -34,6 +34,16 @@ namespace CombatAI::Intents
         };
 
         ThreadSafeMap<RE::FormID, Entry> g_board;
+
+        // Feedback counters since the last summary (atomics: posted on the brain thread, taken on tree threads)
+        struct Counters
+        {
+            std::atomic<std::uint32_t> attackPosted[3]{}, attackTaken[3]{}, attackMatched[3]{};
+            std::atomic<std::uint32_t> defendPosted[3]{}, defendTaken[3]{};
+            std::atomic<std::uint32_t> moveChanged[5]{};
+        } g_count;
+        // Actors whose taken attack already counted as matched (one match per take)
+        ThreadSafeMap<RE::FormID, bool> g_matched;
         // Last movement branch each actor's tree entered (debug log only, so we see when it changes)
         ThreadSafeMap<RE::FormID, Move> g_moveRun;
 
@@ -61,6 +71,7 @@ namespace CombatAI::Intents
             posted = true;
         });
         if (posted) {
+            g_count.attackPosted[static_cast<int>(a_kind)].fetch_add(1, std::memory_order_relaxed);
             Debug(a_actor, "post attack", static_cast<int>(a_kind));
         }
         return posted;
@@ -82,6 +93,7 @@ namespace CombatAI::Intents
             posted = true;
         });
         if (posted) {
+            g_count.defendPosted[static_cast<int>(a_kind)].fetch_add(1, std::memory_order_relaxed);
             Debug(a_actor, "post defend", static_cast<int>(a_kind));
         }
         return posted;
@@ -103,6 +115,8 @@ namespace CombatAI::Intents
             e.attack = Attack::None;
         });
         if (taken != Attack::None) {
+            g_count.attackTaken[static_cast<int>(taken)].fetch_add(1, std::memory_order_relaxed);
+            g_matched.ModifyOrCreate(a_actor->GetFormID(), [](bool &m) { m = false; });
             Debug(a_actor, "tree took attack", static_cast<int>(taken));
         }
         return taken;
@@ -122,6 +136,7 @@ namespace CombatAI::Intents
             }
         });
         if (taken) {
+            g_count.defendTaken[static_cast<int>(a_kind)].fetch_add(1, std::memory_order_relaxed);
             Debug(a_actor, "tree took defend", static_cast<int>(a_kind));
         }
         return taken;
@@ -141,6 +156,7 @@ namespace CombatAI::Intents
             e.circleSide = a_kind == Move::Circle ? a_circleSide : 0.0f;
         });
         if (changed) {
+            g_count.moveChanged[static_cast<int>(a_kind)].fetch_add(1, std::memory_order_relaxed);
             Debug(a_actor, "post move", static_cast<int>(a_kind));
         }
         return true;
@@ -197,8 +213,49 @@ namespace CombatAI::Intents
         return e && Clock::now() < e->committedUntil ? e->committed : Attack::None;
     }
 
+    void NoteAttackMatched(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return;
+        }
+        bool first = false;
+        g_matched.Modify(a_actor->GetFormID(), [&](bool &m) {
+            first = !m;
+            m = true;
+        });
+        if (first) {
+            const auto kind = CommittedAttack(a_actor);
+            if (kind != Attack::None) {
+                g_count.attackMatched[static_cast<int>(kind)].fetch_add(1, std::memory_order_relaxed);
+            }
+        }
+    }
+
+    void LogSummary(float a_deltaTime)
+    {
+        static float elapsed = 0.0f; // main thread only
+        elapsed += a_deltaTime;
+        if (elapsed < 60.0f) {
+            return;
+        }
+        elapsed = 0.0f;
+        auto take = [](std::atomic<std::uint32_t> &a) { return a.exchange(0, std::memory_order_relaxed); };
+        const std::uint32_t lp = take(g_count.attackPosted[1]), lt = take(g_count.attackTaken[1]), lm = take(g_count.attackMatched[1]);
+        const std::uint32_t pp = take(g_count.attackPosted[2]), pt = take(g_count.attackTaken[2]), pm = take(g_count.attackMatched[2]);
+        const std::uint32_t bp = take(g_count.defendPosted[1]), bt = take(g_count.defendTaken[1]);
+        const std::uint32_t sp = take(g_count.defendPosted[2]), st = take(g_count.defendTaken[2]);
+        const std::uint32_t ma = take(g_count.moveChanged[1]), mc = take(g_count.moveChanged[2]), mf = take(g_count.moveChanged[3]), mb = take(g_count.moveChanged[4]);
+        if (lp + pp + bp + sp + ma + mc + mf + mb == 0) {
+            return;
+        }
+        LOG_INFO("Intents (last 60s, posted/taken/attack data found): light {}/{}/{}, power {}/{}/{}, block {}/{}, bash {}/{}; "
+                 "movement changes: advance {}, circle {}, fallback {}, backoff {}",
+                 lp, lt, lm, pp, pt, pm, bp, bt, sp, st, ma, mc, mf, mb);
+    }
+
     void Evict(RE::FormID a_formID)
     {
+        g_matched.Erase(a_formID);
         g_board.Erase(a_formID);
         g_moveRun.Erase(a_formID);
     }
