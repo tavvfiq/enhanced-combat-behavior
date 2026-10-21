@@ -111,6 +111,9 @@ namespace CombatAI
         // Execute feint (fake attack to bait enemy response)
         bool ExecuteFeint(RE::Actor *a_actor, const DecisionResult &a_decision, const ActorStateData &a_state);
 
+        // +1 if a_direction circles the target counter-clockwise (left), -1 clockwise, 0 none
+        static float CircleSide(const ActorStateData &a_state, const RE::NiPoint3 &a_direction);
+
         // Helper: Trigger animation graph event
         bool NotifyAnimation(RE::Actor *a_actor, const char *a_eventName);
 

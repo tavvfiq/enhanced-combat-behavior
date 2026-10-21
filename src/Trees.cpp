@@ -1,4 +1,5 @@
 #include "Trees.h"
+#include "Config.h"
 #include "Intents.h"
 #include "Logger.h"
 #include "TreeNodes.h"
@@ -18,6 +19,19 @@ namespace CombatAI::Trees
         constexpr REL::RelocationID kCloseMovementTree{46731, 47928};
         constexpr std::size_t kCloseMovementSetRootSE = 0x512;
         constexpr std::size_t kCloseMovementSetRootAE = 0xE9C;
+        // Circle node's call to its angle getter (one of two callers; the other is CircleDistant).
+        // The angle's sign picks the side (Fenix-NG: positive = left).
+        constexpr REL::RelocationID kCircleUpdate{46720, 47916};
+        constexpr std::size_t kCircleAngleCallSE = 0x299;
+        constexpr std::size_t kCircleAngleCallAE = 0x22B;
+        constexpr REL::RelocationID kCircleAngle{49721, 50648};
+
+        // True if the instruction at a_site is a rel32 call to a_target (checked before patching).
+        bool CallsTarget(std::uintptr_t a_site, std::uintptr_t a_target)
+        {
+            const auto *bytes = reinterpret_cast<const std::uint8_t *>(a_site);
+            return bytes[0] == 0xE8 && a_site + 5 + *reinterpret_cast<const std::int32_t *>(a_site + 1) == a_target;
+        }
 
         // Vanilla chance functions the stock RandomNodes roll (SE->AE pairs from the two tree
         // builders; every pair is +927, like the attack-chance pair 49748/50675).
@@ -174,6 +188,23 @@ namespace CombatAI::Trees
 
         std::atomic<std::uint32_t> g_closeBuilt{0};
 
+        // Circle on the brain's side: keep vanilla's angle size, set its sign.
+        struct CircleAngle
+        {
+            static float thunk(RE::Actor *a_me)
+            {
+                const float angle = func(a_me);
+                const float side = Intents::CircleSide(a_me);
+                const float out = side > 0.0f ? std::fabs(angle) : (side < 0.0f ? -std::fabs(angle) : angle);
+                if (a_me && Config::GetInstance().IsDebugTarget(a_me->GetFormID())) {
+                    LOG_DEBUG("Circle 0x{:08X}: vanilla angle {:.3f} -> {:.3f} (brain side {:+.0f})",
+                              static_cast<std::uint32_t>(a_me->GetFormID()), angle, out, side);
+                }
+                return out;
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
         // Vanilla CloseMovement: Context > Repeat > Movement Selector{ OutOfRange.., OutOfPosition.., InRange.. }.
         // Ours:    Context > Repeat > NextSelector{ brain Advance, Circle, Fallback, Backoff, <vanilla Movement Selector> }.
         // The brain's branches only run while it keeps asking (WantsMove); otherwise vanilla runs as before.
@@ -218,14 +249,20 @@ namespace CombatAI::Trees
 
         const auto site = kCloseMovementTree.address() +
                           (REL::Module::IsAE() ? kCloseMovementSetRootAE : kCloseMovementSetRootSE);
-        const REL::Relocation<std::uintptr_t> setRoot{Id::initNodes};
         const auto *bytes = reinterpret_cast<const std::uint8_t *>(site);
-        const auto target = site + 5 + *reinterpret_cast<const std::int32_t *>(site + 1);
-        if (bytes[0] == 0xE8 && target == setRoot.address()) {
+        if (CallsTarget(site, Id::initNodes.address())) {
             CloseMovementSetRoot::func = trampoline.write_call<5>(site, CloseMovementSetRoot::thunk);
             LOG_INFO("Tree: CloseMovement SetRoot hooked");
         } else {
             LOG_ERROR("Tree: CloseMovement SetRoot site does not match (byte {:02X}) - movement intents disabled", bytes[0]);
+        }
+
+        const auto circleSite = kCircleUpdate.address() + (REL::Module::IsAE() ? kCircleAngleCallAE : kCircleAngleCallSE);
+        if (CallsTarget(circleSite, kCircleAngle.address())) {
+            CircleAngle::func = trampoline.write_call<5>(circleSite, CircleAngle::thunk);
+            LOG_INFO("Tree: Circle angle call hooked (brain picks the side)");
+        } else {
+            LOG_ERROR("Tree: Circle angle call site does not match - vanilla picks the circle side");
         }
     }
 } // namespace CombatAI::Trees

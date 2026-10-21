@@ -30,6 +30,7 @@ namespace CombatAI::Intents
             Clock::time_point committedUntil{};
             Move move = Move::None;
             Clock::time_point moveUntil{};
+            float circleSide = 0.0f;
         };
 
         ThreadSafeMap<RE::FormID, Entry> g_board;
@@ -126,7 +127,7 @@ namespace CombatAI::Intents
         return taken;
     }
 
-    bool PostMove(RE::Actor *a_actor, Move a_kind)
+    bool PostMove(RE::Actor *a_actor, Move a_kind, float a_circleSide)
     {
         if (!a_actor) {
             return false;
@@ -137,6 +138,7 @@ namespace CombatAI::Intents
             changed = e.move != a_kind;
             e.move = a_kind;
             e.moveUntil = until;
+            e.circleSide = a_kind == Move::Circle ? a_circleSide : 0.0f;
         });
         if (changed) {
             Debug(a_actor, "post move", static_cast<int>(a_kind));
@@ -164,6 +166,15 @@ namespace CombatAI::Intents
             Debug(a_actor, "tree runs move", static_cast<int>(a_kind));
         }
         return wants;
+    }
+
+    float CircleSide(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return 0.0f;
+        }
+        const auto e = g_board.Find(a_actor->GetFormID());
+        return e && e->move == Move::Circle && Clock::now() < e->moveUntil ? e->circleSide : 0.0f;
     }
 
     bool HasPending(RE::Actor *a_actor)

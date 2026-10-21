@@ -60,6 +60,15 @@ namespace CombatAI
         }
     } // namespace
 
+    // Circle side of a strafe direction: +1 when it turns left (counter-clockwise, z up) from the line
+    // to the target, -1 right, 0 when there is no direction.
+    float ActionExecutor::CircleSide(const ActorStateData &a_state, const RE::NiPoint3 &a_direction)
+    {
+        const RE::NiPoint3 toTarget = a_state.target.position - a_state.self.position;
+        const float cross = toTarget.x * a_direction.y - toTarget.y * a_direction.x;
+        return cross > 0.0f ? 1.0f : (cross < 0.0f ? -1.0f : 0.0f);
+    }
+
     bool ActionExecutor::Execute(RE::Actor *a_actor, const DecisionResult &a_decision, const ActorStateData &a_state)
     {
         if (!a_actor || a_decision.action == ActionType::None) {
@@ -399,11 +408,12 @@ namespace CombatAI
             return false; // Can't strafe without a valid target
         }
 
-        // Our CloseMovement tree runs the vanilla Circle node; CPR (below) only shapes it if present
-        Intents::PostMove(a_actor, Intents::Move::Circle);
-
         // Get movement direction from decision (could be normal strafe or flanking)
         RE::NiPoint3 movementDir = a_decision.direction;
+
+        // Our CloseMovement tree runs the vanilla Circle node on the brain's side; CPR (below) only
+        // shapes it if present
+        Intents::PostMove(a_actor, Intents::Move::Circle, CircleSide(a_state, movementDir));
 
         // Try CPR circling if available
         // NOTE: CPR only works for melee-only actors (no ranged weapons or magic)
@@ -445,12 +455,12 @@ namespace CombatAI
             return false; // Can't flank without a valid target
         }
 
-        // Flanking circles like Strafe (vanilla Circle node); CPR below shapes the ring if present
-        Intents::PostMove(a_actor, Intents::Move::Circle);
-
         // Flanking is similar to strafe but with tactical positioning
         // Use the calculated flanking direction from decision (perpendicular to target, away from ally)
         RE::NiPoint3 flankDir = a_decision.direction;
+
+        // Flanking circles like Strafe (vanilla Circle node, brain's side); CPR below shapes the ring
+        Intents::PostMove(a_actor, Intents::Move::Circle, CircleSide(a_state, flankDir));
 
         // Try CPR circling if available and actor is melee-only
         bool isMeleeOnly = IsMeleeOnlyActor(a_actor);
