@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.2.3 (2026-10-22)
+
+- **Fix: the brain never attacked.** Offense has an anti-spam gate (no attack within 0.3 s of the last executed action), and every executed action reset that timer - including locomotion, which the brain re-issues every ~0.1 s while moving. Once movement ran through the tree (0.2.x), the timer stayed at ~0 and offense was never evaluated: 0 Attack/PowerAttack candidates in 1398 decisions in the 0.2.2 test. Advancing, Strafe, Flanking, Retreat and Backoff no longer reset it.
+- `scripts/package_release.ps1`: one-command release packaging (DLL + assets, tree validation, zip).
+
 ## CombatAITree 0.2.2 (2026-10-22)
 
 - **Removed the "our defense" attack veto** (and `DefenseVetoSeconds`). It stopped vanilla attacks for 0.6 s after every brain dodge, block, parry, retreat, backoff or strafe, which in the 0.2.1 test vetoed 299 of 440 attack checks and left bandits passive once movement actually ran. Its job is covered now: vanilla branches already yield while a brain bash/block intent is pending, and the Block/Bash nodes are vanilla's own. The pacing veto ("waiting its turn") stays.

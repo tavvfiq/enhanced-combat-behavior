@@ -1288,7 +1288,20 @@ namespace CombatAI
         // Reset timers based on action type, atomically under the map's lock. If the
         // actor has no temporal entry yet, there is nothing to reset.
         m_actorTemporalData.Modify(formID, [&](ActorTemporalData &temporal) {
-            temporal.timeSinceLastAction = 0.0f;
+            // The anti-spam gate (no attack within 0.3 s of the last action) counts deliberate
+            // actions only. Locomotion is re-issued every decision while it runs, so counting it
+            // kept the timer at ~0 and offense was never evaluated (0 Attack candidates in 1398).
+            switch (a_action) {
+            case ActionType::Advancing:
+            case ActionType::Strafe:
+            case ActionType::Flanking:
+            case ActionType::Retreat:
+            case ActionType::Backoff:
+                break;
+            default:
+                temporal.timeSinceLastAction = 0.0f;
+                break;
+            }
 
             switch (a_action) {
             case ActionType::Attack:
