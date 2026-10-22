@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.4.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.5.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -22,17 +22,18 @@ version so any step can be rolled back.
   The skill roll dropped 58 of 70 Attack decisions (skill 33-55% early in the fight), by design. LOS blocks 30, all
   unnamed static refs. Circle side: 46 lines, not yet checked by eye.
 - 0.4.0 (movement preemption): build-validated only.
+- 0.5.0 (arc jump after FluidMotionNPC, own code): build-validated only.
 
 **Next (for the user):**
-1. Install 0.4.0 and fight bandits with one selected. Check:
-   - movement follows the brain faster: the summary's `running moves stopped: ours N, vanilla N` is above 0;
-   - no foot stutter. Many `Move ... stopped running vanilla node` lines every 0.3 s for the same actor means
-     churn: our branch can't run, vanilla restarts;
-   - no hang;
-   - the circle side by eye: the `Circle ...: vanilla angle a -> b (brain side +1)` line should match the bandit
-     circling to its own left.
-2. Then (dev): Surround + fallback distance parameters. The custom leaf is parked (TREE_DESIGN §6: it adds
-   dodge latency for a problem not yet seen).
+1. Install 0.5.0 (it includes 0.4.0). Fight a bandit camp with archers and one bandit selected. Check:
+   - **0.4.0 movement:** the summary's `running moves stopped: ours N, vanilla N` is above 0, no foot stutter (no
+     `Move ... stopped running vanilla node` for the same actor every 0.3 s), no hang;
+   - **0.5.0 jump:** set `EnableJumpEvasion` / `EvasionJumpChance` high in the INI to see it often. Look for
+     `Jump 0x..: side arc ...` then `landed`, and watch whether the leap looks right: no sliding pose, no fall
+     damage, no bounce, no stuck jump state;
+   - **circle side** by eye against the `Circle ... (brain side +1)` line (+1 = to its own left).
+   - If 0.5.0 misbehaves, 0.4.0 is the same build without the jump change.
+2. Then (dev): Surround + fallback distance parameters. The custom leaf is parked (TREE_DESIGN §6).
 **Last good version:** 0.3.2 (runtime-evidenced, run 6). Then 0.3.1 (run 5), 0.3.0 (run 4). Before that 0.2.2, then EnhancedCombatAI 1.10.2.
 **Log:** `Documents\My Games\Skyrim Special Edition\SKSE\CombatAITree.log`
 (debug lines need `EnableDebugLog = true` under `[General]` in `CombatAITree.ini`, the shipped default;

@@ -45,16 +45,27 @@ namespace CombatAI
 
       private:
         // In-flight jump, tracked until the actor lands (port of FJF's AirborneJump)
+        // A jump we drive along a planned ballistic arc (game units, seconds). Method after
+        // FluidMotionNPC's NPC jumps (own implementation): plan and ray-check the arc first, then place
+        // the actor on it every frame instead of launching it and hoping the controller follows.
+        static constexpr float kJumpGravity = 900.0f;       // game units/s^2 (FluidMotion's NPC default)
+        static constexpr float kJumpSideDistance = 150.0f;  // sideways leap out of a shooter's line
+        static constexpr float kJumpSettleSeconds = 0.35f;  // no upward velocity right after touchdown
+        static constexpr float kJumpRelandSeconds = 2.0f;   // one JumpLand retry if the graph is stuck
         struct ActiveJump
         {
             RE::ActorHandle handle;
-            float elapsed = 0.0f;
-            float startZ = 0.0f;
-            float peakZ = 0.0f;
-            float launchVz = 0.0f; // Havok units/s
-            float height = 0.0f;   // requested apex, game units
-            std::uint32_t boosts = 0;
+            RE::NiPoint3 start, end, vel; // vel at t = 0
+            float T = 0.0f;               // flight time
+            float t = 0.0f;
+            float settle = -1.0f;         // < 0 airborne, else seconds since touchdown
+            bool relanded = false;
             bool oarFallback = false; // EnhancedCombatAI_Jump was set for the OAR dodge swap
+
+            RE::NiPoint3 At(float a_t) const
+            {
+                return {start.x + vel.x * a_t, start.y + vel.y * a_t, start.z + vel.z * a_t - 0.5f * kJumpGravity * a_t * a_t};
+            }
         };
 
         // Execute bash action
@@ -100,7 +111,8 @@ namespace CombatAI
 
         // Put the controller into its jumping state and apply the launch velocity.
         // Returns the launch vertical speed (Havok units/s), or a negative value on failure.
-        float LaunchJump(RE::Actor *a_actor, float a_height);
+        bool PlanJumpArc(RE::Actor *a_actor, const RE::NiPoint3 &a_direction, float a_distance, float a_height,
+                         ActiveJump &a_out);
 
         // Execute backoff movement (away from target when they're casting/drawing)
         bool ExecuteBackoff(RE::Actor *a_actor, const DecisionResult &a_decision, const ActorStateData &a_state);

@@ -1,5 +1,17 @@
 # Changelog
 
+## CombatAITree 0.5.0 (2026-10-22)
+
+- **Arc jump, after FluidMotionNPC's NPC jumps.** This is our own implementation of the method; no code is copied (FluidMotionNPC is GPL-3).
+  - **Before:** the jump was one upward velocity push, then physics. On AE that needed up to 8 re-pushes because NPC movement kept cancelling it, its height was approximate, it went straight up only, and nothing checked the space around it.
+  - **Planning:** the jump (still the archer evasion) now plans a ballistic arc first: a 150-unit sideways leap out of the shooter's line (random side), then the other side, then straight up. Apex is `JumpHeight` and gravity is 900 units/s².
+  - **Checks:** each arc is ray-checked at shin, waist and head height for walls and a ceiling. The landing spot needs ground within `DodgeMaxDrop`, at most half the apex higher, and not on another actor. If no arc is clear, no jump.
+  - **Driving:** while airborne the actor is placed on the arc every frame, with the matching velocity, the controller held in-air and the fall height reset, so landing is no fall.
+  - **Landing:** `JumpLand` at touchdown; 0.35 s with no upward velocity (no bounce); one `JumpLand` retry 2 s after touchdown if the graph is stuck in its jump state and skating.
+  - **Animation:** start events try `JumpDirectionalStart` (FluidMotionNPC's NPC default), then the standing jump, then the existing OAR dodge-as-jump swap.
+  - **FluidMotionNPC, if installed:** no jump while it moves the actor (`FMNPC_IsTraversing`), and it is told to leave the actor alone for the jump (`FMNPC_Claim`).
+  - **Debug:** `Jump 0x..: side|other side|in place arc, N units, landing dz, T s`, `landed`, `aborted`, `no clear arc`.
+  - **Removed:** the FJF velocity-launch helpers and the AE re-push loop.
 ## CombatAITree 0.4.0 (2026-10-22)
 
 - **Movement preemption.** A running Advance/Circle/Fallback/Backoff node no longer plays out to its own end after the brain has changed its mind.

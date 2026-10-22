@@ -23,41 +23,33 @@ namespace CombatAI
 {
     namespace
     {
-        // Jump launch helpers, ported from Follower Jumping Framework (FJF).
-        // AE/VR NPC controllers overwrite a bare velocity write while grounded; they only
-        // launch when moved into the Havok jumping state first. SE keeps velocity-only.
-        bool IsControllerJumpRuntime() { return REL::Module::IsAE() || REL::Module::IsVR(); }
-
-        bool IsAirborneState(RE::hkpCharacterStateType a_state)
+        // FluidMotionNPC (optional): while it moves an actor (jump arc, route, climb) we don't start a jump,
+        // and during ours we claim the actor so it starts nothing. Resolved by export name; absent = no-op.
+        namespace FluidMotionNPC
         {
-            return a_state == RE::hkpCharacterStateType::kInAir || a_state == RE::hkpCharacterStateType::kJumping;
-        }
+            using IsTraversingFn = bool (*)(std::uint32_t);
+            using ClaimFn = void (*)(std::uint32_t, float);
 
-        bool CanEnterJumpState(const RE::bhkCharacterController *a_controller)
-        {
-            if (!a_controller || a_controller->context.currentState != RE::hkpCharacterStateType::kOnGround) {
-                return false;
+            HMODULE Module()
+            {
+                static const HMODULE module = GetModuleHandleA("FluidMotionNPC.dll");
+                return module;
             }
-            if (!IsControllerJumpRuntime()) {
-                return true;
-            }
-            const auto *manager = a_controller->context.stateManager;
-            return manager && manager->registeredState[RE::hkpCharacterStateType::kJumping];
-        }
 
-        // Controller linear velocity in Havok units/s; false if unreadable.
-        bool ReadVelocity(const RE::bhkCharacterController *a_controller, float (&a_out)[4])
-        {
-            RE::hkVector4 current{};
-            a_controller->GetLinearVelocityImpl(current);
-            alignas(16) float v[4]{};
-            _mm_store_ps(v, current.quad);
-            if (!std::isfinite(v[0]) || !std::isfinite(v[1]) || !std::isfinite(v[2])) {
-                return false;
+            bool IsTraversing(RE::FormID a_formID)
+            {
+                static const auto fn = Module() ? reinterpret_cast<IsTraversingFn>(GetProcAddress(Module(), "FMNPC_IsTraversing")) : nullptr;
+                return fn && fn(a_formID);
             }
-            std::copy(std::begin(v), std::end(v), std::begin(a_out));
-            return true;
-        }
+
+            void Claim(RE::FormID a_formID, float a_seconds)
+            {
+                static const auto fn = Module() ? reinterpret_cast<ClaimFn>(GetProcAddress(Module(), "FMNPC_Claim")) : nullptr;
+                if (fn) {
+                    fn(a_formID, a_seconds);
+                }
+            }
+        } // namespace FluidMotionNPC
     } // namespace
 
     // Circle side of a strafe direction: +1 when it turns left (counter-clockwise, z up) from the line
@@ -850,25 +842,46 @@ namespace CombatAI
         }
 
         const RE::FormID formID = a_actor->GetFormID();
-        if (m_activeJumps.Contains(formID)) {
-            return false; // Still airborne from the previous jump
+        if (m_activeJumps.Contains(formID) || FluidMotionNPC::IsTraversing(formID)) {
+            return false; // Still airborne, or FluidMotionNPC is moving this actor
         }
 
         // Check everything up front so a rejected jump leaves no graph/physics side effects
+        const auto *controller = a_actor->GetCharController();
         if (a_actor->IsInKillMove() || ActorUtils::SafeGetKnockState(a_actor) != RE::KNOCK_STATE_ENUM::kNormal ||
-            !CanEnterJumpState(a_actor->GetCharController())) {
+            !controller || controller->context.currentState != RE::hkpCharacterStateType::kOnGround) {
             return false;
         }
 
+        // Plan before any event: a sideways leap out of the shooter's line (random side first), then the
+        // other side, then straight up. Each arc is ray-checked for walls, ceiling and a place to land.
         const float height = Config::GetInstance().GetDecisionMatrix().jumpHeight;
-        const RE::ActorHandle handle = a_actor->GetHandle();
+        RE::NiPoint3 toTarget = a_state.target.position - a_state.self.position;
+        toTarget.z = 0.0f;
+        const RE::NiPoint3 left = toTarget.Length() > 1.0f ? RE::NiPoint3(-toTarget.y, toTarget.x, 0.0f) / toTarget.Length()
+                                                            : RE::NiPoint3(-a_state.self.forwardVector.y, a_state.self.forwardVector.x, 0.0f);
+        thread_local std::mt19937 gen{std::random_device{}()};
+        const float first = std::bernoulli_distribution(0.5)(gen) ? 1.0f : -1.0f;
+        ActiveJump jump;
+        const char *shape = nullptr;
+        if (PlanJumpArc(a_actor, left * first, kJumpSideDistance, height, jump)) {
+            shape = "side";
+        } else if (PlanJumpArc(a_actor, left * -first, kJumpSideDistance, height, jump)) {
+            shape = "other side";
+        } else if (PlanJumpArc(a_actor, RE::NiPoint3(), 0.0f, height, jump)) {
+            shape = "in place";
+        } else {
+            if (Config::GetInstance().IsDebugTarget(formID)) {
+                LOG_DEBUG("Jump 0x{:08X}: no clear arc (walls, ceiling or no landing) - not jumping", formID);
+            }
+            return false;
+        }
 
-        // FJF: AE accepted JumpStandingStart on every launch; SE uses JumpUp.
-        const char *jumpEvent = IsControllerJumpRuntime() ? "JumpStandingStart" : "JumpUp";
+        // FluidMotionNPC's NPC start event, then the standing jump, then the OAR swap that replays a TK
+        // Dodge as a jump animation (the variable must be set before the dodge event).
         bool oarFallback = false;
-        if (!ActorUtils::SafeNotifyAnimationGraph(a_actor, jumpEvent)) {
-            // Graph refused the vanilla jump: fall back to the OAR swap that replays a
-            // TK Dodge as a jump animation. The variable must be set before the dodge event.
+        if (!ActorUtils::SafeNotifyAnimationGraph(a_actor, "JumpDirectionalStart") &&
+            !ActorUtils::SafeNotifyAnimationGraph(a_actor, REL::Module::IsSE() ? "JumpUp" : "JumpStandingStart")) {
             ActorUtils::SafeSetGraphVariableBool(a_actor, "EnhancedCombatAI_Jump", true);
             if (!ExecuteDodge(a_actor, a_state)) {
                 ResetJumpVariable(a_actor);
@@ -877,54 +890,82 @@ namespace CombatAI
             oarFallback = true;
         }
 
-        // An animation event may replace the actor's process/controller.
-        // Resolve the handle again before touching Havok.
-        const auto resolved = handle.get();
-        RE::Actor *actor = resolved.get();
-        const float launchVz = (actor && actor->Is3DLoaded()) ? LaunchJump(actor, height) : -1.0f;
-        if (launchVz < 0.0f) {
-            if (oarFallback && actor) {
-                ResetJumpVariable(actor);
-            }
-            return true; // The animation already fired; let the cooldown apply
-        }
-
-        const float startZ = actor->GetPositionZ();
-        ActiveJump jump{handle, 0.0f, startZ, startZ, launchVz, height, 0, oarFallback};
+        jump.handle = a_actor->GetHandle();
+        jump.oarFallback = oarFallback;
+        FluidMotionNPC::Claim(formID, jump.T + kJumpSettleSeconds + 0.5f);
         m_activeJumps.WithWriteLock([&](auto &jumps) { jumps.insert_or_assign(formID, jump); });
+        if (Config::GetInstance().IsDebugTarget(formID)) {
+            LOG_DEBUG("Jump 0x{:08X}: {} arc, {:.0f} units, landing dz {:+.0f}, {:.2f}s{}", formID, shape,
+                      std::hypot(jump.end.x - jump.start.x, jump.end.y - jump.start.y), jump.end.z - jump.start.z,
+                      jump.T, oarFallback ? " (OAR dodge animation)" : "");
+        }
         return true;
     }
 
-    float ActionExecutor::LaunchJump(RE::Actor *a_actor, float a_height)
+    // Ballistic arc from the actor's feet, a_distance along a_direction (unit, z 0), apex a_height above the
+    // start. False when a wall or ceiling is in the way, or there is no ground to land on. Actor hits are
+    // ignored (bodies are not walls; the kLOS ray hits them).
+    bool ActionExecutor::PlanJumpArc(RE::Actor *a_actor, const RE::NiPoint3 &a_direction, float a_distance,
+                                     float a_height, ActiveJump &a_out)
     {
-        auto *controller = a_actor->GetCharController();
-        if (!CanEnterJumpState(controller)) {
-            return -1.0f;
+        const auto pos = ActorUtils::SafeGetPosition(a_actor);
+        if (!pos) {
+            return false;
+        }
+        const RE::NiPoint3 start = *pos;
+        auto blocked = [&](const RE::NiPoint3 &a_from, const RE::NiPoint3 &a_to) {
+            const auto hit = EnvSensor::CastRay(a_actor, a_from, a_to);
+            return hit.hit && !(hit.ref && hit.ref->As<RE::Actor>());
+        };
+
+        // Landing: first non-actor surface straight down through the landing spot (in place: where it
+        // stands; that ray would only find the jumper's own body).
+        RE::NiPoint3 end = start + a_direction * a_distance;
+        if (a_distance > 0.0f) {
+            const float maxDrop = Config::GetInstance().GetEnvSensor().dodgeMaxDrop;
+            const RE::NiPoint3 probeFrom{end.x, end.y, start.z + a_height + 40.0f};
+            const RE::NiPoint3 probeTo{end.x, end.y, start.z - maxDrop};
+            const auto ground = EnvSensor::CastRay(a_actor, probeFrom, probeTo);
+            if (!ground.hit || (ground.ref && ground.ref->As<RE::Actor>())) {
+                return false; // ledge (or landing on someone)
+            }
+            end.z = probeFrom.z + (probeTo.z - probeFrom.z) * ground.fraction;
+        }
+        const float dz = end.z - start.z;
+        if (dz > a_height * 0.5f) {
+            return false; // too high a step to land on
         }
 
-        // controller->gravity is a scale (1 in FJF's logs), not an acceleration.
-        const float gravityScale = std::abs(controller->gravity);
-        if (!std::isfinite(gravityScale) || gravityScale < 0.1f || gravityScale > 10.0f) {
-            return -1.0f;
+        // z(t) = start.z + vz t - g t^2 / 2, apex a_height; T is when it comes down to end.z.
+        const float vz = std::sqrt(2.0f * kJumpGravity * a_height);
+        const float T = (vz + std::sqrt(vz * vz - 2.0f * kJumpGravity * dz)) / kJumpGravity;
+        if (!std::isfinite(T) || T <= 0.0f) {
+            return false;
         }
+        a_out.start = start;
+        a_out.end = end;
+        a_out.vel = {(end.x - start.x) / T, (end.y - start.y) / T, vz};
+        a_out.T = T;
 
-        // v = sqrt(2 g h), in Havok units (game units * world scale, ~1/70).
-        constexpr float kHavokGravity = 9.81f;
-        const float upward = std::sqrt(2.0f * gravityScale * kHavokGravity * a_height * RE::bhkWorld::GetWorldScale());
-        float velocity[4]{};
-        if (!std::isfinite(upward) || !ReadVelocity(controller, velocity)) {
-            return -1.0f;
+        // Sweep the arc at shin, waist and head height (humanoid; head ray also covers the ceiling).
+        constexpr int kSegments = 8;
+        constexpr float kHeights[] = {18.0f, 60.0f, 112.0f};
+        RE::NiPoint3 prev = start;
+        for (int s = 1; s <= kSegments; ++s) {
+            const RE::NiPoint3 cur = s == kSegments ? end : a_out.At(T * s / kSegments);
+            for (const float h : kHeights) {
+                if (blocked(prev + RE::NiPoint3(0.0f, 0.0f, h), cur + RE::NiPoint3(0.0f, 0.0f, h))) {
+                    return false;
+                }
+            }
+            prev = cur;
         }
-
-        // Keep horizontal momentum (the dodge fallback's root motion drives X/Y).
-        const float launchVz = std::max(0.0f, velocity[2]) + upward;
-        if (IsControllerJumpRuntime()) {
-            controller->wantState = RE::hkpCharacterStateType::kJumping;
-        }
-        controller->SetLinearVelocityImpl(RE::hkVector4(velocity[0], velocity[1], launchVz, 0.0f));
-        return launchVz;
+        return true;
     }
 
+    // Runs once per frame on the main thread. While airborne the actor is placed on its arc each frame
+    // (position, matching velocity, in-air state, fall height reset so landing is no fall); after touchdown
+    // a short settle stops a bounce, and one JumpLand retry frees a graph left in its jump state.
     void ActionExecutor::UpdateJumps(float a_deltaTime)
     {
         if (m_activeJumps.Empty()) {
@@ -936,41 +977,71 @@ namespace CombatAI
                 ActiveJump &jump = it->second;
                 const auto ptr = jump.handle.get();
                 RE::Actor *actor = ptr.get();
-                if (!actor || actor->IsDead() || !actor->Is3DLoaded()) {
+                const bool debug = Config::GetInstance().IsDebugTarget(it->first);
+                if (!actor || actor->IsDead() || !actor->Is3DLoaded() || actor->IsInRagdollState() ||
+                    ActorUtils::SafeGetKnockState(actor) != RE::KNOCK_STATE_ENUM::kNormal) {
+                    if (actor && jump.oarFallback) {
+                        ResetJumpVariable(actor);
+                    }
+                    if (debug) {
+                        LOG_DEBUG("Jump 0x{:08X}: aborted at {:.2f}/{:.2f}s", it->first, jump.t, jump.T);
+                    }
                     it = jumps.erase(it);
                     continue;
                 }
 
-                jump.elapsed += a_deltaTime;
-                const float z = actor->GetPositionZ();
-                if (std::isfinite(z)) {
-                    jump.peakZ = std::max(jump.peakZ, z);
-                }
-
                 auto *controller = actor->GetCharController();
-                const auto state = controller ? controller->context.currentState : RE::hkpCharacterStateType::kTotal;
-
-                // FJF: AE/VR NPC movement can replace the one-shot vertical speed.
-                // Reassert it briefly, only while the controller is in a jumping/in-air state.
-                if (IsControllerJumpRuntime() && controller && IsAirborneState(state) && jump.elapsed < 0.3f &&
-                    jump.boosts < 8 && z - jump.startZ < jump.height - 4.0f) {
-                    float velocity[4]{};
-                    if (ReadVelocity(controller, velocity) && velocity[2] < jump.launchVz * 0.5f) {
-                        controller->SetLinearVelocityImpl(
-                            RE::hkVector4(velocity[0], velocity[1], jump.launchVz, 0.0f));
-                        ++jump.boosts;
+                const float scale = RE::bhkWorld::GetWorldScale();
+                if (jump.settle < 0.0f) {
+                    jump.t = std::min(jump.t + a_deltaTime, jump.T);
+                    const bool airborne = jump.t < jump.T;
+                    const RE::NiPoint3 p = airborne ? jump.At(jump.t) : jump.end;
+                    const RE::NiPoint3 v = airborne ? RE::NiPoint3(jump.vel.x, jump.vel.y, jump.vel.z - kJumpGravity * jump.t)
+                                                    : RE::NiPoint3(jump.vel.x * 0.3f, jump.vel.y * 0.3f, 0.0f);
+                    actor->SetPosition(p, true);
+                    if (controller) {
+                        controller->context.currentState =
+                            airborne ? RE::hkpCharacterStateType::kInAir : RE::hkpCharacterStateType::kOnGround;
+                        controller->SetLinearVelocityImpl(RE::hkVector4(v.x * scale, v.y * scale, v.z * scale, 0.0f));
+                        controller->fallStartHeight = p.z;
+                        controller->fallTime = 0.0f;
                     }
+                    if (!airborne) {
+                        ActorUtils::SafeNotifyAnimationGraph(actor, "JumpLand");
+                        if (jump.oarFallback) {
+                            ResetJumpVariable(actor);
+                        }
+                        jump.settle = 0.0f;
+                        if (debug) {
+                            LOG_DEBUG("Jump 0x{:08X}: landed after {:.2f}s", it->first, jump.T);
+                        }
+                    }
+                    ++it;
+                    continue;
                 }
 
-                const bool landed = jump.elapsed > 0.25f && state == RE::hkpCharacterStateType::kOnGround;
-                if (landed || jump.elapsed > 4.0f) {
-                    if (jump.oarFallback) {
-                        ResetJumpVariable(actor);
+                jump.settle += a_deltaTime;
+                RE::NiPoint3 v;
+                actor->GetLinearVelocity(v);
+                if (jump.settle < kJumpSettleSeconds && controller) {
+                    if (v.z > 0.0f) {
+                        controller->SetLinearVelocityImpl(RE::hkVector4(v.x * scale, v.y * scale, 0.0f, 0.0f));
                     }
-                    if (Config::GetInstance().IsDebugTarget(it->first)) {
-                        LOG_DEBUG("Jump 0x{:08X}: released (landed={} rise={:.0f} boosts={})", it->first, landed,
-                                  jump.peakZ - jump.startZ, jump.boosts);
+                    controller->fallStartHeight = actor->GetPositionZ();
+                    controller->fallTime = 0.0f;
+                }
+                // Graph ignored JumpLand and skates on in its jump state: one retry, late enough that a normal
+                // landing animation is over (an early resend replays it).
+                if (!jump.relanded && jump.settle >= kJumpRelandSeconds && actor->IsInJumpState() &&
+                    std::hypot(v.x, v.y) > 60.0f) {
+                    jump.relanded = true;
+                    const bool accepted = ActorUtils::SafeNotifyAnimationGraph(actor, "JumpLand");
+                    if (debug) {
+                        LOG_DEBUG("Jump 0x{:08X}: still in jump state after landing - JumpLand resent ({})", it->first,
+                                  accepted);
                     }
+                }
+                if (jump.settle > kJumpRelandSeconds + 0.5f) {
                     it = jumps.erase(it);
                 } else {
                     ++it;
@@ -978,7 +1049,6 @@ namespace CombatAI
             }
         });
     }
-
     void ActionExecutor::ResetJumpVariable(RE::Actor *a_actor)
     {
         if (!a_actor) {
