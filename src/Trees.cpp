@@ -491,6 +491,28 @@ namespace CombatAI::Trees
             }
             static inline REL::Relocation<decltype(thunk)> func;
         };
+        // Advance Update (46704/47899) ends the node when CheckShouldStop (46698/47893, (location, tolerance))
+        // says the NPC is near its destination, within a tolerance of tens of units (run 17: a range-76 bandit
+        // "arrived" 34 times at 80-99 units). Ours is in place only once inside the brain's stop distance.
+        struct AdvanceShouldStop
+        {
+            static bool thunk(void *a_location, float a_tolerance)
+            {
+                if (t_ourStart) {
+                    auto *actor = RE::CombatBehaviorController::GetCurrentAttacker();
+                    const float stop = actor ? Intents::AdvanceDistance(actor) : 0.0f;
+                    const float distance = actor ? TargetDistance(actor) : -1.0f;
+                    if (stop > 0.0f && distance > stop) {
+                        return false;
+                    }
+                }
+                return func(a_location, a_tolerance);
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+        constexpr REL::RelocationID kAdvanceUpdate{46704, 47899};
+        constexpr std::size_t kAdvanceShouldStop = 0x121; // SE, AE and 1.7.104
+
         constexpr REL::RelocationID kAdvanceStart{46703, 47898};
         constexpr std::size_t kAdvanceRingSE = 0x16F;
         constexpr std::size_t kAdvanceRingAE = 0x127; // same on 1.7.104
@@ -504,6 +526,13 @@ namespace CombatAI::Trees
             }
             AdvanceRing::func = a_trampoline.write_call<5>(site, AdvanceRing::thunk);
             LOG_INFO("Tree: Advance start radius hooked (our Advance closes to the brain's attack range)");
+            const auto stopSite = kAdvanceUpdate.address() + kAdvanceShouldStop;
+            if (!CallsTarget(stopSite, REL::RelocationID(46698, 47893).address())) {
+                LOG_ERROR("Tree: Advance update site does not match - our Advance may stop short of its range");
+                return;
+            }
+            AdvanceShouldStop::func = a_trampoline.write_call<5>(stopSite, AdvanceShouldStop::thunk);
+            LOG_INFO("Tree: Advance in-place check hooked (our Advance stops only inside the brain's range)");
         }
 
         constexpr REL::RelocationID kBackoffStart{46724, 47920};
@@ -642,6 +671,8 @@ namespace CombatAI::Trees
                     const auto want = Intents::WantedMove(actor);
                     if constexpr (K == Intents::Move::Backoff) {
                         t_ourStart = ours && Config::GetInstance().GetDecisionMatrix().brainBackoffFallback;
+                    } else if constexpr (K == Intents::Move::Advance) {
+                        t_ourStart = ours && Config::GetInstance().GetDecisionMatrix().brainAdvanceDistance;
                     }
                     if (ShouldStop(a_thread, a_node, ours ? K : want, want, ours)) {
                         t_ourStart = false;

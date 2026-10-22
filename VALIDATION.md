@@ -201,3 +201,14 @@
 - Trampoline: 16 distinct thunks, about 224 of 256 bytes. The next new hook needs a bigger trampoline.
 - INI: `BackoffAfterSwing` line repaired (glued to a comment since 0.8.2); scan for `key = value#` lines is clean.
 - Build ok; FileVersion 0.8.6.0; ship-gate PASS. Zip sha256 37F49134424B70A66BC4FCEB01EB0AB2AC9B1330A18C0B1E3CEFEEB69E65934C. Runtime: untested.
+
+## 0.8.6 run 17 (2026-10-22, user log, ~3 min, 3 bandits selected in turn)
+- No crash in combat (21:26:06 = BetterAltTab at exit, 0 frames). Advance start radius hook installed.
+- Our Advance: 47 instant "done" (24 ms, moved 0), 34 of them 0x8E1A4 (reach 72, range ~76, stop ~68) at 80-99 units, 9 0x8E1A1 at 80-119. 21 stopped by brain (305 ms, moved 36, 157 -> 109). The ring moved, but CheckShouldStop's tolerance still called 80-99 "in place". Fixed in 0.8.7.
+- Our Backoff: 41 runs, 13 failed at start (median dist 71, close contact), 23 stopped by brain (524 ms, moved 34, 124 -> 192), 3 done (1.8 s, moved 153). Fallback: 24 runs, 13 done (1.3 s, moved 78, +88). Circle: 29 runs, 3 failed.
+- In range, Backoff still outnumbers attacks: 0x8E1A4 inRange Backoff 69 vs PowerAttack 7; 0x8E1A1 Backoff 57 vs Attack 8 / PowerAttack 1; 0x8E0ED Backoff 30 vs PowerAttack 2.
+- Bash: second minute posted 26, taken 2 (first minute 2/2).
+
+## 0.8.7 (2026-10-22)
+- AdvanceShouldStop thunk (void*, float) on 46704 / 47899 +0x121 -> 46698 / 47893 (args rcx + xmm1, args.py). Trampoline 512 B.
+- Build ok; FileVersion 0.8.7.0; ship-gate PASS. Zip sha256 FC0B77DB91C2CBCE6DF6E287CD1F2B85C60131111A451F0619C881304F188CFA. Runtime: untested.

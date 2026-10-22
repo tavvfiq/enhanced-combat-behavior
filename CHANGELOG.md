@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.8.7 (2026-10-22)
+
+- **Our Advance doesn't stop short of the brain's range.**
+  - **Problem:** in run 17 the new ring was set, but the vanilla "in position" check (`CheckShouldStop`, 46698/47893, called at Advance Update 46704/47899 +0x121 on all three runtimes) accepts anywhere within its own tolerance of the destination. A bandit with attack range ~76 "arrived" 34 times at 80-99 units, at 24 ms, having moved 0.
+  - **Fix:** for our Advance (with `BrainAdvanceDistance` on) the NPC is in position only once it is within the brain's stop distance of the target. Otherwise vanilla's check decides.
+- **Hook space:** the trampoline is raised from 256 to 512 bytes. 17 hooks use about 238 B.
 ## CombatAITree 0.8.6 (2026-10-22)
 
 - **The brain's Advance closes into its own attack range** (`BrainAdvanceDistance`, default on, in the menu, installed at load).
