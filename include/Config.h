@@ -32,15 +32,11 @@ namespace CombatAI
 
             // Skill rolls: deliberate actions roll once per opportunity (see Humanizer)
             bool enableSkillRolls = true;
-            float skillBase = 0.55f;          // Chance at level 1
+            float skillBase = 0.75f;          // Chance at level 1
             float skillPerLevel = 0.008f;     // Added per level above 1
             float skillMin = 0.2f;
             float skillMax = 0.95f;
             float skillRerollSeconds = 1.0f;  // Openings that aren't one swing re-roll this often
-            float bashCooldownSeconds = 3.0f;
-            float sprintAttackCooldownSeconds = 3.0f;
-            float dodgeCooldownSeconds = 2.0f;
-            float jumpCooldownSeconds = 3.0f;
 
             // Fatigue: long fights and low stamina make the actor sloppier
             bool enableFatigue = true;
@@ -88,6 +84,7 @@ namespace CombatAI
             float jumpEvasionDistanceMax = 1500.0f;
             float evasionJumpChance = 0.5f;
             float jumpHeight = 100.0f; // Jump apex height in game units
+            float jumpStaminaCost = 20.0f; // Spent per jump; no cooldown, an NPC without this much stamina can't jump
             float staminaThreshold = 0.2f;
             float healthThreshold = 0.3f;
             bool enableSurvivalRetreat = true;

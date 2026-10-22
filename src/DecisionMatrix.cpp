@@ -21,6 +21,17 @@ namespace CombatAI
 
     // Effective melee reach in game units. Delegates to the shared StateHelpers
     // formula so the decision matrix and the observer's range categories agree.
+    // True when a shooter a_distance away, whose facing has dot a_dot with the direction to us, would put the
+    // arrow within a_radius of our centre. A plain cone (dot > 0.9) let every NPC within ~25 degrees jump.
+    constexpr bool IsAimedAt(float a_distance, float a_dot, float a_radius)
+    {
+        return a_dot > 0.0f && a_distance * a_distance * (1.0f - a_dot * a_dot) < a_radius * a_radius;
+    }
+    static_assert(IsAimedAt(800.0f, 0.999f, 100.0f));  // ~36 units off the line
+    static_assert(!IsAimedAt(800.0f, 0.95f, 100.0f));  // ~250 units off: the NPC next to the one aimed at
+    static_assert(!IsAimedAt(800.0f, -0.999f, 100.0f)); // aiming away
+    constexpr float kAimSlack = 75.0f; // third-person camera offset and aim wobble, on top of our body radius
+
     static float EffectiveAttackRange(const ActorStateData &a_state, float a_weaponReach, float a_multiplier,
                                       float a_safetyMargin = 0.0f)
     {
@@ -347,8 +358,11 @@ namespace CombatAI
                 basePriority -= 0.2f; // Multiple enemies targeting us - bash is risky
             }
 
-            // Stamina consideration: bash costs stamina, need some left
+            // No bash cooldown: below 20% stamina there is no bash at all
             if (a_state.self.staminaPercent < 0.2f) {
+                return result;
+            }
+            if (a_state.self.staminaPercent < 0.3f) {
                 basePriority -= 0.2f; // Reduce priority when very low stamina
             } else if (a_state.self.staminaPercent > 0.6f) {
                 situationBonus += 0.1f; // Bonus when we have good stamina
@@ -725,11 +739,16 @@ namespace CombatAI
         if (config.GetDecisionMatrix().enableJumpEvasion) {
             // Check if target is using a ranged weapon (bow or crossbow)
             // Use weapon type from state instead of checking equipped weapon directly
-            if (a_state.target.isRanged) {
+            // Only while it is drawing (a bow draw reads as attacking) and aimed at this NPC, not its neighbour;
+            // only with the stamina the jump costs.
+            const bool drawing = a_state.target.isAttacking || a_state.target.isDrawingBow;
+            if (a_state.target.isRanged && drawing &&
+                a_state.self.currentStamina >= config.GetDecisionMatrix().jumpStaminaCost) {
                 // Check distance
                 if (a_state.target.distance > config.GetDecisionMatrix().jumpEvasionDistanceMin &&
                     a_state.target.distance < config.GetDecisionMatrix().jumpEvasionDistanceMax &&
-                    a_state.target.orientationDot > 0.9f) {
+                    IsAimedAt(a_state.target.distance, a_state.target.orientationDot,
+                              a_state.self.boundRadius + kAimSlack)) {
 
                     // Random chance to jump
                     thread_local std::mt19937 gen{std::random_device{}()};

@@ -98,12 +98,7 @@ namespace CombatAI
                 humanFloat("Skill min", &config.m_humanizer.skillMin, 0.0f, 1.0f);
                 humanFloat("Skill max", &config.m_humanizer.skillMax, 0.0f, 1.0f);
                 humanFloat("Re-roll window (s)", &config.m_humanizer.skillRerollSeconds, 0.1f, 5.0f);
-                ImGuiMCP::Separator();
-                humanFloat("Bash cooldown (s)", &config.m_humanizer.bashCooldownSeconds, 0.0f, 10.0f);
-                humanFloat("Sprint attack cooldown (s)", &config.m_humanizer.sprintAttackCooldownSeconds, 0.0f, 10.0f);
-                humanFloat("Dodge cooldown (s)", &config.m_humanizer.dodgeCooldownSeconds, 0.0f, 10.0f);
-                humanFloat("Jump cooldown (s)", &config.m_humanizer.jumpCooldownSeconds, 0.0f, 10.0f);
-                if (ImGuiMCP::CollapsingHeader("Fatigue and panic")) {
+                        if (ImGuiMCP::CollapsingHeader("Fatigue and panic")) {
                     if (ImGuiMCP::Checkbox("Enable fatigue", &config.m_humanizer.enableFatigue)) {
                         config.MarkHumanizerDirty();
                     }
@@ -146,6 +141,7 @@ namespace CombatAI
                 liveFloat("Interrupt reach multiplier", &config.m_decisionMatrix.interruptReachMultiplier, 0.5f, 3.0f);
                 liveFloat("Evasion min distance", &config.m_decisionMatrix.evasionMinDistance, 0.0f, 600.0f, "%.0f");
                 liveFloat("Jump height", &config.m_decisionMatrix.jumpHeight, 20.0f, 300.0f, "%.0f");
+        liveFloat("Jump stamina cost", &config.m_decisionMatrix.jumpStaminaCost, 0.0f, 100.0f, "%.0f");
                 liveFloat("Sprint attack min dist", &config.m_decisionMatrix.sprintAttackMinDistance, 0.0f, 800.0f,
                           "%.0f");
                 liveFloat("Sprint attack max dist", &config.m_decisionMatrix.sprintAttackMaxDistance, 0.0f, 1200.0f,

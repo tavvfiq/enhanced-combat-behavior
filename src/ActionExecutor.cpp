@@ -852,6 +852,12 @@ namespace CombatAI
             !controller || controller->context.currentState != RE::hkpCharacterStateType::kOnGround) {
             return false;
         }
+        // No cooldown: each jump costs stamina, so the next one waits until the NPC has it back
+        const float staminaCost = Config::GetInstance().GetDecisionMatrix().jumpStaminaCost;
+        auto *actorValues = ActorUtils::SafeAsActorValueOwner(a_actor);
+        if (!actorValues || actorValues->GetActorValue(RE::ActorValue::kStamina) < staminaCost) {
+            return false;
+        }
 
         // Plan before any event: a sideways leap out of the shooter's line (random side first), then the
         // other side, then straight up. Each arc is ray-checked for walls, ceiling and a place to land.
@@ -890,6 +896,7 @@ namespace CombatAI
             oarFallback = true;
         }
 
+        actorValues->DamageActorValue(RE::ActorValue::kStamina, staminaCost);
         jump.handle = a_actor->GetHandle();
         jump.oarFallback = oarFallback;
         FluidMotionNPC::Claim(formID, jump.T + kJumpSettleSeconds + 0.5f);

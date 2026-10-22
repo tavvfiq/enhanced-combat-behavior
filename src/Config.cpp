@@ -57,10 +57,10 @@ namespace CombatAI
         ReadProjectileAwarenessSettings(ini);
 
         LOG_INFO("Configuration loaded successfully");
-        LOG_INFO("Jump evasion: {} (chance {:.2f}, target with bow/crossbow at {:.0f}-{:.0f} units, height {:.0f})",
+        LOG_INFO("Jump evasion: {} (chance {:.2f}, aimed bow/crossbow at {:.0f}-{:.0f} units, height {:.0f}, stamina {:.0f}); skill at level 1 {:.2f}",
                  m_decisionMatrix.enableJumpEvasion ? "on" : "OFF", m_decisionMatrix.evasionJumpChance,
                  m_decisionMatrix.jumpEvasionDistanceMin, m_decisionMatrix.jumpEvasionDistanceMax,
-                 m_decisionMatrix.jumpHeight);
+                 m_decisionMatrix.jumpHeight, m_decisionMatrix.jumpStaminaCost, m_humanizer.skillBase);
         return true;
     }
 
@@ -107,10 +107,6 @@ namespace CombatAI
         D("Humanizer", "SkillMin", m_humanizer.skillMin);
         D("Humanizer", "SkillMax", m_humanizer.skillMax);
         D("Humanizer", "SkillRerollSeconds", m_humanizer.skillRerollSeconds);
-        D("Humanizer", "BashCooldownSeconds", m_humanizer.bashCooldownSeconds);
-        D("Humanizer", "SprintAttackCooldownSeconds", m_humanizer.sprintAttackCooldownSeconds);
-        D("Humanizer", "DodgeCooldownSeconds", m_humanizer.dodgeCooldownSeconds);
-        D("Humanizer", "JumpCooldownSeconds", m_humanizer.jumpCooldownSeconds);
         B("Humanizer", "EnableFatigue", m_humanizer.enableFatigue);
         D("Humanizer", "FatigueOnsetSeconds", m_humanizer.fatigueOnsetSeconds);
         D("Humanizer", "FatigueFullSeconds", m_humanizer.fatigueFullSeconds);
@@ -144,6 +140,7 @@ namespace CombatAI
         D("DecisionMatrix", "JumpEvasionDistanceMax", m_decisionMatrix.jumpEvasionDistanceMax);
         D("DecisionMatrix", "EvasionJumpChance", m_decisionMatrix.evasionJumpChance);
         D("DecisionMatrix", "JumpHeight", m_decisionMatrix.jumpHeight);
+        D("DecisionMatrix", "JumpStaminaCost", m_decisionMatrix.jumpStaminaCost);
         D("DecisionMatrix", "StaminaThreshold", m_decisionMatrix.staminaThreshold);
         D("DecisionMatrix", "HealthThreshold", m_decisionMatrix.healthThreshold);
         B("DecisionMatrix", "EnableSurvivalRetreat", m_decisionMatrix.enableSurvivalRetreat);
@@ -337,12 +334,6 @@ namespace CombatAI
         H("SkillMax", m_humanizer.skillMax, 0.0f, 1.0f);
         H("SkillRerollSeconds", m_humanizer.skillRerollSeconds, 0.1f, 10.0f);
         m_humanizer.skillMax = (std::max)(m_humanizer.skillMax, m_humanizer.skillMin);
-        m_humanizer.bashCooldownSeconds = static_cast<float>(
-            a_ini.GetDoubleValue("Humanizer", "BashCooldownSeconds", m_humanizer.bashCooldownSeconds));
-        m_humanizer.dodgeCooldownSeconds = static_cast<float>(
-            a_ini.GetDoubleValue("Humanizer", "DodgeCooldownSeconds", m_humanizer.dodgeCooldownSeconds));
-        m_humanizer.jumpCooldownSeconds = static_cast<float>(
-            a_ini.GetDoubleValue("Humanizer", "JumpCooldownSeconds", m_humanizer.jumpCooldownSeconds));
 
 
         // Clamp values to valid ranges
@@ -351,12 +342,6 @@ namespace CombatAI
         m_humanizer.minReactionDelayMs = (std::max)(0.0f, m_humanizer.minReactionDelayMs);
         m_humanizer.reactionVarianceMs = (std::max)(0.0f, m_humanizer.reactionVarianceMs);
 
-        m_humanizer.bashCooldownSeconds = (std::max)(0.0f, m_humanizer.bashCooldownSeconds);
-        m_humanizer.sprintAttackCooldownSeconds = (std::max)(
-            0.0f, static_cast<float>(a_ini.GetDoubleValue("Humanizer", "SprintAttackCooldownSeconds",
-                                                          m_humanizer.sprintAttackCooldownSeconds)));
-        m_humanizer.dodgeCooldownSeconds = (std::max)(0.0f, m_humanizer.dodgeCooldownSeconds);
-        m_humanizer.jumpCooldownSeconds = (std::max)(0.0f, m_humanizer.jumpCooldownSeconds);
 
 
         m_humanizer.enableFatigue = a_ini.GetBoolValue("Humanizer", "EnableFatigue", m_humanizer.enableFatigue);
@@ -445,6 +430,8 @@ namespace CombatAI
             a_ini.GetDoubleValue("DecisionMatrix", "EvasionJumpChance", m_decisionMatrix.evasionJumpChance));
         m_decisionMatrix.jumpHeight =
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "JumpHeight", m_decisionMatrix.jumpHeight));
+        m_decisionMatrix.jumpStaminaCost = (std::max)(
+            0.0f, static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "JumpStaminaCost", m_decisionMatrix.jumpStaminaCost)));
         m_decisionMatrix.staminaThreshold = static_cast<float>(
             a_ini.GetDoubleValue("DecisionMatrix", "StaminaThreshold", m_decisionMatrix.staminaThreshold));
         m_decisionMatrix.healthThreshold = static_cast<float>(
@@ -817,10 +804,8 @@ namespace CombatAI
         case Preset::VanillaPlus:
             // Subtle: slower, sloppier, one attacker at a time, little jumping.
             m_humanizer.baseReactionDelayMs = 300.0f;
-            m_humanizer.skillBase = 0.35f;
+            m_humanizer.skillBase = 0.5f;
             m_humanizer.skillPerLevel = 0.006f;
-            m_humanizer.dodgeCooldownSeconds = 4.0f;
-            m_humanizer.jumpCooldownSeconds = 6.0f;
             m_decisionMatrix.evasionJumpChance = 0.2f;
             m_scoringWeights.evasionDodgeBase = 1.1f;
             m_scoringWeights.flankingBase = 1.1f;
@@ -831,10 +816,8 @@ namespace CombatAI
         case Preset::Soulslike:
             // Sharp duelists: fast reactions, punish openings, respect the player's guard.
             m_humanizer.baseReactionDelayMs = 120.0f;
-            m_humanizer.skillBase = 0.7f;
+            m_humanizer.skillBase = 0.85f;
             m_humanizer.skillPerLevel = 0.01f;
-            m_humanizer.dodgeCooldownSeconds = 1.5f;
-            m_humanizer.bashCooldownSeconds = 2.5f;
             m_parry.parryBasePriority = 1.8f;
             m_timedBlock.timedBlockBasePriority = 1.8f;
             m_scoringWeights.targetRecoveryBonus = 0.8f;
@@ -848,9 +831,7 @@ namespace CombatAI
         case Preset::Chaos:
             // Everyone swings at once and never stops moving.
             m_humanizer.baseReactionDelayMs = 80.0f;
-            m_humanizer.skillBase = 0.65f;
-            m_humanizer.dodgeCooldownSeconds = 1.0f;
-            m_humanizer.jumpCooldownSeconds = 1.5f;
+            m_humanizer.skillBase = 0.8f;
             m_humanizer.enableFatigue = false;
             m_decisionMatrix.evasionJumpChance = 0.7f;
             m_scoringWeights.attackBase = 1.3f;

@@ -92,3 +92,7 @@
 - Jump: **runtime-evidenced.** 47 Jump decisions: 34 failed the skill roll, 5 on cooldown, 5 executed; the rest arrived mid-jump and were ignored. All 5 were side arcs of 150 units (landing dz -31..+2, 0.94-1.01 s), and all 5 logged `landed`. No aborts, no "no clear arc", no reland retry. Not yet checked by eye.
 - Bow gate fix: **runtime-evidenced.** "target is attacking" skips 29, all with a melee target (0 while the player held a bow; 92 in run 8).
 - Attack skill roll dropped 81 Attack decisions (skill 33-55%, by design).
+
+## 0.6.0 (2026-10-22)
+- User feedback on run 9: jump facing reads fine (sideways leap while facing the shooter); unaimed neighbours jumped too; wants more attacks and no cooldowns.
+- Build ok (IsAimedAt static_asserts compile); FileVersion 0.6.0.0; ship-gate PASS. Zip sha256 B3FB17B943811D066466268B4F514D59ADC34F075B066A82D94644412E315C10. Runtime: untested.

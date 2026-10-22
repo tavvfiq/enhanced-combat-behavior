@@ -1,5 +1,17 @@
 # Changelog
 
+## CombatAITree 0.6.0 (2026-10-22)
+
+- **NPCs attack more:** `SkillBase` 0.55 -> 0.75 (skill at level 1, before fatigue/panic). Run 9 dropped 81 Attack decisions at 33-55%. Presets moved up the same way: Vanilla+ 0.5, Soulslike 0.85, Chaos 0.8.
+- **No action cooldowns.** `BashCooldownSeconds`, `DodgeCooldownSeconds` (shared by forward dodge and strafe), `SprintAttackCooldownSeconds` and `JumpCooldownSeconds` are removed from the INI, the menu and the presets. The NPC's own state now limits repeats:
+  - dodge: `DodgeStaminaCost` (10) and `MinDodgeStamina`, as before;
+  - jump: new `JumpStaminaCost` (20, `[DecisionMatrix]`, in the menu), checked by the brain and spent at take-off;
+  - bash: none below 20% stamina (before, low stamina only lowered its priority), never mid-swing;
+  - sprint attack: still needs a sustained sprint first.
+  The 0.15 s hold that lets a timed block settle stays.
+- **Jump only for the NPC you aim at.** Before, every NPC within ~25 degrees of your facing could jump (dot > 0.9), so three bandits jumped when you aimed at one. Now your aim line must pass within the NPC's body radius + 75 units, and you must be drawing (a bow draw reads as attacking). The rule has compile-time self-checks.
+- The jump keeps facing you while it leaps sideways (unchanged, on purpose: it reads as dodging the arrow).
+- Load log: `Jump evasion: ... stamina N); skill at level 1 X`.
 ## CombatAITree 0.5.3 (2026-10-22)
 
 - **Fixed: melee NPCs held back while you drew a bow next to them** (run 8). The offense gate "target is attacking, evade instead" also fired on a bow or crossbow draw, which skipped 92 of 115 in-range attacks against an archer player. A ranged target no longer blocks the attack; its draw is the opening.

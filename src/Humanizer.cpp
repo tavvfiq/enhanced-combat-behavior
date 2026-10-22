@@ -150,12 +150,9 @@ namespace CombatAI
         // Read the cooldown atomically. Holding the outer map's lock for the lookup
         // prevents another thread from erasing the actor entry (and thus the nested
         // cooldown map) while we are reading from it.
-        // Forward dodge and strafe share the ordinary dodge cooldown.
-        const ActionType cooldownKey =
-            (a_action == ActionType::Strafe || a_action == ActionType::ForwardDodge) ? ActionType::Dodge : a_action;
         bool onCooldown = false;
         m_cooldownStates.Modify(a_formID, [&](ActorCooldownState &cooldownState) {
-            auto cooldownOpt = cooldownState.cooldowns.Find(cooldownKey);
+            auto cooldownOpt = cooldownState.cooldowns.Find(a_action);
             onCooldown = cooldownOpt.has_value() && cooldownOpt.value() > 0.0f;
         });
 
@@ -164,17 +161,9 @@ namespace CombatAI
 
     float Humanizer::GetCooldownForAction(ActionType a_action) const
     {
+        // No action cooldowns: the NPC's own state gates repeats (stamina for dodge, jump and bash; not
+        // mid-swing; a sustained sprint for a sprint attack). Only the timed-block settle hold is timed.
         switch (a_action) {
-        case ActionType::Bash:
-            return m_config.bashCooldownSeconds;
-        case ActionType::Dodge:
-        case ActionType::ForwardDodge:
-            // Strafe uses dodge cooldown (TK Dodge system)
-            return m_config.dodgeCooldownSeconds;
-        case ActionType::Jump:
-            return m_config.jumpCooldownSeconds;
-        case ActionType::SprintAttack:
-            return m_config.sprintAttackCooldownSeconds;
         case ActionType::TimedBlock:
             // Briefly preserve the block animation before a movement decision can release it.
             return 0.15f;
@@ -196,14 +185,9 @@ namespace CombatAI
             return; // Invalid FormID
         }
 
-        // Strafe and forward dodge share the standard Dodge cooldown.
-        ActionType cooldownKey = (a_action == ActionType::Strafe || a_action == ActionType::ForwardDodge)
-                                     ? ActionType::Dodge
-                                     : a_action;
-
         // Get-or-create the actor's cooldown state and record the cooldown atomically.
         m_cooldownStates.ModifyOrCreate(
-            a_formID, [&](ActorCooldownState &cooldownState) { cooldownState.cooldowns.Emplace(cooldownKey, cooldown); });
+            a_formID, [&](ActorCooldownState &cooldownState) { cooldownState.cooldowns.Emplace(a_action, cooldown); });
     }
 
     void Humanizer::RecoverFromCorruption()

@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.5.3 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.6.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -32,9 +32,10 @@ version so any step can be rolled back.
 - 0.5.3, run 9 (~3.5 min, player mostly bow): no errors. Jump works: 5 side arcs, 5 landed, no aborts. Bow gate fixed
   (0 ranged "target is attacking" skips). The crash at 09:57:56 is BetterAltTab.dll (Xaudio stop in its WindowProc),
   the same as 09:21 and 09:50.
+- 0.6.0 (SkillBase 0.75; all action cooldowns removed, stamina/state gates; jump only when aimed at that NPC): build-validated only.
 
 **Next (for the user):**
-1. Install 0.5.3. Turn on "Enable jump evasion" in the menu (or `EnableJumpEvasion = true`, chance 1.0); the log line `Jump evasion: on` confirms. Fight bandits with one selected. For the jump, **the player** must hold a bow drawn and aimed
+1. Install 0.6.0. A menu-saved INI keeps `SkillBase = 0.55`: set "Skill at level 1" to 0.75 in the menu (load log shows it). Earlier: Turn on "Enable jump evasion" in the menu (or `EnableJumpEvasion = true`, chance 1.0); the log line `Jump evasion: on` confirms. Fight bandits with one selected. For the jump, **the player** must hold a bow drawn and aimed
    at the selected NPC, inside the JumpEvasionDistance window. Check:
    - **0.5.2:** no `Move ... stopped` for the same actor every frame; short-weapon NPCs swing when touching you;
    - **0.4.0 movement:** the summary's `running moves stopped: ours N, vanilla N` is above 0, no foot stutter (no
