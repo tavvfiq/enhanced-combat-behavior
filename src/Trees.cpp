@@ -477,8 +477,10 @@ namespace CombatAI::Trees
         }
 
         // Our Advance: the start (46703/47898) sets its destination ring to "weapon range + inner radius"
-        // (CombatTargetLocationSearch 45702 and the approach controller 49062 both get [inner] + range).
-        // While our branch's node starts, inner is set so the ring sits at the brain's stop distance.
+        // (CombatTargetLocationSearch 45702 and the approach controller 49062 both get [inner] + range) and an
+        // accept band [inner, outer] + range (+0x38F). While our branch's node starts, both are set to the
+        // brain's stop distance: with vanilla's outer (256-512 + range) a bandit at 129 units counted as
+        // already there and the node ended next tick (run 18: 41 times, moved 0).
         struct AdvanceRing // set_two_radiuses 49716/50643 (self, target, &inner, &outer)
         {
             static void thunk(RE::Actor *a_self, RE::Actor *a_target, float *a_inner, float *a_outer)
@@ -487,6 +489,9 @@ namespace CombatAI::Trees
                 const float stop = t_ourStart && a_self ? Intents::AdvanceDistance(a_self) : 0.0f;
                 if (stop > 0.0f && a_inner) {
                     *a_inner = stop - CurrentWeaponRange();
+                    if (a_outer) {
+                        *a_outer = *a_inner;
+                    }
                 }
             }
             static inline REL::Relocation<decltype(thunk)> func;

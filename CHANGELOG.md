@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.8.8 (2026-10-22)
+
+- **Our Advance actually closes in.**
+  - **Problem:** in run 18, our Advance "finished" 41 times at about 129 units, 25 ms after starting, having moved 0. The bandit's stop distance was about 93 (reach 99.8). The Advance start also builds an accept band of [inner, outer] + weapon range (SE 46703 +0x38F), and 0.8.6 only moved inner. With vanilla's outer (256-512 + range) the NPC was already inside the band, so the advance counted as done on the next tick.
+  - **Fix:** for our Advance, outer = inner as well, so the only accepted spot is the brain's stop distance.
 ## CombatAITree 0.8.7 (2026-10-22)
 
 - **Our Advance doesn't stop short of the brain's range.**

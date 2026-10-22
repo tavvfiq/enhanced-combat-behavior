@@ -212,3 +212,13 @@
 ## 0.8.7 (2026-10-22)
 - AdvanceShouldStop thunk (void*, float) on 46704 / 47899 +0x121 -> 46698 / 47893 (args rcx + xmm1, args.py). Trampoline 512 B.
 - Build ok; FileVersion 0.8.7.0; ship-gate PASS. Zip sha256 FC0B77DB91C2CBCE6DF6E287CD1F2B85C60131111A451F0619C881304F188CFA. Runtime: untested.
+
+## 0.8.7 run 18 (2026-10-22, user log, ~4 min, 3 bandits selected in turn)
+- No crash in combat (21:38:24 = BetterAltTab at exit, 0 frames). All hooks installed incl. Advance in-place check.
+- Light attacks posted/taken per minute 16/16, 23/23, 11/11 (run 17: 10, 3). In range, 0x8E1A1 chose Attack 66, PowerAttack 15, Feint 46, Backoff 213 (run 17: Attack 8).
+- Our Advance still ended at once 41 times (25 ms, moved 0, d0 median 129) although CheckShouldStop now refuses: Advance Enter's [inner, outer] + range band (+0x38F) keeps vanilla's outer, so the NPC was already "in band". Fixed in 0.8.8 (outer = inner).
+- Our Backoff 45 runs, 7 failed; Circle 34 runs, 10 failed (start checks logged); vanilla Backoff 20 failed.
+
+## 0.8.8 (2026-10-22)
+- AdvanceRing also sets *outer = *inner for our Advance.
+- Build ok; FileVersion 0.8.8.0; ship-gate PASS. Zip sha256 70CE81AC91BACD16D60FD213362228C2F4EEC9ABCF2DDA7189A6A1259AF32A23. Runtime: untested.

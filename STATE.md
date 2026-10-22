@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.8.7 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.8.8 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -50,7 +50,9 @@ version so any step can be rolled back.
 - 0.8.6: our Advance closes to 0.9 x brain attack range (`BrainAdvanceDistance`); INI newline fix. Build-validated only.
   Run 17: stable; Advance still "arrived" 80-99 units short (CheckShouldStop tolerance).
 - 0.8.7: our Advance in place only inside the brain stop distance (CheckShouldStop override); trampoline 512 B.
-  Build-validated only. Open: in-range Backoff >> attacks; bash intents posted 26 / taken 2 in one minute.
+  Run 18: stable, attacks up (light 16-23/min), but our Advance still ended at once (accept band outer).
+- 0.8.8: our Advance accept band collapsed to the stop distance (outer = inner). Build-validated only.
+  Open: in-range Backoff >> attacks (0x8E1A1: 213 vs 81); bash intents taken rate.
 - 0.8.1: package = DLL + INI only (OAR jump meshes and BDI json removed with the jump's OAR fallback).
 - 0.8.2: Backoff during own follow-through when the target isn't open (`BackoffAfterSwing`): build-validated only.
 - **0.8.1 CRASHED** (CTD, no crash log) approaching an NPC. Rollback 0.7.1. 0.8.3 fixes the shared candidate-list race and the empty tie pick; start patches only with BrainBackoffFallback=true. Isolation plan in VALIDATION.md.
