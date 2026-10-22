@@ -140,3 +140,8 @@
   - Advance: 9 done (0.27 s, moved 11: already in place), 10 stopped by brain (0.95 s, moved 72, dist -32). Works.
 - Vanilla's own: Advance 14 done (1.7 s, moved 152, dist -138); Backoff 13 failed (vanilla's Backoff fails too).
 - A failed Backoff is re-entered every tick (12 ms) while the brain keeps asking.
+
+## 0.8.0 (2026-10-22)
+- Idle breakdown on run 12 (dist < 300, no movement > 25 units in 0.55 s and no attack): 442/899 ticks; Retreat not moving 222, no decision 66, Backoff not moving 44, Advance in place 35, failed skill roll 35.
+- Start-site offsets (call order identical): SE Backoff 46724 +0x142/+0x16E/+0x1B7, Fallback 46712 +0x13B/+0x14F/+0x17B/+0x1EB; AE/1.7 Backoff 47920 +0x104/+0x130/+0x179, Fallback 47908 +0x107/+0x11B/+0x147/+0x1B0. Callees: 36756/37772 WithinHeadingAngle, 46062/47326/523984 moving-from, 49716/50643 set_two_radiuses, 49718/50645 FallbackDistance. Range = CombatInventory+0x1A0 on SE and AE.
+- Build ok; FileVersion 0.8.0.0; ship-gate PASS. Zip sha256 BDDE2DC2C2D61576032B203AD48FFC09CC08E19F17710CEEC2CD929D8F30B3C3. Runtime: untested (7 new call-site hooks; 0.7.1 is the same without them).

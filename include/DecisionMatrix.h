@@ -16,12 +16,16 @@ namespace CombatAI
         // Evaluate state and return decision
         DecisionResult Evaluate(RE::Actor *a_actor, const ActorStateData &a_state);
 
+        // Every option the last Evaluate scored, so a failed skill roll can make the next-best choice
+        const std::vector<DecisionResult> &LastCandidates() const { return m_candidates; }
+
         // Held-back action for combat pacing: when an actor is denied an attack slot it
         // should stay engaged (circle/flank the target) instead of committing. Returns a
         // ready Flanking decision (execution falls back to strafe if CPR is unavailable).
         DecisionResult EvaluateHeldBack(RE::Actor *a_actor, const ActorStateData &a_state);
 
       private:
+        std::vector<DecisionResult> m_candidates;
         // Interrupt (Counter-Play)
         DecisionResult EvaluateInterrupt(RE::Actor *a_actor, const ActorStateData &a_state);
 
@@ -58,11 +62,7 @@ namespace CombatAI
         // Helper: Calculate optimal flanking direction based on ally positions
         RE::NiPoint3 CalculateFlankingDirection(const ActorStateData &a_state);
 
-        // Helper: Select best decision when multiple have same priority
-        DecisionResult SelectBestFromTie(const std::vector<DecisionResult> &a_decisions, const ActorStateData &a_state);
 
-        // Helper: Calculate score for tie-breaking
-        float CalculateDecisionScore(const DecisionResult &a_decision, const ActorStateData &a_state);
 
         // Helper: Log all state data for selected actor (debugging)
         void LogActorState(RE::Actor *a_actor, const ActorStateData &a_state);

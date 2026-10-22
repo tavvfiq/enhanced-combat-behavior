@@ -215,3 +215,5 @@ Each leaf is called by `CombatBehaviorThread::Update` (46228 / 47483) as `(node,
 | Fallback 46712 / 46713 | `get_FallbackDistance` 49718 (`fCombatFallbackDistanceMin/Max` 96/256), move ≥ `fCombatFallbackMinMovementDistance` 64 | path done, wait `get_FallbackWaitTime` 49719 | a point behind it |
 
 When a start condition fails, Enter calls `SetFailed(true)` (46240) and `Ascend` (46229), so the node exits on the next tick having done nothing. This is why the run 11 audit shows Backoff "still": the brain asks to back off at distances where the vanilla node won't move.
+
+**0.8.0:** for our branch only, Backoff/Fallback start checks are patched (facing, moving-away pass; X = dist - range + step). See CHANGELOG 0.8.0 and VALIDATION 0.8.0 for the sites.

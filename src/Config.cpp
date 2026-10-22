@@ -146,6 +146,8 @@ namespace CombatAI
         D("DecisionMatrix", "JumpStaminaCost", m_decisionMatrix.jumpStaminaCost);
         D("DecisionMatrix", "StaminaThreshold", m_decisionMatrix.staminaThreshold);
         B("DecisionMatrix", "StaminaAffectsRetreat", m_decisionMatrix.staminaAffectsRetreat);
+        B("DecisionMatrix", "BrainBackoffFallback", m_decisionMatrix.brainBackoffFallback);
+        D("DecisionMatrix", "BackoffStepDistance", m_decisionMatrix.backoffStepDistance);
         D("DecisionMatrix", "PowerAttackMinStamina", m_decisionMatrix.powerAttackMinStamina);
         D("DecisionMatrix", "HealthThreshold", m_decisionMatrix.healthThreshold);
         B("DecisionMatrix", "EnableSurvivalRetreat", m_decisionMatrix.enableSurvivalRetreat);
@@ -441,6 +443,11 @@ namespace CombatAI
             a_ini.GetDoubleValue("DecisionMatrix", "StaminaThreshold", m_decisionMatrix.staminaThreshold));
         m_decisionMatrix.staminaAffectsRetreat =
             a_ini.GetBoolValue("DecisionMatrix", "StaminaAffectsRetreat", m_decisionMatrix.staminaAffectsRetreat);
+        m_decisionMatrix.brainBackoffFallback =
+            a_ini.GetBoolValue("DecisionMatrix", "BrainBackoffFallback", m_decisionMatrix.brainBackoffFallback);
+        m_decisionMatrix.backoffStepDistance = std::clamp(
+            static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "BackoffStepDistance", m_decisionMatrix.backoffStepDistance)),
+            50.0f, 400.0f);
         m_decisionMatrix.powerAttackMinStamina = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "PowerAttackMinStamina", m_decisionMatrix.powerAttackMinStamina)),
             0.0f, 1.0f);

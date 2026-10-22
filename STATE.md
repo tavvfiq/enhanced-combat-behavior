@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.7.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.8.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -40,8 +40,10 @@ version so any step can be rolled back.
 - 0.7.0 (retreat/backoff on health only unless `StaminaAffectsRetreat`; power moves need `PowerAttackMinStamina` 0.7,
   brain and vanilla): build-validated only.
 - 0.7.1 (MoveNode audit lines via movement Enter/Exit hooks; RE of the leaves' start/end conditions in TREE_DESIGN §10):
-  build-validated only. Next: from the audit, either feed the brain's distances to the leaves (getter hooks) or
-  write our own movement leaf.
+  build-validated only.
+- 0.7.1, run 12: hooks clean; our Backoff started 2/30, Fallback 15/27 (TREE_DESIGN §10 start rules).
+- 0.8.0 (brain Backoff/Fallback start where asked via 7 start-site patches; failed skill roll -> next-best option;
+  random ties): build-validated only. Check MoveNode lines: our Backoff/Fallback should be "done", moved > 0.
 
 **Next (for the user):**
 1. Install 0.6.0. A menu-saved INI keeps `SkillBase = 0.55`: set "Skill at level 1" to 0.75 in the menu (load log shows it). Earlier: Turn on "Enable jump evasion" in the menu (or `EnableJumpEvasion = true`, chance 1.0); the log line `Jump evasion: on` confirms. Fight bandits with one selected. For the jump, **the player** must hold a bow drawn and aimed

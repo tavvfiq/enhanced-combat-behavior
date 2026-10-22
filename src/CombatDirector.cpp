@@ -241,15 +241,33 @@ namespace CombatAI
         // Check if should make mistake (humanizer)
         const float combatTime = m_actorCombatTimes.Find(formID).value_or(0.0f);
         // Skill roll, once per opportunity (a projectile sidestep has its own roll)
+        // A failed roll is a mistake, not a freeze: the NPC takes the next-best option it had this tick.
         if (decision.action != ActionType::None && !decision.reflex &&
             !m_humanizer.PassesSkillCheck(a_actor, formID, decision.action, state, combatTime)) {
-            if (debugEnabled) {
-                LOG_DEBUG("Skip 0x{:08X}: failed skill roll on {} (skill {:.0f}%, combat time {:.0f}s)",
-                          static_cast<std::uint32_t>(formID), ActionName(decision.action),
-                          m_humanizer.SkillChance(a_actor, decision.action, combatTime, state.self) * 100.0f,
-                          combatTime);
+            const ActionType failed = decision.action;
+            const bool midSwing = state.self.attackState != RE::ATTACK_STATE_ENUM::kNone &&
+                                  state.self.attackState != RE::ATTACK_STATE_ENUM::kFollowThrough;
+            DecisionResult mistake;
+            for (const auto &option : m_decisionMatrix.LastCandidates()) {
+                const bool pullsBack = option.action == ActionType::Retreat || option.action == ActionType::Backoff;
+                if (option.action != failed && option.action != ActionType::None && !(midSwing && pullsBack) &&
+                    (mistake.action == ActionType::None || option.priority > mistake.priority)) {
+                    mistake = option;
+                }
             }
-            return;
+            if (mistake.action != ActionType::None) {
+                mistake = ApplyCombatPacing(a_actor, formID, state, mistake);
+            }
+            if (debugEnabled) {
+                LOG_DEBUG("Skip 0x{:08X}: failed skill roll on {} (skill {:.0f}%, combat time {:.0f}s) - {} instead",
+                          static_cast<std::uint32_t>(formID), ActionName(failed),
+                          m_humanizer.SkillChance(a_actor, failed, combatTime, state.self) * 100.0f, combatTime,
+                          ActionName(mistake.action));
+            }
+            if (mistake.action == ActionType::None) {
+                return;
+            }
+            decision = mistake;
         }
 
         // Check cooldowns (only actions with cooldowns will return true)

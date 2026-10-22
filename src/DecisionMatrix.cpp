@@ -89,6 +89,7 @@ namespace CombatAI
         }
 
         // If no decisions, return None
+        m_candidates.clear();
         if (possibleDecisions.empty()) {
             return DecisionResult();
         }
@@ -127,8 +128,11 @@ namespace CombatAI
             }
         }
 
-        // Tie-breaking: select best decision from top priority ones
-        DecisionResult bestDecision = SelectBestFromTie(topPriorityDecisions, a_state);
+        // Ties are a coin flip: the skill roll, not a tie heuristic, decides how good the pick is
+        thread_local std::mt19937 tieGen{std::random_device{}()};
+        DecisionResult bestDecision =
+            topPriorityDecisions[std::uniform_int_distribution<std::size_t>(0, topPriorityDecisions.size() - 1)(tieGen)];
+        m_candidates = std::move(enhancedDecisions);
 
         // Log comprehensive state for selected actor (debugging)
         if (debugEnabled && selectedRef && a_actor == selectedRef.get()) {
@@ -2644,188 +2648,6 @@ namespace CombatAI
         flankingDir.z /= flankingLen;
 
         return flankingDir;
-    }
-
-    DecisionResult DecisionMatrix::SelectBestFromTie(const std::vector<DecisionResult> &a_decisions,
-                                                     const ActorStateData &a_state)
-    {
-        if (a_decisions.empty()) {
-            return DecisionResult();
-        }
-
-        if (a_decisions.size() == 1) {
-            return a_decisions[0];
-        }
-
-        // Tie-breaking criteria (in order of importance):
-        // 1. Prefer actions with higher intensity (more committed)
-        // 2. Prefer offensive actions over defensive when in good health
-        // 3. Prefer defensive actions when health is low
-        // 4. Prefer actions that work better at current distance
-        // 5. Random selection for variety
-
-        DecisionResult bestDecision = a_decisions[0];
-        float bestScore = CalculateDecisionScore(a_decisions[0], a_state);
-
-        for (size_t i = 1; i < a_decisions.size(); ++i) {
-            float score = CalculateDecisionScore(a_decisions[i], a_state);
-            if (score > bestScore) {
-                bestScore = score;
-                bestDecision = a_decisions[i];
-            } else if (score == bestScore) {
-                // If scores are equal, add some randomness for variety
-                thread_local static std::random_device rd;
-                thread_local static std::mt19937 gen(rd());
-                std::uniform_int_distribution<> dis(0, 1);
-                if (dis(gen) == 1) {
-                    bestDecision = a_decisions[i];
-                }
-            }
-        }
-
-        return bestDecision;
-    }
-
-    float DecisionMatrix::CalculateDecisionScore(const DecisionResult &a_decision, const ActorStateData &a_state)
-    {
-        float score = 0.0f;
-
-        // Factor 1: Intensity (higher = more committed, better)
-        score += a_decision.intensity * 10.0f;
-
-        // Factor 2: Health-based preference (more nuanced thresholds)
-        float healthPercent = a_state.self.healthPercent;
-        if (healthPercent > 0.7f) {
-            // Excellent health: strongly prefer offensive actions
-            if (a_decision.action == ActionType::Attack || a_decision.action == ActionType::PowerAttack ||
-                a_decision.action == ActionType::SprintAttack || a_decision.action == ActionType::Bash ||
-                a_decision.action == ActionType::Feint) {
-                score += 6.0f;
-            }
-            // Also prefer tactical actions when healthy
-            if (a_decision.action == ActionType::Flanking) {
-                score += 4.0f;
-            }
-        } else if (healthPercent > 0.5f) {
-            // Good health: prefer offensive actions
-            if (a_decision.action == ActionType::Attack || a_decision.action == ActionType::PowerAttack ||
-                a_decision.action == ActionType::SprintAttack || a_decision.action == ActionType::Bash ||
-                a_decision.action == ActionType::Feint) {
-                score += 5.0f;
-            }
-        } else if (healthPercent > 0.3f) {
-            // Moderate health: balanced approach
-            if (a_decision.action == ActionType::Retreat || a_decision.action == ActionType::Backoff ||
-                a_decision.action == ActionType::Dodge || a_decision.action == ActionType::Strafe) {
-                score += 4.0f;
-            }
-        } else {
-            // Low health: strongly prefer defensive actions
-            if (a_decision.action == ActionType::Retreat || a_decision.action == ActionType::Backoff ||
-                a_decision.action == ActionType::Dodge || a_decision.action == ActionType::Strafe ||
-                a_decision.action == ActionType::Jump) {
-                score += 6.0f;
-            }
-            // Penalize risky offensive actions when low health
-            if (a_decision.action == ActionType::PowerAttack || a_decision.action == ActionType::SprintAttack) {
-                score -= 3.0f;
-            }
-        }
-
-        // Factor 3: Opening risk consideration (attacks don't consume stamina but
-        // create openings) Note: Attacks don't consume stamina, but they create
-        // openings for the target This factor considers the risk/reward of creating
-        // openings (Stamina considerations removed - focus on tactical positioning
-        // and opportunities)
-
-        // Factor 4: Target state-based preference
-        if (a_state.target.isValid) {
-            // Feinting is excellent against blocking targets
-            if (a_decision.action == ActionType::Feint && a_state.target.isBlocking) {
-                score += 8.0f; // Strong bonus for countering blocks
-            }
-
-            // Flanking is better when target is engaged with ally
-            if (a_decision.action == ActionType::Flanking && a_state.combatContext.hasNearbyAlly &&
-                a_state.combatContext.allyCount >= 1) {
-                score += 4.0f;
-            }
-
-            // Attacks are better when target is vulnerable
-            if ((a_decision.action == ActionType::Attack || a_decision.action == ActionType::PowerAttack) &&
-                (a_state.target.isCasting || a_state.target.isDrawingBow ||
-                 a_state.target.knockState != RE::KNOCK_STATE_ENUM::kNormal)) {
-                score += 3.0f; // Bonus for attacking vulnerable targets
-            }
-
-            // Avoid attacking when target is blocking (unless feinting)
-            if ((a_decision.action == ActionType::Attack || a_decision.action == ActionType::PowerAttack) &&
-                a_state.target.isBlocking && a_decision.action != ActionType::Feint) {
-                score -= 2.0f; // Penalty for attacking blocks
-            }
-        }
-
-        // Factor 5: Distance-based preference
-        float distance = a_state.target.distance;
-        if ((a_decision.action == ActionType::Advancing || a_decision.action == ActionType::ForwardDodge) &&
-            distance > 800.0f) {
-            score += 3.0f; // Prefer advancing when very far
-        } else if (a_decision.action == ActionType::Bash && distance < 200.0f) {
-            score += 3.0f; // Prefer bash when very close
-        } else if ((a_decision.action == ActionType::Attack || a_decision.action == ActionType::PowerAttack) &&
-                   distance >= 150.0f && distance <= 300.0f) {
-            score += 2.0f; // Prefer attacks at optimal range
-        } else if (a_decision.action == ActionType::Feint && distance >= 100.0f && distance <= 400.0f) {
-            score += 2.0f; // Prefer feinting at melee range
-        } else if (a_decision.action == ActionType::Flanking && distance >= 200.0f && distance <= 1200.0f) {
-            score += 2.0f; // Prefer flanking at tactical range
-        }
-
-        // Factor 6: Combat context (enemy/ally ratio)
-        int enemyCount = a_state.combatContext.enemyCount;
-        int allyCount = a_state.combatContext.allyCount;
-
-        if (enemyCount > allyCount + 1) {
-            // Outnumbered: prefer defensive actions
-            if (a_decision.action == ActionType::Retreat || a_decision.action == ActionType::Backoff ||
-                a_decision.action == ActionType::Dodge || a_decision.action == ActionType::Strafe ||
-                a_decision.action == ActionType::Jump) {
-                score += 3.0f;
-            }
-            // Outnumbered: reduce risky offensive action score
-            if (a_decision.action == ActionType::PowerAttack || a_decision.action == ActionType::SprintAttack) {
-                score -= 2.0f;
-            }
-            // Flanking is less effective when outnumbered
-            if (a_decision.action == ActionType::Flanking) {
-                score -= 1.0f;
-            }
-        } else if (allyCount > enemyCount) {
-            // More allies: prefer offensive and tactical actions
-            if (a_decision.action == ActionType::Attack || a_decision.action == ActionType::PowerAttack ||
-                a_decision.action == ActionType::SprintAttack || a_decision.action == ActionType::Bash) {
-                score += 2.0f;
-            }
-            // Flanking is excellent when outnumbering
-            if (a_decision.action == ActionType::Flanking && allyCount >= 2) {
-                score += 4.0f; // Strong bonus for tactical positioning when outnumbering
-            }
-        }
-
-        // Factor 7: Target orientation (for tactical actions)
-        if (a_state.target.isValid) {
-            // Flanking is better when target is facing away from us
-            if (a_decision.action == ActionType::Flanking && a_state.target.orientationDot < 0.5f) {
-                score += 2.0f; // Target not facing us = better flanking opportunity
-            }
-
-            // Feinting is better when target is facing us (defensive)
-            if (a_decision.action == ActionType::Feint && a_state.target.orientationDot > 0.6f) {
-                score += 2.0f; // Target facing us defensively = better feint opportunity
-            }
-        }
-
-        return score;
     }
 
     void DecisionMatrix::LogActorState(RE::Actor *a_actor, const ActorStateData &a_state)

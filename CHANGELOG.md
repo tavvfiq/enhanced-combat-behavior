@@ -1,5 +1,17 @@
 # Changelog
 
+## CombatAITree 0.8.0 (2026-10-22)
+
+- **The brain's Backoff and Retreat now start where it asks** (`BrainBackoffFallback`, default on, also in the menu).
+  - **Problem:** in run 12 our Backoff node started 2 times in 30 and Fallback 15 in 27. The vanilla start functions (Backoff 46724/47920, Fallback 46712/47908) refuse unless both actors face each other, the target isn't moving away, and the NPC is already inside a ring of "weapon range + X" around the target. The NPC then stood still; this was 60% of the idle ticks.
+  - **Fix:** while *our* branch's node starts, the facing and moving-away checks pass, and X is set so the ring sits a step behind where the NPC stands.
+    - Backoff steps back by `BackoffStepDistance` (150, in the menu).
+    - Fallback steps back by the vanilla fallback distance.
+  - **Unchanged:** vanilla's own Backoff/Fallback, and for our nodes the path request, `CheckStraightPath` (no move into a wall) and `IsMovementAnimationDriven` (no move while an animation moves it).
+  - **Patch:** seven call sites inside the two start functions, checked against their callees before patching. The offsets are the same on AE 1.6.1170 and 1.7.104. 46062 was renumbered on 1.7 (523984), so it is matched by being the same target in both functions. If anything differs, the log says so and nothing is patched.
+- **A failed skill roll is a mistake, not a freeze.** The NPC takes the next-best option the brain scored that tick, through the usual attack pacing, and never a Backoff/Retreat mid-swing. Only if there is no other option does it do nothing as before.
+  - Debug line: `failed skill roll on Attack (...) - Strafe instead`.
+- **Equal-priority ties are a coin flip.** The tie heuristic (`SelectBestFromTie` / `CalculateDecisionScore`, 180 lines) is removed, so how good the pick is comes from the skill roll.
 ## CombatAITree 0.7.1 (2026-10-22)
 
 - **Movement node audit:** for the selected NPC, one debug line per vanilla movement node run (Advance, Circle, Fallback, Backoff):

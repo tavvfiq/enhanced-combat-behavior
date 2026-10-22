@@ -313,11 +313,107 @@ namespace CombatAI::Trees
             return actor && Config::GetInstance().IsDebugTarget(actor->GetFormID()) ? actor : nullptr;
         }
 
+        // Our Backoff/Fallback start. The vanilla starts (Backoff 46724/47920, Fallback 46712/47908) walk the NPC
+        // out to a ring of radius "weapon range + X" around the target, and refuse when it is already outside
+        // that ring, isn't facing the target, the target isn't facing it (Fallback) or the target is moving
+        // away (TREE_DESIGN §10; run 12: our Backoff started 2/30, Fallback 15/27). While our branch's node
+        // starts, those facing/moving-away calls pass and X puts the ring a step behind where the NPC stands.
+        // The path request, CheckStraightPath and IsMovementAnimationDriven stay vanilla.
+        thread_local bool t_ourStart = false;
+
+        float CurrentWeaponRange() // CombatInventory+0x1A0: the range both starts add X to (SE 46712+0x1E0, AE 47908+0x1A5)
+        {
+            const auto *inventory = RE::CombatBehaviorController::GetCurrentCombatInventory();
+            return inventory ? *reinterpret_cast<const float *>(reinterpret_cast<std::uintptr_t>(inventory) + 0x1A0) : 0.0f;
+        }
+
+        std::uintptr_t CallTarget(std::uintptr_t a_site)
+        {
+            return *reinterpret_cast<const std::uint8_t *>(a_site) == 0xE8
+                       ? a_site + 5 + *reinterpret_cast<const std::int32_t *>(a_site + 1)
+                       : 0;
+        }
+
+        struct StartFacing // WithinHeadingAngle 36756/37772
+        {
+            static bool thunk(RE::Actor *a_actor, const RE::NiPoint3 *a_pos, float a_angle) { return t_ourStart || func(a_actor, a_pos, a_angle); }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+        struct StartTargetLeaving // "target moving from this spot" 46062/47326 (523984 on 1.7)
+        {
+            static bool thunk(RE::Actor *a_target, const RE::NiPoint3 *a_from) { return !t_ourStart && func(a_target, a_from); }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+        struct BackoffRing // set_two_radiuses 49716/50643: X = inner radius
+        {
+            static void thunk(RE::Actor *a_self, RE::Actor *a_target, float *a_inner, float *a_outer)
+            {
+                func(a_self, a_target, a_inner, a_outer);
+                if (t_ourStart && a_self && a_target && a_inner) {
+                    *a_inner = a_self->GetPosition().GetDistance(a_target->GetPosition()) - CurrentWeaponRange() +
+                               Config::GetInstance().GetDecisionMatrix().backoffStepDistance;
+                }
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+        struct FallbackRing // FallbackDistance 49718/50645: X = the vanilla fallback distance, from where it stands
+        {
+            static float thunk(RE::Actor *a_self)
+            {
+                const float distance = func(a_self);
+                return t_ourStart && a_self ? TargetDistance(a_self) - CurrentWeaponRange() + distance : distance;
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
+        constexpr REL::RelocationID kBackoffStart{46724, 47920};
+        constexpr REL::RelocationID kFallbackStart{46712, 47908};
+        constexpr REL::RelocationID kWithinHeadingAngle{36756, 37772};
+        constexpr REL::RelocationID kInnerRadius{49716, 50643};
+        constexpr REL::RelocationID kFallbackDistance{49718, 50645};
+        struct StartSites
+        {
+            std::size_t backoffLeaving, backoffFacing, backoffRing, fallbackFacing1, fallbackLeaving, fallbackFacing2, fallbackRing;
+        };
+        // Same call order on SE 1.5.97, AE 1.6.1170 and 1.7.104 (dumped 2026-10-22); AE and 1.7 share offsets
+        constexpr StartSites kStartSitesSE{0x142, 0x16E, 0x1B7, 0x13B, 0x14F, 0x17B, 0x1EB};
+        constexpr StartSites kStartSitesAE{0x104, 0x130, 0x179, 0x107, 0x11B, 0x147, 0x1B0};
+
+        void InstallOwnStarts(SKSE::Trampoline &a_trampoline)
+        {
+            const auto &s = REL::Module::IsAE() ? kStartSitesAE : kStartSitesSE;
+            const auto b = kBackoffStart.address();
+            const auto f = kFallbackStart.address();
+            const auto heading = kWithinHeadingAngle.address();
+            const auto leaving = CallTarget(b + s.backoffLeaving); // renumbered on 1.7: both starts must call the same one
+            const bool ok = leaving && CallsTarget(f + s.fallbackLeaving, leaving) && CallsTarget(b + s.backoffFacing, heading) &&
+                            CallsTarget(f + s.fallbackFacing1, heading) && CallsTarget(f + s.fallbackFacing2, heading) &&
+                            CallsTarget(b + s.backoffRing, kInnerRadius.address()) &&
+                            CallsTarget(f + s.fallbackRing, kFallbackDistance.address());
+            if (!ok) {
+                LOG_ERROR("Tree: Backoff/Fallback start sites do not match - the brain's Backoff/Fallback keep vanilla start rules");
+                return;
+            }
+            StartFacing::func = a_trampoline.write_call<5>(b + s.backoffFacing, StartFacing::thunk);
+            a_trampoline.write_call<5>(f + s.fallbackFacing1, StartFacing::thunk);
+            a_trampoline.write_call<5>(f + s.fallbackFacing2, StartFacing::thunk);
+            StartTargetLeaving::func = a_trampoline.write_call<5>(b + s.backoffLeaving, StartTargetLeaving::thunk);
+            a_trampoline.write_call<5>(f + s.fallbackLeaving, StartTargetLeaving::thunk);
+            BackoffRing::func = a_trampoline.write_call<5>(b + s.backoffRing, BackoffRing::thunk);
+            FallbackRing::func = a_trampoline.write_call<5>(f + s.fallbackRing, FallbackRing::thunk);
+            LOG_INFO("Tree: Backoff/Fallback start checks hooked (the brain's moves start where it asks)");
+        }
+
         template <Intents::Move K>
         struct MoveEnter
         {
             static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
             {
+                if constexpr (K == Intents::Move::Backoff || K == Intents::Move::Fallback) {
+                    bool ours = false;
+                    t_ourStart = MoveSelectorOf(a_node, ours) && ours &&
+                                 Config::GetInstance().GetDecisionMatrix().brainBackoffFallback;
+                }
                 if (auto *actor = AuditedActor(a_thread)) {
                     std::scoped_lock guard(g_auditLock);
                     if (g_audit.size() > 64) {
@@ -327,6 +423,7 @@ namespace CombatAI::Trees
                                          Intents::WantedMove(actor), false};
                 }
                 func(a_node, a_thread); // may fail at once: SetFailed + Ascend inside (e.g. Backoff out of range)
+                t_ourStart = false;
             }
             static inline REL::Relocation<decltype(thunk)> func;
         };
@@ -469,6 +566,7 @@ namespace CombatAI::Trees
             HookMoveUpdate<Intents::Move::Fallback>(Id::vtFallback);
             HookMoveUpdate<Intents::Move::Backoff>(Id::vtBackoff);
             LOG_INFO("Tree: movement node Enter/Update/Exit hooked (preemption + MoveNode audit for the selected NPC)");
+            InstallOwnStarts(trampoline);
         } else {
             LOG_ERROR("Tree: CloseMovement SetRoot site does not match (byte {:02X}) - movement intents disabled", bytes[0]);
         }
