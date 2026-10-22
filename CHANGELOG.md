@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.6.2 (2026-10-22)
+
+- **Jump fires when you really aim at the NPC** (run 11). Your body's heading misses the bow crosshair by the third-person camera offset: aimed straight at the bandit, the heading line passed 113-191 units from it (more the farther away), over the 99-unit limit, so it never jumped. For the player the jump now asks the game which actor the bow crosshair is on (`PlayerCharacter` info runtime data `autoAimActor`, version-shifted in CommonLib-NG for SE/AE/1.7). The strict heading check stays for NPC shooters and as a fallback, so neighbours still don't qualify on it.
+- `Jump aim` debug line adds `crosshair on us true|false`.
 ## CombatAITree 0.6.1 (2026-10-22)
 
 - **Low stamina backs off instead of running away** (run 10). One brain power attack took a bandit from 100% to 17% stamina (a stamina-heavy setup), and stamina came back at about 2%/s. Below `StaminaThreshold` (0.2) survival chose Retreat, the vanilla Fallback run, so a full-health bandit spent 229 decisions (~25 s) running off. Exhaustion now chooses Backoff, a short step back that keeps it in the fight. Low *health* still retreats.

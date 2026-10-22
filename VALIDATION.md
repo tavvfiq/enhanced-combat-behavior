@@ -107,3 +107,12 @@
 
 ## 0.6.1 (2026-10-22)
 - Build ok; FileVersion 0.6.1.0; ship-gate PASS. Zip sha256 5297661CCC811F873270938C5CDDF4CB6A80871D1CD4C08833CC660CAF3F6744. Runtime: untested.
+
+## 0.6.1 run 11 (2026-10-22, user log, ~4.5 min, 3 bandits, player bow + melee)
+- No warnings/errors. Crash 11:20:28 = BetterAltTab.dll+0x25259 (5th), no CombatAITree frame. Jump OFF at load, on after the 11:18:42 menu save.
+- Jump: 0. `Jump aim` lines: aimed stretch 11:18:44-47 had the aim line 113-166 units off at 586-1232 units, and 183-191 at ~1400 (limit 99); it grows with distance, which points to the camera offset. Fixed in 0.6.2 (crosshair actor).
+- Exhaustion: Retreat now only at low health (p1.65, hp 0-25%); exhausted NPCs Backoff (463). **runtime-evidenced**.
+- Stamina: power attacks and power bashes (brain and vanilla) drop stamina 25-100% -> 0 in one hit (load-order stamina costs), so bandits sit at 0-20% for most of the fight. Not changed; asked the user.
+
+## 0.6.2 (2026-10-22)
+- Build ok; FileVersion 0.6.2.0; ship-gate PASS. Zip sha256 548F0ABCE3A58BA6EDE714BCAC89C6B567DEE255B4BC467EAD0E1A69E7B24247. Runtime: untested (`autoAimActor` meaning taken from the field name and the `overAutoAimTarget` comment; first run must show `crosshair on us true` while aiming).

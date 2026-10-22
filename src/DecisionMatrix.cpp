@@ -748,13 +748,24 @@ namespace CombatAI
                 const bool inWindow = a_state.target.distance > config.GetDecisionMatrix().jumpEvasionDistanceMin &&
                                       a_state.target.distance < config.GetDecisionMatrix().jumpEvasionDistanceMax;
                 const float aimLimit = a_state.self.boundRadius + kAimSlack;
-                const bool aimed = IsAimedAt(a_state.target.distance, a_state.target.orientationDot, aimLimit);
+                // The player's body heading misses the crosshair by the third-person camera offset (run 11: 113-191
+                // units off while aimed straight at us), so for the player ask the game which actor the bow
+                // crosshair is on. The strict body-line check stays for NPC shooters and as a fallback.
+                bool crosshairOnUs = false;
+                if (a_state.target.isPlayer) {
+                    if (auto *player = RE::PlayerCharacter::GetSingleton()) {
+                        crosshairOnUs = player->GetInfoRuntimeData().autoAimActor.get().get() == a_actor;
+                    }
+                }
+                const bool aimed =
+                    crosshairOnUs || IsAimedAt(a_state.target.distance, a_state.target.orientationDot, aimLimit);
                 if (inWindow && a_actor && config.IsDebugTarget(a_actor->GetFormID())) {
                     const float dot = (std::clamp)(a_state.target.orientationDot, -1.0f, 1.0f);
-                    LOG_DEBUG("Jump aim 0x{:08X}: shooter drawing at {:.0f}, aim line {:.0f} units from us (limit {:.0f}){}",
+                    LOG_DEBUG("Jump aim 0x{:08X}: shooter drawing at {:.0f}, aim line {:.0f} units from us (limit {:.0f}), "
+                              "crosshair on us {}{}",
                               a_actor->GetFormID(), a_state.target.distance,
                               dot > 0.0f ? a_state.target.distance * std::sqrt(1.0f - dot * dot) : -1.0f, aimLimit,
-                              aimed ? " - may jump" : "");
+                              crosshairOnUs, aimed ? " - may jump" : "");
                 }
                 if (inWindow && aimed) {
 
