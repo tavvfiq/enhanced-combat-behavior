@@ -358,11 +358,8 @@ namespace CombatAI
                 basePriority -= 0.2f; // Multiple enemies targeting us - bash is risky
             }
 
-            // No bash cooldown: below 20% stamina there is no bash at all
+            // Stamina consideration: bash costs stamina, need some left
             if (a_state.self.staminaPercent < 0.2f) {
-                return result;
-            }
-            if (a_state.self.staminaPercent < 0.3f) {
                 basePriority -= 0.2f; // Reduce priority when very low stamina
             } else if (a_state.self.staminaPercent > 0.6f) {
                 situationBonus += 0.1f; // Bonus when we have good stamina
@@ -709,7 +706,8 @@ namespace CombatAI
         // guarding (reposition to flank) or we're low on stamina and want to reset.
         // Against a fully idle, open target, attacking is better than backing off -
         // otherwise NPCs strafe point-blank targets forever instead of committing.
-        bool spacingReason = a_state.target.isBlocking || a_state.self.staminaPercent < 0.3f;
+        bool spacingReason = a_state.target.isBlocking ||
+                             (config.GetDecisionMatrix().staminaAffectsRetreat && a_state.self.staminaPercent < 0.3f);
 
         // Only prioritize spacing if VERY close (within weapon reach) and observing
         // This prevents constant strafing when at safe distances
@@ -1069,7 +1067,8 @@ namespace CombatAI
         // with a real Backoff decision instead of issuing an Advance the engine ignores
         // (which produced "decision says advance but the NPC backs away"). Lower
         // priority than health survival; only when not already fleeing/finishing.
-        if (!shouldRetreat && staminaThreshold > 0.0f && a_state.self.staminaPercent <= staminaThreshold &&
+        if (!shouldRetreat && config.GetDecisionMatrix().staminaAffectsRetreat && staminaThreshold > 0.0f &&
+            a_state.self.staminaPercent <= staminaThreshold &&
             a_state.self.healthPercent > healthThreshold) {
             shouldRetreat = true;
             exhausted = true;
@@ -2103,8 +2102,8 @@ namespace CombatAI
                 basePriority += 0.4f; // Higher priority when outnumbered
             }
 
-            // Low stamina = more urgent backoff (conserve stamina)
-            if (a_state.self.staminaPercent < 0.3f) {
+            // Low stamina = more urgent backoff (conserve stamina), only when the config says stamina matters
+            if (Config::GetInstance().GetDecisionMatrix().staminaAffectsRetreat && a_state.self.staminaPercent < 0.3f) {
                 basePriority += 0.2f;
             }
 

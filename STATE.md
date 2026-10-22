@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.6.2 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.7.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -37,6 +37,8 @@ version so any step can be rolled back.
 - 0.6.1, run 11: exhausted NPCs back off (Retreat only at low HP). No jump: heading line 113-191 units off while
   aimed (camera offset). Power attacks/bashes empty stamina in one hit in this load order.
 - 0.6.2 (jump aim = game's bow crosshair actor for the player): build-validated only.
+- 0.7.0 (retreat/backoff on health only unless `StaminaAffectsRetreat`; power moves need `PowerAttackMinStamina` 0.7,
+  brain and vanilla): build-validated only.
 
 **Next (for the user):**
 1. Install 0.6.0. A menu-saved INI keeps `SkillBase = 0.55`: set "Skill at level 1" to 0.75 in the menu (load log shows it). Earlier: Turn on "Enable jump evasion" in the menu (or `EnableJumpEvasion = true`, chance 1.0); the log line `Jump evasion: on` confirms. Fight bandits with one selected. For the jump, **the player** must hold a bow drawn and aimed

@@ -61,6 +61,9 @@ namespace CombatAI
                  m_decisionMatrix.enableJumpEvasion ? "on" : "OFF", m_decisionMatrix.evasionJumpChance,
                  m_decisionMatrix.jumpEvasionDistanceMin, m_decisionMatrix.jumpEvasionDistanceMax,
                  m_decisionMatrix.jumpHeight, m_decisionMatrix.jumpStaminaCost, m_humanizer.skillBase);
+        LOG_INFO("Stamina: retreat/backoff {}; power attacks, sprint attacks and power bashes need {:.0f}% stamina",
+                 m_decisionMatrix.staminaAffectsRetreat ? "also on low stamina" : "on health only",
+                 m_decisionMatrix.powerAttackMinStamina * 100.0f);
         return true;
     }
 
@@ -142,6 +145,8 @@ namespace CombatAI
         D("DecisionMatrix", "JumpHeight", m_decisionMatrix.jumpHeight);
         D("DecisionMatrix", "JumpStaminaCost", m_decisionMatrix.jumpStaminaCost);
         D("DecisionMatrix", "StaminaThreshold", m_decisionMatrix.staminaThreshold);
+        B("DecisionMatrix", "StaminaAffectsRetreat", m_decisionMatrix.staminaAffectsRetreat);
+        D("DecisionMatrix", "PowerAttackMinStamina", m_decisionMatrix.powerAttackMinStamina);
         D("DecisionMatrix", "HealthThreshold", m_decisionMatrix.healthThreshold);
         B("DecisionMatrix", "EnableSurvivalRetreat", m_decisionMatrix.enableSurvivalRetreat);
         B("DecisionMatrix", "EnableOffense", m_decisionMatrix.enableOffense);
@@ -434,6 +439,11 @@ namespace CombatAI
             0.0f, static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "JumpStaminaCost", m_decisionMatrix.jumpStaminaCost)));
         m_decisionMatrix.staminaThreshold = static_cast<float>(
             a_ini.GetDoubleValue("DecisionMatrix", "StaminaThreshold", m_decisionMatrix.staminaThreshold));
+        m_decisionMatrix.staminaAffectsRetreat =
+            a_ini.GetBoolValue("DecisionMatrix", "StaminaAffectsRetreat", m_decisionMatrix.staminaAffectsRetreat);
+        m_decisionMatrix.powerAttackMinStamina = std::clamp(
+            static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "PowerAttackMinStamina", m_decisionMatrix.powerAttackMinStamina)),
+            0.0f, 1.0f);
         m_decisionMatrix.healthThreshold = static_cast<float>(
             a_ini.GetDoubleValue("DecisionMatrix", "HealthThreshold", m_decisionMatrix.healthThreshold));
         m_decisionMatrix.enableSurvivalRetreat =

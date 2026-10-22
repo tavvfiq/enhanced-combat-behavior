@@ -150,6 +150,8 @@ namespace CombatAI
                           0.0f, 1000.0f, "%.0f");
                 ImGuiMCP::Separator();
                 liveFloat("Stamina threshold", &config.m_decisionMatrix.staminaThreshold, 0.0f, 1.0f);
+        ImGuiMCP::Checkbox("Low stamina makes NPCs back off", &config.m_decisionMatrix.staminaAffectsRetreat);
+        liveFloat("Power attack min stamina", &config.m_decisionMatrix.powerAttackMinStamina, 0.0f, 1.0f);
                 liveFloat("Health threshold", &config.m_decisionMatrix.healthThreshold, 0.0f, 1.0f);
                 ImGuiMCP::Checkbox("Power attack stamina check",
                                    &config.m_decisionMatrix.enablePowerAttackStaminaCheck);

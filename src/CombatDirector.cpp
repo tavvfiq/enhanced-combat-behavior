@@ -449,6 +449,15 @@ namespace CombatAI
                                          const ActorStateData &a_state)
     {
         DecisionResult executedDecision = a_decision;
+        // Power moves need stamina (one can empty the bar); without it the NPC swings light or keeps closing
+        const float powerMin = Config::GetInstance().GetDecisionMatrix().powerAttackMinStamina;
+        if (a_state.self.staminaPercent < powerMin) {
+            if (executedDecision.action == ActionType::PowerAttack) {
+                executedDecision.action = ActionType::Attack;
+            } else if (executedDecision.action == ActionType::SprintAttack) {
+                executedDecision.action = ActionType::Advancing;
+            }
+        }
         // A sprint attack starts with a run-up: sprint at the target until actually
         // sprinting and inside launch range, then launch.
         if (executedDecision.action == ActionType::SprintAttack && !m_executor.CanLaunchSprintAttack(a_actor, a_state)) {

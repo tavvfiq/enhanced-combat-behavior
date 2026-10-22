@@ -34,6 +34,15 @@ namespace CombatAI
             return StateHelpers::CalculateOrientationDot(*attackerPos, *targetPos,
                                                          StateHelpers::GetActorForwardVector(a_target)) > 0.5f;
         }
+
+        // True when a_actor is below the stamina fraction power moves need
+        bool LacksPowerStamina(RE::Actor *a_actor)
+        {
+            const float minimum = Config::GetInstance().GetDecisionMatrix().powerAttackMinStamina;
+            auto *values = ActorUtils::SafeAsActorValueOwner(a_actor);
+            const float max = a_actor->GetActorValueMax(RE::ActorValue::kStamina);
+            return minimum > 0.0f && values && max > 0.0f && values->GetActorValue(RE::ActorValue::kStamina) < minimum * max;
+        }
     } // namespace
 
     float VanillaAttackShaper::Adjust(RE::Actor *a_attacker, RE::Actor *a_target, RE::BGSAttackData *a_data,
@@ -74,6 +83,10 @@ namespace CombatAI
         }
 
         const bool power = a_data->data.flags.any(RE::AttackData::AttackFlag::kPowerAttack);
+        // Power attacks and power bashes need stamina; light attacks and plain bashes never do
+        if (power && LacksPowerStamina(a_attacker)) {
+            return Logged(a_attacker, a_data, a_chance, 0.0f, "power: stamina too low");
+        }
         const bool targetOpen = ActorUtils::SafeGetKnockState(a_target) != RE::KNOCK_STATE_ENUM::kNormal ||
                                 ActorUtils::SafeGetAttackState(a_target) == RE::ATTACK_STATE_ENUM::kFollowThrough ||
                                 ActorUtils::SafeWhoIsCasting(a_target) != 0;

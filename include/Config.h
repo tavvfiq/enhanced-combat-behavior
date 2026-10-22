@@ -86,6 +86,8 @@ namespace CombatAI
             float jumpHeight = 100.0f; // Jump apex height in game units
             float jumpStaminaCost = 20.0f; // Spent per jump; no cooldown, an NPC without this much stamina can't jump
             float staminaThreshold = 0.2f;
+            bool staminaAffectsRetreat = false;  // Off: retreat/backoff depend on health only (light attacks cost no stamina)
+            float powerAttackMinStamina = 0.7f;  // Power/sprint attacks and power bashes need this stamina fraction
             float healthThreshold = 0.3f;
             bool enableSurvivalRetreat = true;
             bool enableOffense = true;

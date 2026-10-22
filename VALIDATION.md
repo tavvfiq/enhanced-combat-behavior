@@ -116,3 +116,7 @@
 
 ## 0.6.2 (2026-10-22)
 - Build ok; FileVersion 0.6.2.0; ship-gate PASS. Zip sha256 548F0ABCE3A58BA6EDE714BCAC89C6B567DEE255B4BC467EAD0E1A69E7B24247. Runtime: untested (`autoAimActor` meaning taken from the field name and the `overAutoAimTarget` comment; first run must show `crosshair on us true` while aiming).
+
+## 0.7.0 (2026-10-22)
+- User decision: retreat/backoff on health only unless configured; power moves gated by stamina (both brain and vanilla).
+- Build ok; FileVersion 0.7.0.0; ship-gate PASS. Zip sha256 5C6A85C00B4389B1E85ED46C43AF0CD594B49CAECB1CF35430B8FFDED3343476. Runtime: untested.

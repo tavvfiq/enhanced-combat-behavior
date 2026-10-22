@@ -1,5 +1,16 @@
 # Changelog
 
+## CombatAITree 0.7.0 (2026-10-22)
+
+- **Retreat and backoff depend on health only.** Light attacks cost no stamina, so a tired NPC keeps fighting. Low stamina no longer triggers the survival back-off (0.6.1), the extra Backoff urgency, or tactical spacing. The new `StaminaAffectsRetreat` (`[DecisionMatrix]`, default `false`, in the menu) turns the old behaviour back on, using `StaminaThreshold`.
+- **Power moves need stamina:** new `PowerAttackMinStamina` (default 0.7, in the menu; 0 = no limit).
+  - **Brain:** below it, a PowerAttack becomes a light Attack, and a SprintAttack becomes ordinary closing in.
+  - **Vanilla:** the tree's power attack data, including power bashes, is not picked below it (debug: `power: stamina too low`). Light attacks and plain bashes are never limited.
+  - **Why:** in run 11 one power attack or power bash took a bandit's stamina from 25-100% to 0, and the bandit then spent most of the fight backing off (463 Backoff, 10 Attack).
+- Removed 0.6.0's "no bash below 20% stamina" gate. Only power bashes care about stamina now.
+- **Load log:** `Stamina: retreat/backoff on health only; power ... need 70% stamina`.
+- Both are new INI keys, so an existing menu-saved INI picks up the defaults.
+- Not changed: fatigue (`FatigueStaminaThreshold`) still makes skill rolls sloppier at low stamina, and feints still need 25%.
 ## CombatAITree 0.6.2 (2026-10-22)
 
 - **Jump fires when you really aim at the NPC** (run 11). Your body's heading misses the bow crosshair by the third-person camera offset: aimed straight at the bandit, the heading line passed 113-191 units from it (more the farther away), over the 99-unit limit, so it never jumped. For the player the jump now asks the game which actor the bow crosshair is on (`PlayerCharacter` info runtime data `autoAimActor`, version-shifted in CommonLib-NG for SE/AE/1.7). The strict heading check stays for NPC shooters and as a fallback, so neighbours still don't qualify on it.
