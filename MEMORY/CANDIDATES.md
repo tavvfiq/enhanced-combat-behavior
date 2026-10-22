@@ -7,3 +7,5 @@
 - Rule: detach (parent = nullptr) before AddChildren / initChildrensParents. The RandomNode factory relies on this
   behaviour (it returns the leaf and AddChildren climbs to the wrapper).
 - Status: runtime-evidenced - 0.2.1 (detached) ran 2.5 min against camp bandits with no hang.
+## Combat tree node slots: trust Thread::Update, not CPR names (tool-validated, 2026-10-22)
+CombatBehaviorThread::Update 46228/47483 calls 2 = Enter (descend), 4 = Update each running tick, 5 = Abort (failState 2), 3 = Exit on the node that just ascended. CPR's names (pop/on_childfailed/on_interrupted) misled an earlier correction. To stop a running leaf early: call thread->Ascend() from its slot 4. Movement leaves' own Abort does exactly that, and CPR's AdvanceInterruptHook does the same.
