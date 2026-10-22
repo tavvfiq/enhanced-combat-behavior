@@ -120,3 +120,9 @@
 ## 0.7.0 (2026-10-22)
 - User decision: retreat/backoff on health only unless configured; power moves gated by stamina (both brain and vanilla).
 - Build ok; FileVersion 0.7.0.0; ship-gate PASS. Zip sha256 5C6A85C00B4389B1E85ED46C43AF0CD594B49CAECB1CF35430B8FFDED3343476. Runtime: untested.
+
+## Actuator audit on run 11 log (2026-10-22, 0.6.1, selected bandits only)
+- Attack/power/bash intents: posted 23, taken 23 by the tree, median 37 ms (max 62); hits follow (Probe Hit). **Actuator works.**
+- Movement, intent pairing (post -> `tree runs` before the next post): Advance 3/13 taken (median 5.7 s), Circle 13/22 (158 ms), Fallback 2/2, Backoff 13/30 (110 ms); 9-17 per kind superseded before ever running.
+- Movement, body outcome over 0.55 s after each executed decision (moved < 25 units = still): Advancing toward 50 / still 71 / away 26 (of 149); Backoff away 17 / still 238 / toward 70 / sideways 61 (of 386); Strafe sideways 30 / still 58 (of 119); Retreat away 36/39.
+- Reading: Retreat (Fallback) and attacks execute; Advance partly; **Backoff and Strafe mostly don't move the body as asked**. Likely cause (unverified): the vanilla movement nodes keep their own distance conditions (no parameter getters hooked yet), so they finish or idle when the brain's distance differs. Dodge 0% (graph rejects TKDodge). Jump runs (own physics).
