@@ -1,4 +1,5 @@
 #include "PrecisionIntegration.h"
+#include "ActorUtils.h"
 #include "Logger.h"
 #include "PrecisionAPI.h"
 #include "pch.h"
@@ -40,7 +41,9 @@ namespace CombatAI
                     if (a_fromPrecision) {
                         *a_fromPrecision = true;
                     }
-                    return reach;
+                    // The capsule is the blade alone; it starts at the hand, about one body radius out
+                    // from the actor's centre, which is where every distance here is measured from.
+                    return reach + ActorUtils::GetBodyRadius(a_actor);
                 }
             }
         }

@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.5.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.5.2 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -23,10 +23,15 @@ version so any step can be rolled back.
   unnamed static refs. Circle side: 46 lines, not yet checked by eye.
 - 0.4.0 (movement preemption): build-validated only.
 - 0.5.0 (arc jump after FluidMotionNPC, own code): build-validated only.
-- 0.5.1 (config menu visible in SKSE Menu Framework as Combat AI Tree / Config): build-validated only.
+- 0.5.1, run 7 (~3 min, 2 bandits, player melee): no errors. Menu works (config saved from it). Preemption
+  looped every frame for one bandit (fixed 0.5.2). Short-weapon bandit idled at 60-100 units (reach 48 ->
+  range 52; fixed 0.5.2). All 117 TKDodge events rejected by the NPC graph. Jump never eligible (player had no bow).
+- 0.5.2 (stop rule = brain changed its mind since the move started; reach adds own body radius): build-validated only.
 
 **Next (for the user):**
-1. Install 0.5.1 (includes 0.4.0 and 0.5.0). Check the menu: Combat AI Tree / Config in SKSE Menu Framework. Fight a bandit camp with archers and one bandit selected. Check:
+1. Install 0.5.2. Fight bandits with one selected. For the jump, **the player** must hold a bow drawn and aimed
+   at the selected NPC, inside the JumpEvasionDistance window. Check:
+   - **0.5.2:** no `Move ... stopped` for the same actor every frame; short-weapon NPCs swing when touching you;
    - **0.4.0 movement:** the summary's `running moves stopped: ours N, vanilla N` is above 0, no foot stutter (no
      `Move ... stopped running vanilla node` for the same actor every 0.3 s), no hang;
    - **0.5.0 jump:** set `EnableJumpEvasion` / `EvasionJumpChance` high in the INI to see it often. Look for

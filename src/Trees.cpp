@@ -234,23 +234,49 @@ namespace CombatAI::Trees
             return nullptr;
         }
 
-        // How long a_node has been the node this thread updates (time since first seen).
-        // shortcut: a node re-entered right after it finished keeps its old start, which only allows an
-        // earlier stop; hook slot 2 if that ever matters.
-        std::chrono::steady_clock::duration RunTime(const void *a_thread, const Node *a_node)
+        // Stop only when the brain changed its mind since the node started. Ours: it wants anything but
+        // our kind. Vanilla's: it now wants a different move. A vanilla node that started while the brain
+        // already wanted that move means our branch for it just failed (e.g. Circle out of range), and
+        // stopping it would only loop vanilla -> stop -> vanilla every frame.
+        constexpr bool BrainChangedMind(Intents::Move a_atStart, Intents::Move a_now, bool a_ours)
         {
+            return a_now != a_atStart && (a_ours || a_now != Intents::Move::None);
+        }
+        static_assert(BrainChangedMind(Intents::Move::Circle, Intents::Move::None, true));
+        static_assert(!BrainChangedMind(Intents::Move::Circle, Intents::Move::Circle, true));
+        static_assert(!BrainChangedMind(Intents::Move::Circle, Intents::Move::Circle, false));
+        static_assert(!BrainChangedMind(Intents::Move::None, Intents::Move::None, false));
+        static_assert(BrainChangedMind(Intents::Move::None, Intents::Move::Circle, false));
+        static_assert(BrainChangedMind(Intents::Move::Circle, Intents::Move::Advance, false));
+        static_assert(!BrainChangedMind(Intents::Move::Circle, Intents::Move::None, false));
+
+        // Per thread: the node it updates, since when, and what the brain wanted then.
+        // shortcut: a node re-entered right after it finished naturally keeps its old entry (only a stop
+        // resets it); hook slot 2 if that ever matters.
+        bool ShouldStop(const void *a_thread, const Node *a_node, Intents::Move a_atStart, Intents::Move a_now, bool a_ours)
+        {
+            struct Run
+            {
+                const Node *node = nullptr;
+                std::chrono::steady_clock::time_point start;
+                Intents::Move want = Intents::Move::None;
+            };
             static std::mutex lock;
-            static std::unordered_map<const void *, std::pair<const Node *, std::chrono::steady_clock::time_point>> seen;
+            static std::unordered_map<const void *, Run> runs;
             const auto now = std::chrono::steady_clock::now();
             std::scoped_lock guard(lock);
-            if (seen.size() > 512) {
-                seen.clear(); // threads come and go; entries are only hints
+            if (runs.size() > 512) {
+                runs.clear(); // threads come and go; entries are only hints
             }
-            auto &entry = seen[a_thread];
-            if (entry.first != a_node) {
-                entry = {a_node, now};
+            auto &run = runs[a_thread];
+            if (run.node != a_node) {
+                run = {a_node, now, a_atStart};
             }
-            return now - entry.second;
+            if (!BrainChangedMind(run.want, a_now, a_ours) || now - run.start < kMinRun) {
+                return false;
+            }
+            run.node = nullptr; // whatever this thread runs next is a fresh start
+            return true;
         }
 
         template <Intents::Move K>
@@ -262,10 +288,7 @@ namespace CombatAI::Trees
                 auto *actor = MoveSelectorOf(a_node, ours) ? RE::CombatBehaviorController::GetCurrentAttacker() : nullptr;
                 if (actor && a_thread) {
                     const auto want = Intents::WantedMove(actor);
-                    // Ours: stop once the brain wants anything else. Vanilla's (under our selector): stop
-                    // only when the brain wants a move, so our branch can take over.
-                    const bool stop = ours ? want != K : want != Intents::Move::None;
-                    if (stop && RunTime(a_thread, a_node) >= kMinRun) {
+                    if (ShouldStop(a_thread, a_node, ours ? K : want, want, ours)) {
                         Intents::NotePreempted(!ours);
                         if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
                             LOG_DEBUG("Move 0x{:08X}: stopped running {} node {} (brain wants move {})",

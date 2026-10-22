@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.5.2 (2026-10-22)
+
+- **Fixed: movement stop looped every frame** (0.4.0 regression, run 7). With the brain wanting Circle at ~900 units, our Circle branch failed at once, vanilla Advance started, and the hook stopped it again on the very next frame (~80 stops/s for one bandit). Two causes: the 300 ms minimum run kept the node's *first* start time, so re-entries were stopped at once; and a vanilla node was stopped even though our branch for that move had just failed.
+  - **Now:** a running move is stopped only if the brain wants a *different* move than when that move started. A stop resets the timer, so the next move always runs at least 300 ms. The rule has compile-time self-checks.
+- **Fixed: NPCs with short weapons stood in your face without swinging** (run 7, bandit with Precision reach 48). Precision's capsule length is the blade alone, but every distance is measured from the actor's centre. The attack range was 48 + target radius 24 − margin 20 = 52 units, closer than two bodies can get, so the brain kept choosing Advance while the NPC was already touching you. The reach now adds the attacker's own body radius (the blade starts at the hand): attack range 76 units for that bandit, and 140 instead of 116 for a sword with reach 112. This affects every range that uses reach (offense, range bands, CPR stop distance, attack feedback).
 ## CombatAITree 0.5.1 (2026-10-22)
 
 - **Config menu shows up in SKSE Menu Framework.** The vendored menu header looks up `SKSEMenuFramework.dll` when our DLL loads. SKSE loads plugins alphabetically, so `CombatAITree.dll` loads first and the lookup returned null. Every menu call then silently did nothing, while the log still said "Registered". The handle is now looked up again at kDataLoaded, and a missing framework is logged as an error.
