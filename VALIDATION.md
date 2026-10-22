@@ -149,3 +149,6 @@
 ## 0.8.1 (2026-10-22)
 - Package: OAR jump-as-dodge meshes and BDI json removed (user request); OAR fallback code removed. Runs 9-12 jump lines had no '(OAR dodge animation)' suffix, so the fallback was never used.
 - Build ok; FileVersion 0.8.1.0; ship-gate PASS; zip = SKSE/Plugins/CombatAITree.dll + .ini only. sha256 E2C8C0BB007B2881FFF40ED696ABF2F1F24E73B6A4DFDFAB2A368AABFA496808. Runtime: untested.
+
+## No-decision ticks (run 12 re-check, 2026-10-22)
+- 226 of 229 `Decision ... action=None` lines have no candidate list: every evaluator returned nothing. Offense (incl. Advance) and evasion require `self.isIdle`, which is `attackState == kNone` (ActorStateObserver.cpp:140), so the brain is silent while the NPC's own attack, bash or windup plays (None typically right after a vanilla `attackStart`). Not idling: the 66 'no decision' idle ticks in the 0.8.0 breakdown were counted from the previous snapshot's attack state, which was stale.
