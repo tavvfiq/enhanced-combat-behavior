@@ -1,5 +1,17 @@
 # Changelog
 
+## CombatAITree 0.8.4 (2026-10-22)
+
+- **Our Backoff keeps going while you press in.** The vanilla Backoff update (46725/47921) ends the node as soon as 46063 sees the target moving toward the NPC. In run 14, 24 of our Backoffs ended after about 110 ms having moved 6 units. For our branch that check now says no.
+  - The callee has no stable ID on 1.7 (47327 on AE, 523985 on 1.7). It is accepted as a call into the function right after the start's 46062, which is 0xB0 later on SE/AE and 0xE0 on 1.7.104.
+  - It is installed with the 0.8.0 start patches, so `BrainBackoffFallback = false` at load leaves it out.
+- **Back off after a swing also in the next-attack window.** NPC swings go hit, then next attack, then none; follow-through showed up in 1 of 968 snapshots, and `BackoffAfterSwing` fired once.
+  - The trigger now fires in either window.
+  - The director no longer blocks Backoff/Retreat in the next-attack window, since the hit has landed. It still blocks them in windup, swing, hit and bash.
+  - The failed-roll mistake path follows the same rule.
+- **Circle start audit:** for the selected NPC, every Circle `MoveNode` line ends with what its start checks answered. 1 = passed, 0 = refused, -1 = not reached. Example: `[start checks: not animation-driven 1, facing 1, angle 1, view cone 0, straight path -1, path -1]`.
+  - **Checks recorded:** IsMovementAnimationDriven, the two WithinHeadingAngle calls, the angle getter being reached, CheckStraightPath and the path check after it. All of them pass through unchanged.
+  - **How to read it:** "angle 1, view cone -1" means it stopped at the angle limit. Everything passed but it still failed means navmesh.
 ## CombatAITree 0.8.3 (2026-10-22)
 
 - **Fixed the 0.8.1 crash when approaching an NPC** (no crash log; the mod log ends at data load).

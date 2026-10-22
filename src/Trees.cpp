@@ -193,11 +193,29 @@ namespace CombatAI::Trees
 
         std::atomic<std::uint32_t> g_closeBuilt{0};
 
+        // Circle start audit (selected NPC): what each of the Circle start's checks (46720/47916) answered.
+        // 1 = passed, 0 = refused, -1 = not reached; the first 0, or the stage after the last 1, is why it failed.
+        struct CircleChecks
+        {
+            std::int8_t animDriven = -1, facing = -1, angle = -1, viewCone = -1, straightPath = -1, pathCheck = -1;
+        };
+        thread_local bool t_circleAudit = false;
+        thread_local CircleChecks t_circle;
+
+        bool NoteCheck(std::int8_t &a_slot, bool a_passed)
+        {
+            if (t_circleAudit) {
+                a_slot = a_passed ? 1 : 0;
+            }
+            return a_passed;
+        }
+
         // Circle on the brain's side: keep vanilla's angle size, set its sign.
         struct CircleAngle
         {
             static float thunk(RE::Actor *a_me)
             {
+                NoteCheck(t_circle.angle, true); // reached: the facing and distance checks passed
                 const float angle = func(a_me);
                 const float side = Intents::CircleSide(a_me);
                 const float out = side > 0.0f ? std::fabs(angle) : (side < 0.0f ? -std::fabs(angle) : angle);
@@ -290,6 +308,7 @@ namespace CombatAI::Trees
             float dist = -1.0f;
             Intents::Move want = Intents::Move::None;
             bool stoppedByBrain = false;
+            std::string checks; // Circle: what its start checks answered
         };
         std::mutex g_auditLock;
         std::unordered_map<const void *, MoveRun> g_audit; // per thread
@@ -366,6 +385,95 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
+        // Backoff Update (46725/47921) ends the node once 46063/47327 (523985 on 1.7) sees the target moving
+        // toward the NPC (run 14: 24 of our Backoffs ended after ~110 ms, moved 6). Ours keeps backing off.
+        struct BackoffClosing
+        {
+            static bool thunk(RE::Actor *a_actor, const RE::NiPoint3 *a_pos) { return !t_ourStart && func(a_actor, a_pos); }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
+        // Circle start audit recorders (pass the vanilla answer through unchanged)
+        struct CircleAnimDriven // IsMovementAnimationDriven 36487/37486: true refuses
+        {
+            static bool thunk(RE::Actor *a_actor)
+            {
+                const bool driven = func(a_actor);
+                NoteCheck(t_circle.animDriven, !driven);
+                return driven;
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+        struct CircleFacing // WithinHeadingAngle, target in front
+        {
+            static bool thunk(RE::Actor *a_actor, const RE::NiPoint3 *a_pos, float a_angle) { return NoteCheck(t_circle.facing, func(a_actor, a_pos, a_angle)); }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+        struct CircleViewCone // WithinHeadingAngle with fCombatCircleViewConeAngle
+        {
+            static bool thunk(RE::Actor *a_actor, const RE::NiPoint3 *a_pos, float a_angle) { return NoteCheck(t_circle.viewCone, func(a_actor, a_pos, a_angle)); }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+        struct CircleStraightPath // CombatController::CheckStraightPath 32513/33262
+        {
+            static bool thunk(void *a_controller, const RE::NiPoint3 *a_pos, float a_speed, float a_tolerance)
+            {
+                return NoteCheck(t_circle.straightPath, func(a_controller, a_pos, a_speed, a_tolerance));
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+        struct CirclePathCheck // 32507/33256 (controller, point) -> bool, right after the straight-path check
+        {
+            static bool thunk(void *a_controller, const RE::NiPoint3 *a_pos) { return NoteCheck(t_circle.pathCheck, func(a_controller, a_pos)); }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
+        constexpr REL::RelocationID kBackoffUpdate{46725, 47921};
+        constexpr std::size_t kBackoffClosingSE = 0x10B;
+        constexpr std::size_t kBackoffClosingAE = 0x17A; // same on 1.7.104
+        constexpr REL::RelocationID kAnimDriven{36487, 37486};
+        constexpr REL::RelocationID kStraightPath{32513, 33262};
+        constexpr REL::RelocationID kCirclePathCheck{32507, 33256};
+        struct CircleSites
+        {
+            std::size_t animDriven, facing, viewCone, straightPath, pathCheck;
+        };
+        constexpr CircleSites kCircleSitesSE{0x179, 0x198, 0x366, 0x3C8, 0x3E7};
+        constexpr CircleSites kCircleSitesAE{0x149, 0x16A, 0x2F2, 0x351, 0x370}; // same on 1.7.104
+
+        // The Backoff Update check: same idea as the start, but its callee (46063) has no stable ID on 1.7, so it
+        // is accepted as a call into the function right after 46062 (0xB0 later on SE/AE, 0xE0 on 1.7.104).
+        void InstallBackoffClosing(SKSE::Trampoline &a_trampoline, std::uintptr_t a_leaving)
+        {
+            const auto site = kBackoffUpdate.address() + (REL::Module::IsAE() ? kBackoffClosingAE : kBackoffClosingSE);
+            const auto target = CallTarget(site);
+            if (!target || target <= a_leaving || target - a_leaving > 0x100) {
+                LOG_ERROR("Tree: Backoff update site does not match - our Backoff still stops when the target closes in");
+                return;
+            }
+            BackoffClosing::func = a_trampoline.write_call<5>(site, BackoffClosing::thunk);
+            LOG_INFO("Tree: Backoff update check hooked (our Backoff keeps going while the target closes in)");
+        }
+
+        void InstallCircleAudit(SKSE::Trampoline &a_trampoline)
+        {
+            const auto &s = REL::Module::IsAE() ? kCircleSitesAE : kCircleSitesSE;
+            const auto c = kCircleUpdate.address();
+            const auto heading = REL::RelocationID(36756, 37772).address();
+            if (!CallsTarget(c + s.animDriven, kAnimDriven.address()) || !CallsTarget(c + s.facing, heading) ||
+                !CallsTarget(c + s.viewCone, heading) || !CallsTarget(c + s.straightPath, kStraightPath.address()) ||
+                !CallsTarget(c + s.pathCheck, kCirclePathCheck.address())) {
+                LOG_ERROR("Tree: Circle start sites do not match - no Circle start-check audit");
+                return;
+            }
+            CircleAnimDriven::func = a_trampoline.write_call<5>(c + s.animDriven, CircleAnimDriven::thunk);
+            CircleFacing::func = a_trampoline.write_call<5>(c + s.facing, CircleFacing::thunk);
+            CircleViewCone::func = a_trampoline.write_call<5>(c + s.viewCone, CircleViewCone::thunk);
+            CircleStraightPath::func = a_trampoline.write_call<5>(c + s.straightPath, CircleStraightPath::thunk);
+            CirclePathCheck::func = a_trampoline.write_call<5>(c + s.pathCheck, CirclePathCheck::thunk);
+            LOG_INFO("Tree: Circle start checks audited (MoveNode lines show which one refused)");
+        }
+
         constexpr REL::RelocationID kBackoffStart{46724, 47920};
         constexpr REL::RelocationID kFallbackStart{46712, 47908};
         constexpr REL::RelocationID kWithinHeadingAngle{36756, 37772};
@@ -402,6 +510,7 @@ namespace CombatAI::Trees
             BackoffRing::func = a_trampoline.write_call<5>(b + s.backoffRing, BackoffRing::thunk);
             FallbackRing::func = a_trampoline.write_call<5>(f + s.fallbackRing, FallbackRing::thunk);
             LOG_INFO("Tree: Backoff/Fallback start checks hooked (the brain's moves start where it asks)");
+            InstallBackoffClosing(a_trampoline, leaving);
         }
 
         template <Intents::Move K>
@@ -414,16 +523,33 @@ namespace CombatAI::Trees
                     t_ourStart = MoveSelectorOf(a_node, ours) && ours &&
                                  Config::GetInstance().GetDecisionMatrix().brainBackoffFallback;
                 }
-                if (auto *actor = AuditedActor(a_thread)) {
+                auto *audited = AuditedActor(a_thread);
+                if (audited) {
                     std::scoped_lock guard(g_auditLock);
                     if (g_audit.size() > 64) {
                         g_audit.clear();
                     }
-                    g_audit[a_thread] = {std::chrono::steady_clock::now(), actor->GetPosition(), TargetDistance(actor),
-                                         Intents::WantedMove(actor), false};
+                    g_audit[a_thread] = {std::chrono::steady_clock::now(), audited->GetPosition(), TargetDistance(audited),
+                                         Intents::WantedMove(audited), false, {}};
+                }
+                if constexpr (K == Intents::Move::Circle) {
+                    t_circleAudit = audited != nullptr;
+                    t_circle = {};
                 }
                 func(a_node, a_thread); // may fail at once: SetFailed + Ascend inside (e.g. Backoff out of range)
                 t_ourStart = false;
+                if constexpr (K == Intents::Move::Circle) {
+                    if (t_circleAudit) {
+                        const auto &c = t_circle;
+                        std::scoped_lock guard(g_auditLock);
+                        if (auto it = g_audit.find(a_thread); it != g_audit.end()) {
+                            it->second.checks = std::format(
+                                " [start checks: not animation-driven {}, facing {}, angle {}, view cone {}, straight path {}, path {}]",
+                                c.animDriven, c.facing, c.angle, c.viewCone, c.straightPath, c.pathCheck);
+                        }
+                    }
+                    t_circleAudit = false;
+                }
             }
             static inline REL::Relocation<decltype(thunk)> func;
         };
@@ -452,11 +578,11 @@ namespace CombatAI::Trees
                                           : a_thread->failState.any(RE::CombatBehaviorThread::FailState::kFailed) ? "failed"
                                           : a_thread->failState.any(RE::CombatBehaviorThread::FailState::kAborted) ? "aborted"
                                                                                                                     : "done";
-                        LOG_DEBUG("MoveNode 0x{:08X}: {} {} ran {:.0f} ms, moved {:.0f}, dist {:.0f} -> {:.0f}, {} (brain wanted {})",
+                        LOG_DEBUG("MoveNode 0x{:08X}: {} {} ran {:.0f} ms, moved {:.0f}, dist {:.0f} -> {:.0f}, {} (brain wanted {}){}",
                                   static_cast<std::uint32_t>(actor->GetFormID()),
                                   underOurs ? (ours ? "our" : "vanilla") : "other-tree", MoveName(K), ms,
                                   std::hypot(pos.x - run->pos.x, pos.y - run->pos.y), run->dist, TargetDistance(actor), end,
-                                  MoveName(run->want));
+                                  MoveName(run->want), run->checks);
                     }
                 }
                 func(a_node, a_thread);
@@ -481,7 +607,11 @@ namespace CombatAI::Trees
                 auto *actor = MoveSelectorOf(a_node, ours) ? RE::CombatBehaviorController::GetCurrentAttacker() : nullptr;
                 if (actor && a_thread) {
                     const auto want = Intents::WantedMove(actor);
+                    if constexpr (K == Intents::Move::Backoff) {
+                        t_ourStart = ours && Config::GetInstance().GetDecisionMatrix().brainBackoffFallback;
+                    }
                     if (ShouldStop(a_thread, a_node, ours ? K : want, want, ours)) {
+                        t_ourStart = false;
                         Intents::NotePreempted(!ours);
                         if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
                             LOG_DEBUG("Move 0x{:08X}: stopped running {} node {} (brain wants move {})",
@@ -494,6 +624,7 @@ namespace CombatAI::Trees
                     }
                 }
                 func(a_node, a_thread);
+                t_ourStart = false;
             }
             static inline REL::Relocation<decltype(thunk)> func;
         };
@@ -566,6 +697,7 @@ namespace CombatAI::Trees
             HookMoveUpdate<Intents::Move::Fallback>(Id::vtFallback);
             HookMoveUpdate<Intents::Move::Backoff>(Id::vtBackoff);
             LOG_INFO("Tree: movement node Enter/Update/Exit hooked (preemption + MoveNode audit for the selected NPC)");
+            InstallCircleAudit(trampoline);
             if (Config::GetInstance().GetDecisionMatrix().brainBackoffFallback) {
                 InstallOwnStarts(trampoline);
             } else {

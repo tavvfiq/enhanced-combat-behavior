@@ -202,12 +202,11 @@ namespace CombatAI
         }
 
         // Never pull an NPC back mid-swing: its attack (often SCAR's, which bypasses our
-        // hooks) would whiff at range. Recovery (follow-through) may still back off.
+        // hooks) would whiff at range. After the hit (next-attack window, follow-through) it may back off.
         switch (state.self.attackState) {
         case RE::ATTACK_STATE_ENUM::kDraw:
         case RE::ATTACK_STATE_ENUM::kSwing:
         case RE::ATTACK_STATE_ENUM::kHit:
-        case RE::ATTACK_STATE_ENUM::kNextAttack:
         case RE::ATTACK_STATE_ENUM::kBash:
             m_executor.SuspendRetreat(a_actor);
             if (decision.action == ActionType::Retreat || decision.action == ActionType::Backoff) {
@@ -246,6 +245,7 @@ namespace CombatAI
             !m_humanizer.PassesSkillCheck(a_actor, formID, decision.action, state, combatTime)) {
             const ActionType failed = decision.action;
             const bool midSwing = state.self.attackState != RE::ATTACK_STATE_ENUM::kNone &&
+                                  state.self.attackState != RE::ATTACK_STATE_ENUM::kNextAttack &&
                                   state.self.attackState != RE::ATTACK_STATE_ENUM::kFollowThrough;
             DecisionResult mistake;
             for (const auto &option : DecisionMatrix::LastCandidates()) {

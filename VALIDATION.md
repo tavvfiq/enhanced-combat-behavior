@@ -174,3 +174,8 @@
 - Skill misses: 14 (Attack -> None 6, PowerAttack -> Feint 3, Feint -> Advancing 2, others 3).
 - BackoffAfterSwing: fired once; AttackState 5 (follow-through) appeared in 1 of 968 snapshots. NPC swings go 3 (hit) -> 4 (next attack) -> 0, and the director blocks Backoff in state 4.
 - Backoff decisions 235 vs Attack 17: 159 while the player swung (EvaluateBackoff target-attacking trigger, p1.65-1.95), 76 pacing waits (p1.00, slots full, inside reach).
+
+## 0.8.4 (2026-10-22)
+- Sites: Backoff Update SE 46725+0x10B / AE+1.7 47921+0x17A (callee 46063 / 47327 / 523985; delta from 46062 0xB0 / 0xB0 / 0xE0). Circle Enter SE 46720 +0x179 36487, +0x198 36756, +0x366 36756, +0x3C8 32513, +0x3E7 32507; AE/1.7 47916 +0x149 37486, +0x16A 37772, +0x2F2 37772, +0x351 33262, +0x370 33256 (dumped from vtable slot 2 / slot-4 dispatcher on all three).
+- Trampoline: 15 distinct thunks, about 210 of 256 bytes.
+- Build ok; FileVersion 0.8.4.0; ship-gate PASS. Zip sha256 1FA48716D8818EF39DFD2E26E17C7969065B7DEEAB6AD9D57E12B387D96A7AFA. Runtime: untested.
