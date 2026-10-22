@@ -1,3 +1,3 @@
-CombatAITree 0.7.0 (git, branch master)
+CombatAITree 0.7.1 (git, branch master)
 Last known good: 0.5.3 runtime-evidenced (run 9: jump 5/5 landed, bow gate fixed; exit crash is BetterAltTab). Then 0.5.2 (run 8). Before: 0.3.2 runtime-evidenced (run 6: ~2.7 min vs bandits, no warnings; brain attacks taken by the tree 25/25). 0.3.1 before that.
 Parent: EnhancedCombatAI 1.10.2 working tree, D:\Modding\combat-ai-ng @ 4ed7e86 + uncommitted changes

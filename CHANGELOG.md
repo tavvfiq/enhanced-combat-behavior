@@ -1,5 +1,12 @@
 # Changelog
 
+## CombatAITree 0.7.1 (2026-10-22)
+
+- **Movement node audit:** for the selected NPC, one debug line per vanilla movement node run (Advance, Circle, Fallback, Backoff):
+  `MoveNode 0x..: our|vanilla|other-tree <kind> ran N ms, moved M, dist A -> B, done|failed|aborted|stopped by brain (brain wanted X)`.
+  It shows whether a brain move really moved the body, and why a node ended.
+- **How:** Enter (vtable slot 2) and Exit (slot 3) of the four classes are hooked next to the existing Update hook. They are called as `(node, thread)` and their return value is unused (checked on SE, AE 1.6.1170 and 1.7.104).
+- **RE findings** (TREE_DESIGN §10): the vanilla Backoff only starts inside 0.75 × (weapon range + inner radius) of the target, and only steps out to that ring. Circle runs between ½ × range and range + 1024 and needs a 64-unit move. A failed start ends the node on the next tick without moving. This explains run 11's "Backoff mostly still".
 ## CombatAITree 0.7.0 (2026-10-22)
 
 - **Retreat and backoff depend on health only.** Light attacks cost no stamina, so a tired NPC keeps fighting. Low stamina no longer triggers the survival back-off (0.6.1), the extra Backoff urgency, or tactical spacing. The new `StaminaAffectsRetreat` (`[DecisionMatrix]`, default `false`, in the menu) turns the old behaviour back on, using `StaminaThreshold`.

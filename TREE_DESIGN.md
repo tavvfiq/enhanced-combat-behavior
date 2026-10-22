@@ -202,3 +202,16 @@ ValueNode "children belong to the wrapper" risk, and neither is needed.
 
 Feedback: the 60 s summary adds `running moves stopped: ours N, vanilla N`; the debug actor logs
 `Move 0x..: stopped running our/vanilla node K (brain wants move W)`.
+
+## 10. Vanilla movement leaves: when they move (RE, SE 1.5.97, 2026-10-22)
+
+Each leaf is called by `CombatBehaviorThread::Update` (46228 / 47483) as `(node, thread)`: Enter slot 2, Exit slot 3, Update slot 4, Abort slot 5. No return value is used (SE, AE 1.6.1170, 1.7.104). `range` below is `CombatInventory+0x1A0`; `inner` comes from `set_two_radiuses` 49716. GameSetting defaults come from the exe's `.data`, overridden by `Skyrim.esm` where noted.
+
+| Leaf | Starts only if (Enter) | Ends when (Update) | Moves to |
+|---|---|---|---|
+| Backoff 46724 / 46725 | target not moving away (46062), self not 36487, target inside view cone (36756, data 265582), **dist < `fCombatBackoffMinDistanceMult` 0.75 × (range + inner)** | path done/failed, or 46063 | the ring at `range + inner`: a short step, only from inside it |
+| Circle 46720 / 46721 | target within `fCombatCircleViewConeAngle` 150; angle from `get_CircleAngle` 49721 (`fCombatCircleAngleMin/Max` 30/90); move ≥ `fCombatCircleMinMovementDistance` 64 | dist > range + `fCombatCircleDistanceMax` 1024, dist < `fCombatCircleMinDistanceMult` 0.5 × range, or path done | an arc point at the current radius |
+| Advance 46703 / 46704 | path to target | `CheckShouldStop` 46698 (in place) | the `inner`/`outer` radius band (`fCombatAdvance*Radius*`; esm: InnerMax 256, OuterMin 128, OuterMid 256, OuterMax 512) |
+| Fallback 46712 / 46713 | `get_FallbackDistance` 49718 (`fCombatFallbackDistanceMin/Max` 96/256), move ≥ `fCombatFallbackMinMovementDistance` 64 | path done, wait `get_FallbackWaitTime` 49719 | a point behind it |
+
+When a start condition fails, Enter calls `SetFailed(true)` (46240) and `Ascend` (46229), so the node exits on the next tick having done nothing. This is why the run 11 audit shows Backoff "still": the brain asks to back off at distances where the vanilla node won't move.

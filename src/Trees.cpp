@@ -5,6 +5,7 @@
 #include "TreeNodes.h"
 
 #include <chrono>
+#include <cmath>
 #include <mutex>
 #include <unordered_map>
 
@@ -279,6 +280,101 @@ namespace CombatAI::Trees
             return true;
         }
 
+        // Movement node audit (debug target only): one line per node run saying how it ended and what the
+        // body did, so a log shows which brain moves the vanilla nodes really carry out. Enter (slot 2) and
+        // Exit (slot 3) are called by CombatBehaviorThread::Update with (node, thread), like Update (slot 4).
+        struct MoveRun
+        {
+            std::chrono::steady_clock::time_point start;
+            RE::NiPoint3 pos;
+            float dist = -1.0f;
+            Intents::Move want = Intents::Move::None;
+            bool stoppedByBrain = false;
+        };
+        std::mutex g_auditLock;
+        std::unordered_map<const void *, MoveRun> g_audit; // per thread
+
+        const char *MoveName(Intents::Move a_move)
+        {
+            constexpr const char *kNames[] = {"none", "Advance", "Circle", "Fallback", "Backoff"};
+            return kNames[static_cast<int>(a_move) % 5];
+        }
+
+        float TargetDistance(RE::Actor *a_actor)
+        {
+            auto *controller = RE::CombatBehaviorController::GetCurrentCombatController();
+            const auto target = controller ? controller->targetHandle.get() : RE::NiPointer<RE::Actor>();
+            return target ? a_actor->GetPosition().GetDistance(target->GetPosition()) : -1.0f;
+        }
+
+        RE::Actor *AuditedActor(RE::CombatBehaviorThread *a_thread)
+        {
+            auto *actor = a_thread ? RE::CombatBehaviorController::GetCurrentAttacker() : nullptr;
+            return actor && Config::GetInstance().IsDebugTarget(actor->GetFormID()) ? actor : nullptr;
+        }
+
+        template <Intents::Move K>
+        struct MoveEnter
+        {
+            static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
+            {
+                if (auto *actor = AuditedActor(a_thread)) {
+                    std::scoped_lock guard(g_auditLock);
+                    if (g_audit.size() > 64) {
+                        g_audit.clear();
+                    }
+                    g_audit[a_thread] = {std::chrono::steady_clock::now(), actor->GetPosition(), TargetDistance(actor),
+                                         Intents::WantedMove(actor), false};
+                }
+                func(a_node, a_thread); // may fail at once: SetFailed + Ascend inside (e.g. Backoff out of range)
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
+        template <Intents::Move K>
+        struct MoveExit
+        {
+            static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
+            {
+                if (auto *actor = AuditedActor(a_thread)) {
+                    std::optional<MoveRun> run;
+                    {
+                        std::scoped_lock guard(g_auditLock);
+                        if (auto it = g_audit.find(a_thread); it != g_audit.end()) {
+                            run = it->second;
+                            g_audit.erase(it);
+                        }
+                    }
+                    if (run) {
+                        bool ours = false;
+                        const bool underOurs = MoveSelectorOf(a_node, ours) != nullptr;
+                        const auto pos = actor->GetPosition();
+                        const float ms =
+                            std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - run->start).count();
+                        const char *end = run->stoppedByBrain ? "stopped by brain"
+                                          : a_thread->failState.any(RE::CombatBehaviorThread::FailState::kFailed) ? "failed"
+                                          : a_thread->failState.any(RE::CombatBehaviorThread::FailState::kAborted) ? "aborted"
+                                                                                                                    : "done";
+                        LOG_DEBUG("MoveNode 0x{:08X}: {} {} ran {:.0f} ms, moved {:.0f}, dist {:.0f} -> {:.0f}, {} (brain wanted {})",
+                                  static_cast<std::uint32_t>(actor->GetFormID()),
+                                  underOurs ? (ours ? "our" : "vanilla") : "other-tree", MoveName(K), ms,
+                                  std::hypot(pos.x - run->pos.x, pos.y - run->pos.y), run->dist, TargetDistance(actor), end,
+                                  MoveName(run->want));
+                    }
+                }
+                func(a_node, a_thread);
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
+        void NoteStoppedByBrain(RE::CombatBehaviorThread *a_thread)
+        {
+            std::scoped_lock guard(g_auditLock);
+            if (auto it = g_audit.find(a_thread); it != g_audit.end()) {
+                it->second.stoppedByBrain = true;
+            }
+        }
+
         template <Intents::Move K>
         struct MoveUpdate
         {
@@ -295,6 +391,7 @@ namespace CombatAI::Trees
                                       static_cast<std::uint32_t>(actor->GetFormID()), ours ? "our" : "vanilla",
                                       static_cast<int>(K), static_cast<int>(want));
                         }
+                        NoteStoppedByBrain(a_thread);
                         a_thread->Ascend();
                         return;
                     }
@@ -309,6 +406,8 @@ namespace CombatAI::Trees
         {
             REL::Relocation<std::uintptr_t> vtable{a_vtable};
             MoveUpdate<K>::func = vtable.write_vfunc(4, MoveUpdate<K>::thunk);
+            MoveEnter<K>::func = vtable.write_vfunc(2, MoveEnter<K>::thunk);
+            MoveExit<K>::func = vtable.write_vfunc(3, MoveExit<K>::thunk);
         }
 
         // Vanilla CloseMovement: Context > Repeat > Movement Selector{ OutOfRange.., OutOfPosition.., InRange.. }.
@@ -369,7 +468,7 @@ namespace CombatAI::Trees
             HookMoveUpdate<Intents::Move::Circle>(Id::vtCircle);
             HookMoveUpdate<Intents::Move::Fallback>(Id::vtFallback);
             HookMoveUpdate<Intents::Move::Backoff>(Id::vtBackoff);
-            LOG_INFO("Tree: movement node updates hooked (running moves stop when the brain changes its mind)");
+            LOG_INFO("Tree: movement node Enter/Update/Exit hooked (preemption + MoveNode audit for the selected NPC)");
         } else {
             LOG_ERROR("Tree: CloseMovement SetRoot site does not match (byte {:02X}) - movement intents disabled", bytes[0]);
         }
