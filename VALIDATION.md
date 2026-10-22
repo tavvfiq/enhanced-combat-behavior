@@ -101,7 +101,7 @@
 - No warnings/errors. Load log: skill at level 1 0.75 (menu-saved INI now carries it); jump OFF at load, on after the 10:32:18 menu save. Crash 10:37:37 = BetterAltTab.dll+0x25259 again (4th time), no CombatAITree frame.
 - Skill: 24 Attack rolls failed at 60-79% (81 at 33-55% in run 9). **runtime-evidenced**.
 - Cooldowns: no `on cooldown` skips (removed). **runtime-evidenced**.
-- Jump: 2 decisions, 2 side arcs, both landed. Neighbours not debug-logged (only the selected NPC), so "only the aimed NPC jumps" needs the user's eyes.
+- Jump: 2 decisions, 2 side arcs, both landed. **User-confirmed:** neighbouring NPCs no longer jump when the bow is aimed at another one (aim-line rule works).
 - Stamina: one brain power attack 100% -> 17%, regen ~2%/s; stamina 0-25% for most of the fight; Retreat 229 executions, mostly at full HP with low stamina. Fixed in 0.6.1 (Backoff).
 - Dodge: 19 events, all rejected.
 

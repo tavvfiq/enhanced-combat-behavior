@@ -32,7 +32,7 @@ version so any step can be rolled back.
 - 0.5.3, run 9 (~3.5 min, player mostly bow): no errors. Jump works: 5 side arcs, 5 landed, no aborts. Bow gate fixed
   (0 ranged "target is attacking" skips). The crash at 09:57:56 is BetterAltTab.dll (Xaudio stop in its WindowProc),
   the same as 09:21 and 09:50.
-- 0.6.0, run 10: skill 0.75 and no cooldowns confirmed; 2 jumps, both landed. Power attack emptied stamina
+- 0.6.0, run 10: skill 0.75 and no cooldowns confirmed; 2 jumps, both landed; user confirmed neighbours no longer jump. Power attack emptied stamina
   (100% -> 17%), then low-stamina Retreat ran a full-health bandit off for ~25 s.
 - 0.6.1 (low stamina -> Backoff, not Retreat; `Jump aim` debug line): build-validated only.
 
