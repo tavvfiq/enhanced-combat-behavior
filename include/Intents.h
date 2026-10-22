@@ -51,6 +51,10 @@ namespace CombatAI::Intents
     void ClearMove(RE::Actor *a_actor);
     // Tree side, movement: the brain currently wants a_kind (not consumed).
     bool WantsMove(RE::Actor *a_actor, Move a_kind);
+    // Tree side, movement: the move the brain currently wants (None once the intent expired).
+    Move WantedMove(RE::Actor *a_actor);
+    // A running movement node was stopped because the brain wants something else (summary count).
+    void NotePreempted(bool a_vanillaNode);
     // Side the brain wants the running Circle node to take (+1 left, -1 right, 0 vanilla's choice).
     float CircleSide(RE::Actor *a_actor);
 

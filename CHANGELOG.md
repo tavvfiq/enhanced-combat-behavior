@@ -1,5 +1,13 @@
 # Changelog
 
+## CombatAITree 0.4.0 (2026-10-22)
+
+- **Movement preemption.** A running Advance/Circle/Fallback/Backoff node no longer plays out to its own end after the brain has changed its mind.
+  - Mechanism: the four classes' Update (vtable slot 4) is hooked. A node of our branch stops once the brain no longer wants its kind. A vanilla movement node under our selector stops when the brain wants any move.
+  - "Stop" means `CombatBehaviorThread::Ascend()`. That is what the classes' own Abort slot does (verified on SE, 1.6.1170 and 1.7.104), and CPR uses the same mechanism for Advance.
+  - A node must have run 0.3 s before it can be stopped, so brain flip-flops can't make the feet stutter. Nodes in other trees are untouched.
+- **Feedback.** The 60 s summary adds `running moves stopped: ours N, vanilla N`. The debug actor logs `Move 0x..: stopped running our|vanilla node K (brain wants move W)` (moves: 1 Advance, 2 Circle, 3 Fallback, 4 Backoff).
+- **Docs.** The node slot labels in TREE_DESIGN §6 and COMBAT_AI_RE.md are corrected back to 2 Enter / 3 Exit / 4 Update / 5 Abort (from Thread::Update 46228). The custom leaf's state-reservation question is solved by delegating to Idle; the leaf itself is not built (TREE_DESIGN §6 says why).
 ## CombatAITree 0.3.2 (2026-10-22)
 
 Run 5 (0.3.1): every in-range offense skip (102 of 102) was `line of sight blocked`, so the brain never got to score an attack. Feint dropped out of the decisions (0 picks; it had 198 in run 4).

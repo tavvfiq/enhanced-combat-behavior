@@ -41,6 +41,7 @@ namespace CombatAI::Intents
             std::atomic<std::uint32_t> attackPosted[3]{}, attackTaken[3]{}, attackMatched[3]{};
             std::atomic<std::uint32_t> defendPosted[3]{}, defendTaken[3]{};
             std::atomic<std::uint32_t> moveChanged[5]{};
+            std::atomic<std::uint32_t> preempted[2]{}; // [0] our branch's node, [1] a vanilla node
         } g_count;
         // Actors whose taken attack already counted as matched (one match per take)
         ThreadSafeMap<RE::FormID, bool> g_matched;
@@ -184,6 +185,20 @@ namespace CombatAI::Intents
         return wants;
     }
 
+    Move WantedMove(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return Move::None;
+        }
+        const auto e = g_board.Find(a_actor->GetFormID());
+        return e && Clock::now() < e->moveUntil ? e->move : Move::None;
+    }
+
+    void NotePreempted(bool a_vanillaNode)
+    {
+        g_count.preempted[a_vanillaNode ? 1 : 0].fetch_add(1, std::memory_order_relaxed);
+    }
+
     float CircleSide(RE::Actor *a_actor)
     {
         if (!a_actor) {
@@ -245,12 +260,13 @@ namespace CombatAI::Intents
         const std::uint32_t bp = take(g_count.defendPosted[1]), bt = take(g_count.defendTaken[1]);
         const std::uint32_t sp = take(g_count.defendPosted[2]), st = take(g_count.defendTaken[2]);
         const std::uint32_t ma = take(g_count.moveChanged[1]), mc = take(g_count.moveChanged[2]), mf = take(g_count.moveChanged[3]), mb = take(g_count.moveChanged[4]);
-        if (lp + pp + bp + sp + ma + mc + mf + mb == 0) {
+        const std::uint32_t po = take(g_count.preempted[0]), pv = take(g_count.preempted[1]);
+        if (lp + pp + bp + sp + ma + mc + mf + mb + po + pv == 0) {
             return;
         }
         LOG_INFO("Intents (last 60s, posted/taken/attack data found): light {}/{}/{}, power {}/{}/{}, block {}/{}, bash {}/{}; "
-                 "movement changes: advance {}, circle {}, fallback {}, backoff {}",
-                 lp, lt, lm, pp, pt, pm, bp, bt, sp, st, ma, mc, mf, mb);
+                 "movement changes: advance {}, circle {}, fallback {}, backoff {}; running moves stopped: ours {}, vanilla {}",
+                 lp, lt, lm, pp, pt, pm, bp, bt, sp, st, ma, mc, mf, mb, po, pv);
     }
 
     void Evict(RE::FormID a_formID)

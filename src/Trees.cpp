@@ -4,6 +4,10 @@
 #include "Logger.h"
 #include "TreeNodes.h"
 
+#include <chrono>
+#include <mutex>
+#include <unordered_map>
+
 namespace CombatAI::Trees
 {
     namespace
@@ -205,10 +209,89 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
+        // Movement preemption. CombatBehaviorThread::Update (46228/47483) calls a running node's
+        // slot 4 every tick (slot 2 on entry, slot 5 instead of 4 while the thread aborts, slot 3 of
+        // the node that just ascended to free its stack frame). The four movement classes all abort
+        // with a bare Ascend (slot 5 = Ascend on the current thread; checked on SE, 1.6.1170 and
+        // 1.7.104). So stopping one early is that same Ascend from its slot 4: the engine then frees
+        // the node's frame, and our selector re-reads the intents on the next tick.
+        std::array<std::atomic<Node *>, 4> g_moveSelectors{}; // our "Intent Movement Selector" instances
+        constexpr auto kMinRun = std::chrono::milliseconds(300); // brain flip-flops must not stutter the feet
+
+        // Our selector above a_node, or nullptr when the node is in some other tree. Direct child of one
+        // of our RandomNodes = our branch's node (a_ours).
+        Node *MoveSelectorOf(const Node *a_node, bool &a_ours)
+        {
+            int depth = 0;
+            for (const Node *n = a_node ? a_node->parent : nullptr; n && depth < 12; n = n->parent, ++depth) {
+                for (auto &s : g_moveSelectors) {
+                    if (s.load(std::memory_order_relaxed) == n) {
+                        a_ours = depth == 1;
+                        return const_cast<Node *>(n);
+                    }
+                }
+            }
+            return nullptr;
+        }
+
+        // How long a_node has been the node this thread updates (time since first seen).
+        // shortcut: a node re-entered right after it finished keeps its old start, which only allows an
+        // earlier stop; hook slot 2 if that ever matters.
+        std::chrono::steady_clock::duration RunTime(const void *a_thread, const Node *a_node)
+        {
+            static std::mutex lock;
+            static std::unordered_map<const void *, std::pair<const Node *, std::chrono::steady_clock::time_point>> seen;
+            const auto now = std::chrono::steady_clock::now();
+            std::scoped_lock guard(lock);
+            if (seen.size() > 512) {
+                seen.clear(); // threads come and go; entries are only hints
+            }
+            auto &entry = seen[a_thread];
+            if (entry.first != a_node) {
+                entry = {a_node, now};
+            }
+            return now - entry.second;
+        }
+
+        template <Intents::Move K>
+        struct MoveUpdate
+        {
+            static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
+            {
+                bool ours = false;
+                auto *actor = MoveSelectorOf(a_node, ours) ? RE::CombatBehaviorController::GetCurrentAttacker() : nullptr;
+                if (actor && a_thread) {
+                    const auto want = Intents::WantedMove(actor);
+                    // Ours: stop once the brain wants anything else. Vanilla's (under our selector): stop
+                    // only when the brain wants a move, so our branch can take over.
+                    const bool stop = ours ? want != K : want != Intents::Move::None;
+                    if (stop && RunTime(a_thread, a_node) >= kMinRun) {
+                        Intents::NotePreempted(!ours);
+                        if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
+                            LOG_DEBUG("Move 0x{:08X}: stopped running {} node {} (brain wants move {})",
+                                      static_cast<std::uint32_t>(actor->GetFormID()), ours ? "our" : "vanilla",
+                                      static_cast<int>(K), static_cast<int>(want));
+                        }
+                        a_thread->Ascend();
+                        return;
+                    }
+                }
+                func(a_node, a_thread);
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
+        template <Intents::Move K>
+        void HookMoveUpdate(const REL::RelocationID &a_vtable)
+        {
+            REL::Relocation<std::uintptr_t> vtable{a_vtable};
+            MoveUpdate<K>::func = vtable.write_vfunc(4, MoveUpdate<K>::thunk);
+        }
+
         // Vanilla CloseMovement: Context > Repeat > Movement Selector{ OutOfRange.., OutOfPosition.., InRange.. }.
         // Ours:    Context > Repeat > NextSelector{ brain Advance, Circle, Fallback, Backoff, <vanilla Movement Selector> }.
         // The brain's branches only run while it keeps asking (WantsMove); otherwise vanilla runs as before.
-        // A running movement node finishes before the selector re-reads (no preemption yet).
+        // A running movement node is stopped early when the brain changes its mind (MoveUpdate above).
         struct CloseMovementSetRoot
         {
             static void thunk(void *a_tree, Node *a_root)
@@ -230,6 +313,12 @@ namespace CombatAI::Trees
                              vanilla}); // re-parents the vanilla selector under ours
                 repeat->children[0] = selector; // Repeat keeps its one-slot child array
                 selector->parent = repeat;
+                for (auto &s : g_moveSelectors) {
+                    Node *expected = nullptr;
+                    if (s.compare_exchange_strong(expected, selector)) {
+                        break; // a 5th tree build would just not be preempted
+                    }
+                }
                 func(a_tree, a_root);
                 if (g_closeBuilt.fetch_add(1) == 0) {
                     LOG_INFO("Tree: CloseMovement tree extended (intent Advance/Circle/Fallback/Backoff over vanilla)");
@@ -253,6 +342,11 @@ namespace CombatAI::Trees
         if (CallsTarget(site, Id::initNodes.address())) {
             CloseMovementSetRoot::func = trampoline.write_call<5>(site, CloseMovementSetRoot::thunk);
             LOG_INFO("Tree: CloseMovement SetRoot hooked");
+            HookMoveUpdate<Intents::Move::Advance>(Id::vtAdvance);
+            HookMoveUpdate<Intents::Move::Circle>(Id::vtCircle);
+            HookMoveUpdate<Intents::Move::Fallback>(Id::vtFallback);
+            HookMoveUpdate<Intents::Move::Backoff>(Id::vtBackoff);
+            LOG_INFO("Tree: movement node updates hooked (running moves stop when the brain changes its mind)");
         } else {
             LOG_ERROR("Tree: CloseMovement SetRoot site does not match (byte {:02X}) - movement intents disabled", bytes[0]);
         }

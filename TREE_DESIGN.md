@@ -125,30 +125,39 @@ compared as normalized instructions, with call and rip targets mapped to Address
 
 SE IDs come from Fenix's original SE work. We haven't re-verified them with our SE tools yet (to do before the first SE build).
 
-## 6. Our own leaf class (0.4.0, not started)
+## 6. Our own leaf class (designed; not built, see below)
 
-Dodge, jump and feint need a leaf node that holds the Action resource and fires a `TESActionData` (or
-a dodge event) from inside the tree thread. That means implementing the node vtable ourselves.
+Dodge, jump and feint would need a leaf node that holds the tree's resource while the action plays.
 
-**Slot map (resolved 2026-10-22, L→C for the parts below):** CPR's header (adopted by Fenix-NG) is right,
-and our RE doc's "2 Enter / 3 Exit / 4 Update / 5 Abort" labels are wrong.
+**Slot map (from `CombatBehaviorThread::Update` 46228/47483, 2026-10-22).** The labels from the original
+RE doc are right. CPR's names (act/pop/on_childfailed/on_interrupted) misdescribe slots 3-5. An earlier
+"correction" adopting the CPR names was wrong and has been retracted.
 
-| Slot | Meaning | Evidence |
+| Slot | Called | Evidence |
 |---|---|---|
-| 0 | destroy(bool free) | CPR |
-| 1 | get_name | CPR; Fenix-NG: some classes return a class literal or NULL, not `name` |
-| 2 | act(control) - enter/run | CPR; Idle slot 2 = 32430 |
-| 3 | pop(control) - resumed after a child | CPR |
-| 4 | on_childfailed(control) | CPR; Fenix-NG's slot-4 hook on the leaf Attack node logged 0 calls in a full fight |
-| 5 | on_interrupted(control) | Idle slot 5 (529262) tail-jumps to `Ascend` (SE 46229) |
-| 6 / 7 | SaveGame / LoadGame | CPR; ContextFlee slot 7 (47647) is the restore path |
-| 8 | bool validate | Idle slot 8 tail-jumps to `CombatBehaviorAction::Validate` (529913) |
-| 9 | ? (returns a BSFixedString*) | CPR, unknown |
+| 0 | destroy(bool free) | |
+| 1 | get_name | |
+| 2 | Enter: once, when the thread descends into the node (state 2) | Thread::Update +0xB4 |
+| 3 | Exit: on the node that just ascended, same tick; frees its stack frame | +0x104; Circle 46843 frees 0x10, Idle 32436 frees 8 |
+| 4 | Update: every tick while running (state 1, not paused/suspended, failState != 2) | +0xDB; Circle 529966 → 46721 |
+| 5 | Abort: instead of 4 while failState == 2 | +0xE0; movement leaves and Idle = bare Ascend |
+| 6 / 7 | SaveGame / LoadGame | |
+| 8 | bool validate | Idle → CombatBehaviorAction::Validate 529913 |
+| 9 | ? | |
 
-Plan: derive our leaf from Idle's behaviour. Copy Idle's vtable at runtime, replace slot 2 (act: fire
-the action, then behave like Idle with a short hold) and slot 1 (name), keep save/load/validate.
-Open: the per-node state block in the control arena (`size_120`): how a node reserves it (Idle reserves
-room for its timer). This needs a runtime probe before a release.
+**State reservation is solved.** Idle's Enter (32430) builds its own 8-byte frame from the hold at
+node+0x28 (via 32404), its Exit pops it, and its Update runs the timer. A leaf that is an Idle node with
+a copied vtable, whose slot 2 does its work and then calls Idle's slot 2, inherits all of that. No probe
+is needed.
+
+**Why it is not built.** TK Dodge and the jump are animation-graph events, not engine actions. A tree
+leaf would fire the same events, just later: the leaf runs on the tree thread, so the event must be
+queued to the main thread. That is a tree tick plus up to a frame after the brain decides, on the
+reaction-critical action. The executor would also lose its synchronous success result, which feeds
+cooldowns and stamina. The only gain is that the tree holds its resource during the dodge, so vanilla
+movement or attack nodes can't start mid-dodge, and no run so far has shown that problem. Build it if a
+log or video shows movement fighting a dodge. With 0.4.0 our running move does stop within the 0.4 s move-intent TTL once
+the brain picks a dodge, because the dodge doesn't refresh the move.
 ## 7. Roadmap
 
 | Version | Content | Pass criteria (runtime, AE 1.7.104) |
@@ -170,30 +179,26 @@ room for its timer). This needs a runtime probe before a release.
    or job). This decides whether the blackboard needs only atomics or a lock. **U**
 5. Name and folder for the fork.
 
-## 9. Movement preemption (0.2.x, designed, not built)
+## 9. Movement preemption (0.4.0, built)
 
-Problem: a running movement node (Circle, Fallback, Advance) finishes before the next brain decision
-takes effect, because our intent selector is a FallbackSelector inside the CloseMovement tree. It only
-re-reads when its current child returns.
+Problem: a running movement node (Circle, Fallback, Advance, Backoff) ran to its own end before a new
+brain decision could take effect.
 
-**Vanilla already preempts one level up.** `Root - Movement` (SE 48431) is
-`Acquire Movement Resource > Repeat > DynamicSelector<ConditionalChildSelector>(0.25 s)` with ValueNode
-children (Essential Down, Flight, Flee, Hide, ReturnToCombatArea, ExitWater, Search, Ranged, Flanking,
-CloseMovement links). It re-evaluates every 0.25 s and switches branches. Two ways to use it:
+**How (no new tree nodes):** the four movement classes' slot 4 (Update) is hooked through their vtables
+(Id::vtAdvance/vtCircle/vtFallback/vtBackoff). The hook acts only on nodes below one of our Intent
+Movement Selectors (parent-chain walk, depth ≤ 12):
+- our branch's node (direct child of our RandomNode): stops once `Intents::WantedMove` is no longer its kind;
+- a vanilla node under our selector: stops when the brain wants any move, so our branch can take over.
 
-1. **Our branches as extra children of that DynamicSelector**, before the CloseMovement link, using
-   the same ValueNode pattern. Blocker: Advance/Circle/Fallback read the **CloseMovement context**.
-   So each branch needs `Context(CloseMovement) > leaf` under its ValueNode, and Fenix-NG documents that
-   a ValueNode forwards its logic node's act without changing `current_state`, so a Descend inside it
-   indexes the **wrapper's** child array. Vanilla stores the logic node as both `+0x28` and child[0]
-   ("ValueNode - Flight Link" > "Flight Link"). A Context logic node that Descends(0) would then land on
-   itself: a probable infinite loop (game hang, like 0.2.0). Needs a runtime probe of ValueNode::act
-   with a non-leaf logic node first.
-2. **Our own DynamicSelector inside CloseMovement** (class `NodeObject1<DynamicSelector<ConditionalChildSelector>, float>`,
-   same layout family as Idle: float period at +0x28). Its children would be ValueNode10(WantX) > leaf for
-   our four moves, and ValueNode1(1) wrapping vanilla's Movement Selector. That last wrapper hits the same
-   "children belong to the wrapper" rule: vanilla's selector children would have to move to the
-   wrapper's array.
+Stopping means `CombatBehaviorThread::Ascend()` instead of Update. That is exactly what the classes' own
+slot 5 (Abort) does, and CPR's AdvanceInterruptHook ends Advance from slot 4 the same way (with
+SetFailed first). The engine then calls the node's slot 3, which frees its frame, and the selector
+re-reads the intents on the next tick. A node must have run 0.3 s before it can be stopped, so brain
+flip-flops can't stutter the feet.
 
-Both need one probe session (log `cur_node`/`current_state` around ValueNode::act on a test tree) before
-they can ship safely. Until then a running movement node holds for its own duration (vanilla feel).
+Not touched: movement nodes in any other tree. The older options (our branches as ValueNode children of
+`Root - Movement`'s DynamicSelector, or our own DynamicSelector) stay unbuilt. Both still have the
+ValueNode "children belong to the wrapper" risk, and neither is needed.
+
+Feedback: the 60 s summary adds `running moves stopped: ours N, vanilla N`; the debug actor logs
+`Move 0x..: stopped running our/vanilla node K (brain wants move W)`.
