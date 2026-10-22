@@ -240,24 +240,59 @@ namespace CombatAI
         // Check if should make mistake (humanizer)
         const float combatTime = m_actorCombatTimes.Find(formID).value_or(0.0f);
         // Skill roll, once per opportunity (a projectile sidestep has its own roll)
+        // The next-best option the brain had this tick, never the excluded action, never a pull-back mid-swing
+        const auto nextBest = [&](ActionType a_excluded) {
+            const bool midSwing = state.self.attackState != RE::ATTACK_STATE_ENUM::kNone &&
+                                  state.self.attackState != RE::ATTACK_STATE_ENUM::kNextAttack &&
+                                  state.self.attackState != RE::ATTACK_STATE_ENUM::kFollowThrough;
+            DecisionResult best;
+            for (const auto &option : DecisionMatrix::LastCandidates()) {
+                const bool pullsBack = option.action == ActionType::Retreat || option.action == ActionType::Backoff;
+                if (option.action != a_excluded && option.action != ActionType::None && !(midSwing && pullsBack) &&
+                    (best.action == ActionType::None || option.priority > best.priority)) {
+                    best = option;
+                }
+            }
+            return best.action != ActionType::None ? ApplyCombatPacing(a_actor, formID, state, best) : best;
+        };
+
+        // Backing off is a choice, not a reflex: one roll per swing (the target's, or its own just after the hit)
+        // decides whether it steps back this time. Run 18: in range it backed off 213 times against 81 attacks.
+        if (decision.action == ActionType::Backoff && !decision.paced) {
+            const auto &matrix = Config::GetInstance().GetDecisionMatrix();
+            const bool ownSwing = state.self.attackState == RE::ATTACK_STATE_ENUM::kNextAttack ||
+                                  state.self.attackState == RE::ATTACK_STATE_ENUM::kFollowThrough;
+            const bool targetSwing = state.target.isAttacking && !state.target.isPowerAttacking &&
+                                     state.temporal.target.attackStartTime >= 0.0f;
+            std::optional<bool> rolled;
+            if (ownSwing) {
+                const float swingStart = m_humanizer.Now() - state.temporal.self.timeSinceLastAttack; // constant over one swing
+                rolled = m_humanizer.RollBackoff(formID, (1ull << 62) | static_cast<std::uint32_t>(swingStart * 4.0f),
+                                                 matrix.backoffAfterSwingChance);
+            } else if (targetSwing) {
+                rolled = m_humanizer.RollBackoff(formID,
+                                                 (static_cast<std::uint64_t>(state.target.targetFormID) << 32) |
+                                                     std::bit_cast<std::uint32_t>(state.temporal.target.attackStartTime),
+                                                 matrix.backoffOnSwingChance);
+            }
+            if (rolled && !*rolled) {
+                const DecisionResult instead = nextBest(ActionType::Backoff);
+                if (debugEnabled) {
+                    LOG_DEBUG("Skip 0x{:08X}: no back off this swing ({}) - {} instead", static_cast<std::uint32_t>(formID),
+                              ownSwing ? "own swing" : "target's swing", ActionName(instead.action));
+                }
+                if (instead.action == ActionType::None) {
+                    return; // vanilla keeps the NPC: it blocks, swings again or holds
+                }
+                decision = instead;
+            }
+        }
+
         // A failed roll is a mistake, not a freeze: the NPC takes the next-best option it had this tick.
         if (decision.action != ActionType::None && !decision.reflex &&
             !m_humanizer.PassesSkillCheck(a_actor, formID, decision.action, state, combatTime)) {
             const ActionType failed = decision.action;
-            const bool midSwing = state.self.attackState != RE::ATTACK_STATE_ENUM::kNone &&
-                                  state.self.attackState != RE::ATTACK_STATE_ENUM::kNextAttack &&
-                                  state.self.attackState != RE::ATTACK_STATE_ENUM::kFollowThrough;
-            DecisionResult mistake;
-            for (const auto &option : DecisionMatrix::LastCandidates()) {
-                const bool pullsBack = option.action == ActionType::Retreat || option.action == ActionType::Backoff;
-                if (option.action != failed && option.action != ActionType::None && !(midSwing && pullsBack) &&
-                    (mistake.action == ActionType::None || option.priority > mistake.priority)) {
-                    mistake = option;
-                }
-            }
-            if (mistake.action != ActionType::None) {
-                mistake = ApplyCombatPacing(a_actor, formID, state, mistake);
-            }
+            const DecisionResult mistake = nextBest(failed);
             if (debugEnabled) {
                 LOG_DEBUG("Skip 0x{:08X}: failed skill roll on {} (skill {:.0f}%, combat time {:.0f}s) - {} instead",
                           static_cast<std::uint32_t>(formID), ActionName(failed),
@@ -361,6 +396,7 @@ namespace CombatAI
         if (a_state.target.distance <= reach) {
             held.action = ActionType::Backoff;
             held.priority = 1.0f;
+            held.paced = true;
         } else {
             held = m_decisionMatrix.EvaluateHeldBack(a_actor, a_state);
             held.holdDistance = holdDistance;

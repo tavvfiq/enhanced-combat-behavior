@@ -222,3 +222,8 @@
 ## 0.8.8 (2026-10-22)
 - AdvanceRing also sets *outer = *inner for our Advance.
 - Build ok; FileVersion 0.8.8.0; ship-gate PASS. Zip sha256 70CE81AC91BACD16D60FD213362228C2F4EEC9ABCF2DDA7189A6A1259AF32A23. Runtime: untested.
+
+## 0.9.0 (2026-10-22)
+- Run 18 in-range Backoff causes (0x8E1A1 etc.): target swinging p1.6-2.3 about 155, own next-attack window p1.6-1.8 about 55, pacing p1.00 47. Bash for selected NPCs: 37/38 taken within 1.5 s.
+- Shortcut: the own-swing roll key is (Humanizer time - timeSinceLastAttack) in 0.25 s bins; clock drift can re-roll once mid-swing.
+- Build ok; FileVersion 0.9.0.0; ship-gate PASS. Zip sha256 976446CE4736369FC5BBF42D454496431845AE36C8CB45A324AD61A11094C543. Runtime: untested.

@@ -47,6 +47,7 @@ namespace CombatAI::Intents
         ThreadSafeMap<RE::FormID, bool> g_matched;
         // Last movement branch each actor's tree entered (debug log only, so we see when it changes)
         ThreadSafeMap<RE::FormID, Move> g_moveRun;
+        ThreadSafeMap<RE::FormID, std::uint32_t> g_defendExpired; // per actor, since the last summary
 
         void Debug(RE::Actor *a_actor, const char *a_what, int a_kind)
         {
@@ -88,6 +89,9 @@ namespace CombatAI::Intents
         g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
             if (e.defend == a_kind && now < e.defendUntil) {
                 return; // still waiting for the tree
+            }
+            if (e.defend != Defend::None) {
+                g_defendExpired.ModifyOrCreate(a_actor->GetFormID(), [](std::uint32_t &n) { ++n; }); // never taken
             }
             e.defend = a_kind;
             e.defendUntil = now + std::chrono::duration_cast<Clock::duration>(kDefendTTL);
@@ -273,9 +277,23 @@ namespace CombatAI::Intents
         if (lp + pp + bp + sp + ma + mc + mf + mb + po + pv == 0) {
             return;
         }
+        // Which actor's block/bash requests the tree never took (expired and re-posted)
+        std::uint32_t expired = 0, worst = 0;
+        RE::FormID worstID = 0;
+        g_defendExpired.WithWriteLock([&](auto &map) {
+            for (const auto &[id, n] : map) {
+                expired += n;
+                if (n > worst) {
+                    worst = n;
+                    worstID = id;
+                }
+            }
+            map.clear();
+        });
         LOG_INFO("Intents (last 60s, posted/taken/attack data found): light {}/{}/{}, power {}/{}/{}, block {}/{}, bash {}/{}; "
-                 "movement changes: advance {}, circle {}, fallback {}, backoff {}; running moves stopped: ours {}, vanilla {}",
-                 lp, lt, lm, pp, pt, pm, bp, bt, sp, st, ma, mc, mf, mb, po, pv);
+                 "movement changes: advance {}, circle {}, fallback {}, backoff {}; running moves stopped: ours {}, vanilla {}; "
+                 "block/bash never taken: {} (most 0x{:08X} x{})",
+                 lp, lt, lm, pp, pt, pm, bp, bt, sp, st, ma, mc, mf, mb, po, pv, expired, worstID, worst);
     }
 
     void Evict(RE::FormID a_formID)
@@ -283,5 +301,6 @@ namespace CombatAI::Intents
         g_matched.Erase(a_formID);
         g_board.Erase(a_formID);
         g_moveRun.Erase(a_formID);
+        g_defendExpired.Erase(a_formID);
     }
 } // namespace CombatAI::Intents

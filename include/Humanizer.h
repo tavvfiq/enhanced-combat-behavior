@@ -35,6 +35,10 @@ namespace CombatAI
         // Skill chance for this actor right now (level, fatigue, panic)
         float SkillChance(RE::Actor *a_actor, ActionType a_action, float a_combatTime, const SelfState &a_self) const;
 
+        // One roll per opportunity a_key (e.g. one swing): the same key returns the stored result. Backoff only.
+        bool RollBackoff(RE::FormID a_formID, std::uint64_t a_key, float a_chance);
+        float Now() const { return m_time.load(std::memory_order_relaxed); }
+
         // Check if action is on cooldown
         bool IsOnCooldown(RE::FormID a_formID, ActionType a_action);
 
@@ -70,6 +74,8 @@ namespace CombatAI
             bool defensePassed = false;
             std::uint64_t offenseKey = 0;
             bool offensePassed = false;
+            std::uint64_t backoffKey = 0;
+            bool backoffPassed = false;
         };
 
         std::atomic<float> m_time{0.0f};

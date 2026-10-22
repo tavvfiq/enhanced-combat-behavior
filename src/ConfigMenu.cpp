@@ -155,6 +155,8 @@ namespace CombatAI
         liveFloat("Backoff step distance", &config.m_decisionMatrix.backoffStepDistance, 50.0f, 400.0f, "%.0f");
         ImGuiMCP::Checkbox("Back off after own swing", &config.m_decisionMatrix.backoffAfterSwing);
         ImGuiMCP::Checkbox("Advance into own attack range", &config.m_decisionMatrix.brainAdvanceDistance);
+        liveFloat("Back off from a swing (chance)", &config.m_decisionMatrix.backoffOnSwingChance, 0.0f, 1.0f);
+        liveFloat("Step out after own swing (chance)", &config.m_decisionMatrix.backoffAfterSwingChance, 0.0f, 1.0f);
         liveFloat("Power attack min stamina", &config.m_decisionMatrix.powerAttackMinStamina, 0.0f, 1.0f);
                 liveFloat("Health threshold", &config.m_decisionMatrix.healthThreshold, 0.0f, 1.0f);
                 ImGuiMCP::Checkbox("Power attack stamina check",

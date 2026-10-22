@@ -105,6 +105,19 @@ namespace CombatAI
         return passed;
     }
 
+    bool Humanizer::RollBackoff(RE::FormID a_formID, std::uint64_t a_key, float a_chance)
+    {
+        bool passed = true;
+        m_skillRolls.ModifyOrCreate(a_formID, [&](SkillState &state) {
+            if (state.backoffKey != a_key) {
+                state.backoffKey = a_key;
+                state.backoffPassed = std::uniform_real_distribution<float>(0.0f, 1.0f)(g_gen) < a_chance;
+            }
+            passed = state.backoffPassed;
+        });
+        return passed;
+    }
+
     float Humanizer::SkillChance(RE::Actor *a_actor, ActionType a_action, float a_combatTime,
                                  const SelfState &a_self) const
     {

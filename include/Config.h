@@ -90,6 +90,8 @@ namespace CombatAI
             float backoffStepDistance = 150.0f;  // How far our Backoff steps back from where the NPC stands
             bool backoffAfterSwing = true;       // Step out during its own swing's follow-through when the target isn't open
             bool brainAdvanceDistance = true;    // Our Advance closes to the brain's attack range (false: vanilla's range)
+            float backoffOnSwingChance = 0.35f;   // Chance to back off from each of the target's normal swings
+            float backoffAfterSwingChance = 0.4f; // Chance to step out after each of its own swings
             bool staminaAffectsRetreat = false;  // Off: retreat/backoff depend on health only (light attacks cost no stamina)
             float powerAttackMinStamina = 0.7f;  // Power/sprint attacks and power bashes need this stamina fraction
             float healthThreshold = 0.3f;

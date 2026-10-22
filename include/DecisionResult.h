@@ -45,5 +45,6 @@ namespace CombatAI
         bool sprint = false; // Advancing: sprint toward the target (sprint-attack run-up)
         float holdDistance = 0.0f; // Strafe/Flanking: circle no closer than this (pacing wait ring)
         bool reflex = false;       // Projectile sidestep: has its own roll, skips the skill roll
+        bool paced = false;        // A pacing wait ("waiting its turn"), not the brain's own choice
     };
 } // namespace CombatAI

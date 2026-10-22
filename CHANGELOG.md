@@ -1,5 +1,16 @@
 # Changelog
 
+## CombatAITree 0.9.0 (2026-10-22)
+
+- **Less passive: backing off is a choice, rolled once per swing.**
+  - **Problem:** in run 18 one bandit in range backed off 213 times against 81 attacks. About 155 of those were "you swing, it steps back" (any of your swings within `SprintAttackMinDistance`) and about 55 were its own after-swing step-out.
+  - **Rolls:**
+    - `BackoffOnSwingChance` (0.35): one roll per normal swing of yours. It keys on your swing's start time, like the Humanizer's defense rolls. Power attacks are always allowed.
+    - `BackoffAfterSwingChance` (0.4): one roll per swing of its own, in the next-attack window or follow-through.
+    - Pacing waits ("waiting its turn", flagged `paced`) are not rolled.
+  - **On a failed roll** the NPC takes the next-best option of that tick, the same way a failed skill roll does: through pacing, never a pull-back mid-swing. If there is none, it leaves the moment to vanilla (often a block, or another swing).
+  - Both chances are in the menu. Debug line: `no back off this swing (target's swing|own swing) - X instead`.
+- **Bash diagnostic:** the per-minute summary adds `block/bash never taken: N (most 0x.. xM)`. A block/bash intent that expired and was posted again counts once, so the NPC whose bashes the tree never runs shows up even when it isn't selected. For selected NPCs in run 18 the tree took 37 of 38 bashes; the untaken ones in the summaries came from unselected NPCs.
 ## CombatAITree 0.8.8 (2026-10-22)
 
 - **Our Advance actually closes in.**
