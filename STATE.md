@@ -29,7 +29,9 @@ version so any step can be rolled back.
 - 0.5.2, run 8 (~5 min, 3 bandits, player bow + melee): clean. Preemption no longer loops (min 316 ms between
   stops); short-weapon reach fixed (bandit attacks in range). Jump: 0 (EnableJumpEvasion most likely off, shipped
   default). Dodges all rejected again. "Target is attacking" gate blocked 92 attacks while the player drew a bow.
-- 0.5.3 (ranged target no longer blocks the attack; jump settings logged at load): build-validated only.
+- 0.5.3, run 9 (~3.5 min, player mostly bow): no errors. Jump works: 5 side arcs, 5 landed, no aborts. Bow gate fixed
+  (0 ranged "target is attacking" skips). The crash at 09:57:56 is BetterAltTab.dll (Xaudio stop in its WindowProc),
+  the same as 09:21 and 09:50.
 
 **Next (for the user):**
 1. Install 0.5.3. Turn on "Enable jump evasion" in the menu (or `EnableJumpEvasion = true`, chance 1.0); the log line `Jump evasion: on` confirms. Fight bandits with one selected. For the jump, **the player** must hold a bow drawn and aimed
@@ -43,7 +45,7 @@ version so any step can be rolled back.
    - **circle side** by eye against the `Circle ... (brain side +1)` line (+1 = to its own left).
    - If 0.5.0 misbehaves, 0.4.0 is the same build without the jump change.
 2. Then (dev): Surround + fallback distance parameters. The custom leaf is parked (TREE_DESIGN §6).
-**Last good version:** 0.5.2 (runtime-evidenced, run 8). Then 0.3.2 (run 6). Then 0.3.1 (run 5), 0.3.0 (run 4). Before that 0.2.2, then EnhancedCombatAI 1.10.2.
+**Last good version:** 0.5.3 (runtime-evidenced, run 9). Then 0.5.2 (run 8). Then 0.3.2 (run 6). Then 0.3.1 (run 5), 0.3.0 (run 4). Before that 0.2.2, then EnhancedCombatAI 1.10.2.
 **Log:** `Documents\My Games\Skyrim Special Edition\SKSE\CombatAITree.log`
 (debug lines need `EnableDebugLog = true` under `[General]` in `CombatAITree.ini`, the shipped default;
 they cover the actor selected in the console).

@@ -85,3 +85,10 @@
 
 ## 0.5.3 (2026-10-22)
 - Build ok; FileVersion 0.5.3.0; ship-gate PASS. Zip sha256 DEAFBB0E3C2590A6A8236459AEA3A041408607C13C8619E3B270715663EBEE1C. Runtime: untested.
+
+## 0.5.3 run 9 (2026-10-22, user log, ~3.5 min vs bandits, player mostly bow)
+- No warnings/errors. Log shows `Jump evasion: OFF` at load, `on` after the 09:55:27 menu save (confirms the run 8 diagnosis).
+- Crash 09:57:56 (8 s after the last log line): BetterAltTab.dll+0x25259 WindowProc null call during `Xaudio::stopEngine`, no CombatAITree frame. Same signature as 09:21 and 09:50. Not ours.
+- Jump: **runtime-evidenced.** 47 Jump decisions: 34 failed the skill roll, 5 on cooldown, 5 executed; the rest arrived mid-jump and were ignored. All 5 were side arcs of 150 units (landing dz -31..+2, 0.94-1.01 s), and all 5 logged `landed`. No aborts, no "no clear arc", no reland retry. Not yet checked by eye.
+- Bow gate fix: **runtime-evidenced.** "target is attacking" skips 29, all with a melee target (0 while the player held a bow; 92 in run 8).
+- Attack skill roll dropped 81 Attack decisions (skill 33-55%, by design).
