@@ -1,5 +1,12 @@
 # Changelog
 
+## CombatAITree 0.8.5 (2026-10-22)
+
+- **Fixed the 0.8.4 CTD in Circle** (1.7.104, `SkyrimSE.exe+08F1FCD` inside `get_CircleAngle` 50648, `subss xmm2, [rbx+0x54]` with rbx = 0x25).
+  - **Cause:** the Circle-angle hook (since 0.2.4) was declared `float(Actor* self)`, but the getter is `(self, target)` and reads the target from rdx (SE 49721 and 1.7 50648 both `mov rbx, rdx`; the callers pass `mov rdx, r15`).
+  - **Why it surfaced now:** before 0.8.4 the thunk called the original first and left rdx untouched by luck. 0.8.4 put the audit's thread-local write in front of that call, which clobbered rdx.
+  - **Fix:** the thunk now takes and forwards both actors.
+- **Re-checked:** every other hooked callee's argument registers against its thunk (46062, 46063, 36487, 36756→36757, 49716, 49718, 32513, 32507). All match.
 ## CombatAITree 0.8.4 (2026-10-22)
 
 - **Our Backoff keeps going while you press in.** The vanilla Backoff update (46725/47921) ends the node as soon as 46063 sees the target moving toward the NPC. In run 14, 24 of our Backoffs ended after about 110 ms having moved 6 units. For our branch that check now says no.

@@ -213,10 +213,12 @@ namespace CombatAI::Trees
         // Circle on the brain's side: keep vanilla's angle size, set its sign.
         struct CircleAngle
         {
-            static float thunk(RE::Actor *a_me)
+            // get_CircleAngle(self, target) 49721/50648 reads both (rcx, rdx). Until 0.8.4 this thunk took only
+            // self and worked by luck (rdx untouched before the call); 0.8.4's audit write clobbered rdx: CTD.
+            static float thunk(RE::Actor *a_me, RE::Actor *a_target)
             {
                 NoteCheck(t_circle.angle, true); // reached: the facing and distance checks passed
-                const float angle = func(a_me);
+                const float angle = func(a_me, a_target);
                 const float side = Intents::CircleSide(a_me);
                 const float out = side > 0.0f ? std::fabs(angle) : (side < 0.0f ? -std::fabs(angle) : angle);
                 if (a_me && Config::GetInstance().IsDebugTarget(a_me->GetFormID())) {

@@ -179,3 +179,11 @@
 - Sites: Backoff Update SE 46725+0x10B / AE+1.7 47921+0x17A (callee 46063 / 47327 / 523985; delta from 46062 0xB0 / 0xB0 / 0xE0). Circle Enter SE 46720 +0x179 36487, +0x198 36756, +0x366 36756, +0x3C8 32513, +0x3E7 32507; AE/1.7 47916 +0x149 37486, +0x16A 37772, +0x2F2 37772, +0x351 33262, +0x370 33256 (dumped from vtable slot 2 / slot-4 dispatcher on all three).
 - Trampoline: 15 distinct thunks, about 210 of 256 bytes.
 - Build ok; FileVersion 0.8.4.0; ship-gate PASS. Zip sha256 1FA48716D8818EF39DFD2E26E17C7969065B7DEEAB6AD9D57E12B387D96A7AFA. Runtime: untested.
+
+## 0.8.4 run 15 (2026-10-22, user report) - **FAIL: CTD** (crash-2026-10-22-21-08-50.log, 1.7.104, 30 s uptime)
+- `EXCEPTION_ACCESS_VIOLATION` at SkyrimSE.exe+08F1FCD = id50648 (get_CircleAngle) +0xDD, `subss xmm2, [rbx+0x54]`, rbx = 0x25. Stack: CombatBehaviorCircle node; RCX the bandit 0x8E1A1; R15 the player.
+- Root cause **proven statically**: get_CircleAngle takes (self, target) (head `mov rbx, rdx`; call site `mov rdx, r15; mov rcx, rsi`, on SE and 1.7); the CircleAngle thunk forwarded only self. A latent bug since 0.2.4, exposed when 0.8.4 added a TLS write before the call.
+
+## 0.8.5 (2026-10-22)
+- CircleAngle thunk is now (Actor*, Actor*). Argument-register audit of all hooked callees (script args.py: registers read before written): 36756 rcx/rdx (passed to 36757), xmm2; 46062/46063 rcx, rdx; 36487 rcx; 49716 rcx, rdx, r8, r9; 49718 rcx; 32513 rcx, rdx, xmm2, xmm3; 32507 rcx, rdx. All match the thunks.
+- Build ok; FileVersion 0.8.5.0; ship-gate PASS. Zip sha256 142844EDC78E9BB3631F150DF02DD038110F3F274C798CEB294629BC91D25D36. Runtime: untested.
