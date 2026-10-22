@@ -1,5 +1,12 @@
 # Changelog
 
+## CombatAITree 0.8.1 (2026-10-22)
+
+- **Package trimmed to the DLL and the INI.**
+  - **Removed:** the OAR "jump as dodge" folder (`meshes\...\OpenAnimationReplacer\CombatAI NG`, 7 hkx and 2 configs) and `SKSE\Plugins\BehaviorDataInjector\EnhancedCombatAI_BDI.json`. Both only served the old jump (0.4.x and earlier).
+  - **Code:** the jump's OAR fallback is gone too. It set `EnhancedCombatAI_Jump` and played a TK dodge when the graph refused the jump events.
+  - **Now:** if the graph takes neither `JumpDirectionalStart` nor the standing jump, there is no jump, and the debug log says `graph took no jump start event`. Runs 9-12 never needed the fallback.
+- **Upgrading:** delete the old folders if your mod manager kept them: `meshes\actors\character\animations\OpenAnimationReplacer\CombatAI NG` and `SKSE\Plugins\BehaviorDataInjector\EnhancedCombatAI_BDI.json`.
 ## CombatAITree 0.8.0 (2026-10-22)
 
 - **The brain's Backoff and Retreat now start where it asks** (`BrainBackoffFallback`, default on, also in the menu).

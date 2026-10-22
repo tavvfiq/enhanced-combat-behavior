@@ -75,11 +75,6 @@ namespace CombatAI
             return false;
         }
 
-        // Reset jump variable if executing a different action
-        // This prevents the jump variable from staying true when we want to do something else
-        if (a_decision.action != ActionType::Jump) {
-            ResetJumpVariable(a_actor);
-        }
 
         // Don't interrupt a block for movement actions that have no movement backend.
         // Their executors return false when CPR cannot handle the action, so stopping
@@ -883,28 +878,24 @@ namespace CombatAI
             return false;
         }
 
-        // FluidMotionNPC's NPC start event, then the standing jump, then the OAR swap that replays a TK
-        // Dodge as a jump animation (the variable must be set before the dodge event).
-        bool oarFallback = false;
+        // FluidMotionNPC's NPC start event, then the standing jump; a graph that takes neither gets no jump
+        // (no animation would mean a frozen pose sliding along the arc)
         if (!ActorUtils::SafeNotifyAnimationGraph(a_actor, "JumpDirectionalStart") &&
             !ActorUtils::SafeNotifyAnimationGraph(a_actor, REL::Module::IsSE() ? "JumpUp" : "JumpStandingStart")) {
-            ActorUtils::SafeSetGraphVariableBool(a_actor, "EnhancedCombatAI_Jump", true);
-            if (!ExecuteDodge(a_actor, a_state)) {
-                ResetJumpVariable(a_actor);
-                return false;
+            if (Config::GetInstance().IsDebugTarget(formID)) {
+                LOG_DEBUG("Jump 0x{:08X}: graph took no jump start event - not jumping", formID);
             }
-            oarFallback = true;
+            return false;
         }
 
         actorValues->DamageActorValue(RE::ActorValue::kStamina, staminaCost);
         jump.handle = a_actor->GetHandle();
-        jump.oarFallback = oarFallback;
         FluidMotionNPC::Claim(formID, jump.T + kJumpSettleSeconds + 0.5f);
         m_activeJumps.WithWriteLock([&](auto &jumps) { jumps.insert_or_assign(formID, jump); });
         if (Config::GetInstance().IsDebugTarget(formID)) {
-            LOG_DEBUG("Jump 0x{:08X}: {} arc, {:.0f} units, landing dz {:+.0f}, {:.2f}s{}", formID, shape,
+            LOG_DEBUG("Jump 0x{:08X}: {} arc, {:.0f} units, landing dz {:+.0f}, {:.2f}s", formID, shape,
                       std::hypot(jump.end.x - jump.start.x, jump.end.y - jump.start.y), jump.end.z - jump.start.z,
-                      jump.T, oarFallback ? " (OAR dodge animation)" : "");
+                      jump.T);
         }
         return true;
     }
@@ -987,9 +978,7 @@ namespace CombatAI
                 const bool debug = Config::GetInstance().IsDebugTarget(it->first);
                 if (!actor || actor->IsDead() || !actor->Is3DLoaded() || actor->IsInRagdollState() ||
                     ActorUtils::SafeGetKnockState(actor) != RE::KNOCK_STATE_ENUM::kNormal) {
-                    if (actor && jump.oarFallback) {
-                        ResetJumpVariable(actor);
-                    }
+
                     if (debug) {
                         LOG_DEBUG("Jump 0x{:08X}: aborted at {:.2f}/{:.2f}s", it->first, jump.t, jump.T);
                     }
@@ -1015,9 +1004,6 @@ namespace CombatAI
                     }
                     if (!airborne) {
                         ActorUtils::SafeNotifyAnimationGraph(actor, "JumpLand");
-                        if (jump.oarFallback) {
-                            ResetJumpVariable(actor);
-                        }
                         jump.settle = 0.0f;
                         if (debug) {
                             LOG_DEBUG("Jump 0x{:08X}: landed after {:.2f}s", it->first, jump.T);
@@ -1055,14 +1041,6 @@ namespace CombatAI
                 }
             }
         });
-    }
-    void ActionExecutor::ResetJumpVariable(RE::Actor *a_actor)
-    {
-        if (!a_actor) {
-            return;
-        }
-
-        a_actor->SetGraphVariableBool("EnhancedCombatAI_Jump", false);
     }
 
     void ActionExecutor::CalculateCPRCirclingAngles(const RE::NiPoint3 &a_strafeDirection,

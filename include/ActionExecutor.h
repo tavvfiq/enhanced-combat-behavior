@@ -60,7 +60,6 @@ namespace CombatAI
             float t = 0.0f;
             float settle = -1.0f;         // < 0 airborne, else seconds since touchdown
             bool relanded = false;
-            bool oarFallback = false; // EnhancedCombatAI_Jump was set for the OAR dodge swap
 
             RE::NiPoint3 At(float a_t) const
             {
@@ -105,8 +104,7 @@ namespace CombatAI
         bool ExecuteDirectionalDodge(RE::Actor *a_actor, RE::NiPoint3 a_direction);
         void ForceSprint(RE::Actor *a_actor);
 
-        // Execute jump: vanilla jump graph event + Havok jump state/impulse. Falls back to
-        // the OAR "jump as dodge" swap (EnhancedCombatAI_Jump) if the graph rejects the event.
+        // Execute jump: a planned ballistic arc driven per frame, with the graph's jump start/land events
         bool ExecuteJump(RE::Actor *a_actor, const ActorStateData &a_state);
 
         // Put the controller into its jumping state and apply the launch velocity.
@@ -156,8 +154,7 @@ namespace CombatAI
         // Helper: Disable all CPR behaviors
         void DisableCPR(RE::Actor *a_actor);
 
-        // Helper: Reset jump variable (when actor lands or when executing other actions)
-        void ResetJumpVariable(RE::Actor *a_actor);
+
 
         // Helper: Calculate CPR circling angles based on strafe direction
         // CPR angles are relative to target's facing direction (0° = front, 90° = side, 180° = back)

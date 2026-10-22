@@ -151,7 +151,7 @@ NPCs are enhanced based on their combat style:
 ### Advanced Features
 - **Tie-Breaking System**: When multiple decisions have the same priority, the system uses intensity, health status, and distance to select the best action
 - **Per-Actor Throttling**: Actors are processed at configurable intervals (default 100ms) to optimize performance
-- **Jump Evasion**: NPCs can jump to evade ranged attacks (uses dodge system with animation replacement via OAR)
+- **Jump Evasion**: NPCs leap sideways out of your aim when you draw a bow on them (planned arc, the graph's own jump animation; no OAR or Behavior Data Injector files needed)
 - **Intensity-Based Actions**: All actions have intensity values for more nuanced behavior
 
 ## Mod Compatibility
