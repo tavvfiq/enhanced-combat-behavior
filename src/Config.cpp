@@ -57,6 +57,10 @@ namespace CombatAI
         ReadProjectileAwarenessSettings(ini);
 
         LOG_INFO("Configuration loaded successfully");
+        LOG_INFO("Jump evasion: {} (chance {:.2f}, target with bow/crossbow at {:.0f}-{:.0f} units, height {:.0f})",
+                 m_decisionMatrix.enableJumpEvasion ? "on" : "OFF", m_decisionMatrix.evasionJumpChance,
+                 m_decisionMatrix.jumpEvasionDistanceMin, m_decisionMatrix.jumpEvasionDistanceMax,
+                 m_decisionMatrix.jumpHeight);
         return true;
     }
 

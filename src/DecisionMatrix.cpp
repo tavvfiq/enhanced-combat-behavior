@@ -1423,7 +1423,9 @@ namespace CombatAI
             // Don't attack if target is actively attacking (too risky - prefer
             // evasion/strafe) Exception: if target is in attack recovery
             // (kFollowThrough), we can attack during their recovery window
-            if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && !a_state.target.isInAttackRecovery) {
+            // A bow or crossbow being drawn also reads as "attacking"; up close that is the opening, not a threat.
+            if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && !a_state.target.isInAttackRecovery &&
+                !a_state.target.isRanged) {
                 return skip("target is attacking"); // Let evasion handle this - strafe/dodge instead
             }
 

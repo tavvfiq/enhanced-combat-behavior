@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.5.3 (2026-10-22)
+
+- **Fixed: melee NPCs held back while you drew a bow next to them** (run 8). The offense gate "target is attacking, evade instead" also fired on a bow or crossbow draw, which skipped 92 of 115 in-range attacks against an archer player. A ranged target no longer blocks the attack; its draw is the opening.
+- **Log:** the jump settings are printed at every config load (`Jump evasion: on|OFF (chance, distance window, height)`). The shipped INI has `EnableJumpEvasion = false`.
 ## CombatAITree 0.5.2 (2026-10-22)
 
 - **Fixed: movement stop looped every frame** (0.4.0 regression, run 7). With the brain wanting Circle at ~900 units, our Circle branch failed at once, vanilla Advance started, and the hook stopped it again on the very next frame (~80 stops/s for one bandit). Two causes: the 300 ms minimum run kept the node's *first* start time, so re-entries were stopped at once; and a vanilla node was stopped even though our branch for that move had just failed.
