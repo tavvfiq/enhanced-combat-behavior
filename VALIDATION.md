@@ -130,3 +130,13 @@
 ## 0.7.1 (2026-10-22)
 - New hooks: movement vtables slot 2 (Enter) and 3 (Exit) for Advance/Circle/Fallback/Backoff. Call convention (node, thread) and unused return checked at the Thread::Update call sites on SE 46228, AE/1.7 47483.
 - Build ok; FileVersion 0.7.1.0; ship-gate PASS. Zip sha256 C4283C99D10935F0D4E50F94AC0160B942BA8C138FCBEB7EDBD6C852CE04B4A9. Runtime: untested (new hooks: watch for a crash at first combat; 0.7.0 is the same without them).
+
+## 0.7.1 run 12 (2026-10-22, user log, ~3.5 min combat, several bandits selected in turn)
+- New Enter/Exit hooks: no errors, 176 MoveNode lines. Crash 11:59:06 = BetterAltTab.dll+0x25259, 0 CombatAITree frames. **runtime-evidenced** (hooks safe in combat).
+- Our branch, per node run (ran ms / moved units, medians):
+  - Backoff: 28 failed at 0 ms (start dist 50-249, incl. 59 units while the target swung), 1 done (moved 0), 1 stopped. **Unusable as an actuator.**
+  - Fallback: 14 done (1.4 s, moved 65, dist +65), 12 failed at 0 ms (8 of them at 250-299). Works half the time.
+  - Circle: 5 done (1.4 s, moved 202), 6 stopped by brain (0.6 s, moved 46), 4 failed (2 at 200, 2 at 600+). Works when it starts.
+  - Advance: 9 done (0.27 s, moved 11: already in place), 10 stopped by brain (0.95 s, moved 72, dist -32). Works.
+- Vanilla's own: Advance 14 done (1.7 s, moved 152, dist -138); Backoff 13 failed (vanilla's Backoff fails too).
+- A failed Backoff is re-entered every tick (12 ms) while the brain keeps asking.
