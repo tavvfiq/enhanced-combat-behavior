@@ -166,3 +166,11 @@
 - Fixes (1) with a thread_local list and (2) with an empty guard; (3) is installed only with BrainBackoffFallback=true at load.
 - Build ok; FileVersion 0.8.3.0; ship-gate PASS. Zip sha256 EA4A5EAA3B2123EA118D498F82B393926517B3E1FEFEF4508C9EAAB2CA4435E1. Runtime: untested.
 - Isolation plan: run 0.8.3 as shipped; if it crashes, set BrainBackoffFallback=false (patches not installed) and retry; if it still crashes, the cause is elsewhere in 0.8.x (mistake path) and 0.7.1 stays.
+
+## 0.8.3 run 14 (2026-10-22, user log, ~3 min, bandits + a marauder, player melee)
+- **No crash in combat** (user-confirmed; start patches installed). The 12:24:26 crash log is BetterAltTab.dll+0x25259 at exit, 0 CombatAITree frames. The 0.8.0/0.8.1 CTD is gone with the thread_local candidate list and the empty-tie guard (which of the two caused it is not isolated).
+- Our Backoff: 52 runs, failed 5 (28/30 in run 12). 23 stopped by brain (0.6 s, moved 37, dist +43): backing works. 24 "done" after ~110 ms having moved 6, dist -7: the vanilla Backoff **Update** ends the node when 46063 (velocity toward a point) fires, i.e. the player presses in (46725+0x10B; call sequence 46725: ...32446, 46063 -> 49014 path stop -> 46229 Ascend).
+- Our Circle: 36 runs, 19 failed at start (dist 50-300). Circle Enter 46720 has more gates than Backoff (IsMovementAnimationDriven, two WithinHeadingAngle incl. fCombatCircleViewConeAngle, angle vs fCombatCircleAngleMax, CheckStraightPath 32513, 32507, navmesh 45707/45708/45732); which one fails is not logged.
+- Skill misses: 14 (Attack -> None 6, PowerAttack -> Feint 3, Feint -> Advancing 2, others 3).
+- BackoffAfterSwing: fired once; AttackState 5 (follow-through) appeared in 1 of 968 snapshots. NPC swings go 3 (hit) -> 4 (next attack) -> 0, and the director blocks Backoff in state 4.
+- Backoff decisions 235 vs Attack 17: 159 while the player swung (EvaluateBackoff target-attacking trigger, p1.65-1.95), 76 pacing waits (p1.00, slots full, inside reach).
