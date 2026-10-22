@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.5.1 (2026-10-22)
+
+- **Config menu shows up in SKSE Menu Framework.** The vendored menu header looks up `SKSEMenuFramework.dll` when our DLL loads. SKSE loads plugins alphabetically, so `CombatAITree.dll` loads first and the lookup returned null. Every menu call then silently did nothing, while the log still said "Registered". The handle is now looked up again at kDataLoaded, and a missing framework is logged as an error.
+- The menu section is renamed from "Enhanced Combat AI" to **"Combat AI Tree"** (entry "Config"), so it can't merge with combat-ai-ng's.
 ## CombatAITree 0.5.0 (2026-10-22)
 
 - **Arc jump, after FluidMotionNPC's NPC jumps.** This is our own implementation of the method; no code is copied (FluidMotionNPC is GPL-3).

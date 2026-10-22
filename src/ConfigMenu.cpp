@@ -19,9 +19,16 @@ namespace CombatAI
             LOG_INFO("SKSE Menu Framework not installed; runtime config menu disabled");
             return;
         }
-        SKSEMenuFramework::SetSection("Enhanced Combat AI");
+        // The header resolves the module at our DLL load, before SKSE loads SKSEMenuFramework.dll
+        // (plugins load alphabetically); resolve it again now or every call silently does nothing.
+        menuFramework = REX::W32::GetModuleHandleW(L"SKSEMenuFramework");
+        if (!menuFramework || !GetProcAddress(menuFramework, "AddSectionItem")) {
+            LOG_ERROR("SKSE Menu Framework is installed but not loaded (or has no AddSectionItem); runtime config menu disabled");
+            return;
+        }
+        SKSEMenuFramework::SetSection("Combat AI Tree");
         SKSEMenuFramework::AddSectionItem("Config", ConfigMenu::Render);
-        LOG_INFO("Registered runtime config menu (SKSE Menu Framework)");
+        LOG_INFO("Registered runtime config menu (SKSE Menu Framework: Combat AI Tree / Config)");
     }
 
     void __stdcall ConfigMenu::Render()
