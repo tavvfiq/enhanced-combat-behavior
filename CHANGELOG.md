@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.6.1 (2026-10-22)
+
+- **Low stamina backs off instead of running away** (run 10). One brain power attack took a bandit from 100% to 17% stamina (a stamina-heavy setup), and stamina came back at about 2%/s. Below `StaminaThreshold` (0.2) survival chose Retreat, the vanilla Fallback run, so a full-health bandit spent 229 decisions (~25 s) running off. Exhaustion now chooses Backoff, a short step back that keeps it in the fight. Low *health* still retreats.
+- **Debug:** `Jump aim 0x..: shooter drawing at D, aim line L units from us (limit X)` for the selected NPC while you draw within the jump distance window, to tune the aim slack (75). The log's facing value is rounded to two decimals, which at 800 units hides about ±100 units.
 ## CombatAITree 0.6.0 (2026-10-22)
 
 - **NPCs attack more:** `SkillBase` 0.55 -> 0.75 (skill at level 1, before fatigue/panic). Run 9 dropped 81 Attack decisions at 33-55%. Presets moved up the same way: Vanilla+ 0.5, Soulslike 0.85, Chaos 0.8.

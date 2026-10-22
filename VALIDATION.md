@@ -96,3 +96,14 @@
 ## 0.6.0 (2026-10-22)
 - User feedback on run 9: jump facing reads fine (sideways leap while facing the shooter); unaimed neighbours jumped too; wants more attacks and no cooldowns.
 - Build ok (IsAimedAt static_asserts compile); FileVersion 0.6.0.0; ship-gate PASS. Zip sha256 B3FB17B943811D066466268B4F514D59ADC34F075B066A82D94644412E315C10. Runtime: untested.
+
+## 0.6.0 run 10 (2026-10-22, user log, ~5 min, one selected bandit 0x8E0ED, player bow + melee)
+- No warnings/errors. Load log: skill at level 1 0.75 (menu-saved INI now carries it); jump OFF at load, on after the 10:32:18 menu save. Crash 10:37:37 = BetterAltTab.dll+0x25259 again (4th time), no CombatAITree frame.
+- Skill: 24 Attack rolls failed at 60-79% (81 at 33-55% in run 9). **runtime-evidenced**.
+- Cooldowns: no `on cooldown` skips (removed). **runtime-evidenced**.
+- Jump: 2 decisions, 2 side arcs, both landed. Neighbours not debug-logged (only the selected NPC), so "only the aimed NPC jumps" needs the user's eyes.
+- Stamina: one brain power attack 100% -> 17%, regen ~2%/s; stamina 0-25% for most of the fight; Retreat 229 executions, mostly at full HP with low stamina. Fixed in 0.6.1 (Backoff).
+- Dodge: 19 events, all rejected.
+
+## 0.6.1 (2026-10-22)
+- Build ok; FileVersion 0.6.1.0; ship-gate PASS. Zip sha256 5297661CCC811F873270938C5CDDF4CB6A80871D1CD4C08833CC660CAF3F6744. Runtime: untested.

@@ -745,10 +745,18 @@ namespace CombatAI
             if (a_state.target.isRanged && drawing &&
                 a_state.self.currentStamina >= config.GetDecisionMatrix().jumpStaminaCost) {
                 // Check distance
-                if (a_state.target.distance > config.GetDecisionMatrix().jumpEvasionDistanceMin &&
-                    a_state.target.distance < config.GetDecisionMatrix().jumpEvasionDistanceMax &&
-                    IsAimedAt(a_state.target.distance, a_state.target.orientationDot,
-                              a_state.self.boundRadius + kAimSlack)) {
+                const bool inWindow = a_state.target.distance > config.GetDecisionMatrix().jumpEvasionDistanceMin &&
+                                      a_state.target.distance < config.GetDecisionMatrix().jumpEvasionDistanceMax;
+                const float aimLimit = a_state.self.boundRadius + kAimSlack;
+                const bool aimed = IsAimedAt(a_state.target.distance, a_state.target.orientationDot, aimLimit);
+                if (inWindow && a_actor && config.IsDebugTarget(a_actor->GetFormID())) {
+                    const float dot = (std::clamp)(a_state.target.orientationDot, -1.0f, 1.0f);
+                    LOG_DEBUG("Jump aim 0x{:08X}: shooter drawing at {:.0f}, aim line {:.0f} units from us (limit {:.0f}){}",
+                              a_actor->GetFormID(), a_state.target.distance,
+                              dot > 0.0f ? a_state.target.distance * std::sqrt(1.0f - dot * dot) : -1.0f, aimLimit,
+                              aimed ? " - may jump" : "");
+                }
+                if (inWindow && aimed) {
 
                     // Random chance to jump
                     thread_local std::mt19937 gen{std::random_device{}()};
@@ -1019,6 +1027,7 @@ namespace CombatAI
 
         // Trigger: Health < threshold OR significantly outnumbered (tactical retreat)
         bool shouldRetreat = false;
+        bool exhausted = false; // stamina, not health: step back and recover, don't run off
         float retreatPriority = 0.0f;
 
         // Check if NPC is outnumbering the target (we have more allies than enemies)
@@ -1052,6 +1061,7 @@ namespace CombatAI
         if (!shouldRetreat && staminaThreshold > 0.0f && a_state.self.staminaPercent <= staminaThreshold &&
             a_state.self.healthPercent > healthThreshold) {
             shouldRetreat = true;
+            exhausted = true;
             retreatPriority = 1.5f; // Tactical - below health survival (2.0)
 
             // Less urgent when we have the numbers advantage
@@ -1126,7 +1136,8 @@ namespace CombatAI
         }
 
         if (shouldRetreat) {
-            result.action = ActionType::Retreat;
+            // Run 10: one power attack took a bandit from 100% to 17% stamina; it then ran off ~25 s at full health
+            result.action = exhausted ? ActionType::Backoff : ActionType::Retreat;
             result.priority = retreatPriority;
 
             // Multiple enemies = faster retreat
