@@ -153,6 +153,7 @@ namespace CombatAI
         ImGuiMCP::Checkbox("Low stamina makes NPCs back off", &config.m_decisionMatrix.staminaAffectsRetreat);
         ImGuiMCP::Checkbox("Brain backoff/fallback always start", &config.m_decisionMatrix.brainBackoffFallback);
         liveFloat("Backoff step distance", &config.m_decisionMatrix.backoffStepDistance, 50.0f, 400.0f, "%.0f");
+        ImGuiMCP::Checkbox("Back off after own swing", &config.m_decisionMatrix.backoffAfterSwing);
         liveFloat("Power attack min stamina", &config.m_decisionMatrix.powerAttackMinStamina, 0.0f, 1.0f);
                 liveFloat("Health threshold", &config.m_decisionMatrix.healthThreshold, 0.0f, 1.0f);
                 ImGuiMCP::Checkbox("Power attack stamina check",

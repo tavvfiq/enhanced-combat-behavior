@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.8.2 (2026-10-22)
+
+- **Back off after its own swing** (`BackoffAfterSwing`, default on, in the menu). During the follow-through of its own attack, with the target still in reach and not open to a follow-up (recovering from its own swing, or staggered), the brain now picks Backoff.
+  - **Why:** offense and evasion only run when the NPC's attack state is none, so during follow-through the brain had nothing to offer, and the NPC stood in the counter until recovery ended.
+  - **Gates:** the director already allows Backoff in follow-through (only windup, swing, hit and bash block it), and our Backoff start (0.8.0) steps back `BackoffStepDistance`.
+  - **Still vanilla:** vanilla's "no move while an animation moves it" check still applies, so if the swing animation drives movement, the step waits for it.
 ## CombatAITree 0.8.1 (2026-10-22)
 
 - **Package trimmed to the DLL and the INI.**

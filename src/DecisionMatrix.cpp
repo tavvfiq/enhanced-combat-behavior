@@ -2087,6 +2087,17 @@ namespace CombatAI
                                          0.2f); // Moderate urgency for normal attacks in close range
         }
 
+        // After its own swing (follow-through) step out of the counter instead of standing in reach, unless
+        // the target is open to a follow-up (recovering or staggered). Offense and evasion stay silent until
+        // the follow-through ends (they need attackState kNone), so without this the NPC just stood there.
+        if (!shouldBackoff && config.GetDecisionMatrix().backoffAfterSwing &&
+            a_state.self.attackState == RE::ATTACK_STATE_ENUM::kFollowThrough && !a_state.target.isInAttackRecovery &&
+            a_state.target.knockState == RE::KNOCK_STATE_ENUM::kNormal &&
+            a_state.target.distance <= EffectiveAttackRange(a_state, a_state.weaponReach,
+                                                            config.GetDecisionMatrix().offenseReachMultiplier)) {
+            shouldBackoff = true;
+        }
+
         // Additional consideration: Low health = more urgent backoff
         if (a_state.self.healthPercent < 0.4f) {
             urgencyModifier += 0.2f; // More urgent when low on health

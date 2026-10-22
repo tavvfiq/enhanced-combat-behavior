@@ -152,3 +152,7 @@
 
 ## No-decision ticks (run 12 re-check, 2026-10-22)
 - 226 of 229 `Decision ... action=None` lines have no candidate list: every evaluator returned nothing. Offense (incl. Advance) and evasion require `self.isIdle`, which is `attackState == kNone` (ActorStateObserver.cpp:140), so the brain is silent while the NPC's own attack, bash or windup plays (None typically right after a vanilla `attackStart`). Not idling: the 66 'no decision' idle ticks in the 0.8.0 breakdown were counted from the previous snapshot's attack state, which was stale.
+
+## 0.8.2 (2026-10-22)
+- New Backoff trigger in EvaluateBackoff: self kFollowThrough, target in effective attack range, target not in attack recovery and knock state normal.
+- Build ok; FileVersion 0.8.2.0; ship-gate PASS. Zip sha256 DDFC8C29C5CA8F054451EC2FED94234AEB781AF34B10E8370E43B2D5A2800C95. Runtime: untested (watch MoveNode `our Backoff` right after the NPC's swings; `failed` there means IsMovementAnimationDriven still holds).
