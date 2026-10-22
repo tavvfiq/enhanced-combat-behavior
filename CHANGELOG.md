@@ -1,5 +1,12 @@
 # Changelog
 
+## CombatAITree 0.8.6 (2026-10-22)
+
+- **The brain's Advance closes into its own attack range** (`BrainAdvanceDistance`, default on, in the menu, installed at load).
+  - **Problem:** in run 16 a bandit with reach 82 (brain attack range ~86) parked at 125-175 units. The vanilla Advance start (46703/47898) aims at a ring of "engine weapon range + inner radius", which is longer, so our Advance "finished" 105 times at 24 ms without moving. The NPC then stood outside its own range and the brain never attacked.
+  - **Fix:** the brain posts a stop distance with the Advance intent: 0.9 × its attack range. While our node starts, the inner radius from `set_two_radiuses` (SE 46703+0x16F, AE/1.7 47898+0x127) is set so the ring lands there. The location search and the approach controller both use that ring, and the "in position" check (`CheckShouldStop`, 46698/47893) then judges against the new spot.
+  - **Intents:** `PostMove`'s third argument is now "Circle side, or Advance stop distance". `Intents::AdvanceDistance()` is new.
+- **INI fix:** a missing newline in the 0.8.2-0.8.5 INI glued `BackoffAfterSwing = true` onto the next comment. It still read as true. The file is fixed and every key line has been checked.
 ## CombatAITree 0.8.5 (2026-10-22)
 
 - **Fixed the 0.8.4 CTD in Circle** (1.7.104, `SkyrimSE.exe+08F1FCD` inside `get_CircleAngle` 50648, `subss xmm2, [rbx+0x54]` with rbx = 0x25).

@@ -30,7 +30,7 @@ namespace CombatAI::Intents
             Clock::time_point committedUntil{};
             Move move = Move::None;
             Clock::time_point moveUntil{};
-            float circleSide = 0.0f;
+            float param = 0.0f; // Circle side or Advance stop distance (see PostMove)
         };
 
         ThreadSafeMap<RE::FormID, Entry> g_board;
@@ -143,7 +143,7 @@ namespace CombatAI::Intents
         return taken;
     }
 
-    bool PostMove(RE::Actor *a_actor, Move a_kind, float a_circleSide)
+    bool PostMove(RE::Actor *a_actor, Move a_kind, float a_param)
     {
         if (!a_actor) {
             return false;
@@ -154,7 +154,7 @@ namespace CombatAI::Intents
             changed = e.move != a_kind;
             e.move = a_kind;
             e.moveUntil = until;
-            e.circleSide = a_kind == Move::Circle ? a_circleSide : 0.0f;
+            e.param = a_kind == Move::Circle || a_kind == Move::Advance ? a_param : 0.0f;
         });
         if (changed) {
             g_count.moveChanged[static_cast<int>(a_kind)].fetch_add(1, std::memory_order_relaxed);
@@ -205,7 +205,16 @@ namespace CombatAI::Intents
             return 0.0f;
         }
         const auto e = g_board.Find(a_actor->GetFormID());
-        return e && e->move == Move::Circle && Clock::now() < e->moveUntil ? e->circleSide : 0.0f;
+        return e && e->move == Move::Circle && Clock::now() < e->moveUntil ? e->param : 0.0f;
+    }
+
+    float AdvanceDistance(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return 0.0f;
+        }
+        const auto e = g_board.Find(a_actor->GetFormID());
+        return e && e->move == Move::Advance && Clock::now() < e->moveUntil ? e->param : 0.0f;
     }
 
     bool HasPending(RE::Actor *a_actor)

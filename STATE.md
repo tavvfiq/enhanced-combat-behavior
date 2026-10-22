@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.8.5 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.8.6 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -46,7 +46,9 @@ version so any step can be rolled back.
   random ties): build-validated only. Check MoveNode lines: our Backoff/Fallback should be "done", moved > 0.
 - 0.8.4 (our Backoff ignores "target closing in"; after-swing backoff in the next-attack window too; Circle start-check audit):
   CRASHED in Circle (get_CircleAngle): the 0.2.4 CircleAngle thunk dropped its target arg; 0.8.4 exposed it.
-- 0.8.5: CircleAngle thunk takes (self, target); all hook signatures re-audited. Build-validated only. Last good 0.8.3.
+- 0.8.5: CircleAngle thunk takes (self, target); all hook signatures re-audited. Run 16: stable.
+- 0.8.6: our Advance closes to 0.9 x brain attack range (`BrainAdvanceDistance`); INI newline fix. Build-validated only.
+  Trampoline at ~224/256 B: raise the allocation before adding another hook.
 - 0.8.1: package = DLL + INI only (OAR jump meshes and BDI json removed with the jump's OAR fallback).
 - 0.8.2: Backoff during own follow-through when the target isn't open (`BackoffAfterSwing`): build-validated only.
 - **0.8.1 CRASHED** (CTD, no crash log) approaching an NPC. Rollback 0.7.1. 0.8.3 fixes the shared candidate-list race and the empty tie pick; start patches only with BrainBackoffFallback=true. Isolation plan in VALIDATION.md.

@@ -195,3 +195,9 @@
 - Our Circle: 23 runs, only 2 failed at start (run 14: 19/36). The start checks on failures: angle limit 2, view cone 2, animation-driven 1; every started run passed all checks. The pre-0.8.5 Circle failures were likely the CircleAngle thunk's garbage target too (unverified).
 - **New finding:** our Advance "done" 105 times at ~24 ms having moved 0, for 0x8E0ED (reach 82, brain attack range ~86) standing at 125-175 units. The vanilla Advance's CheckShouldStop (46698) calls it in place at the engine's range, which is longer than the brain's, so the NPC parks outside its own attack range.
 - Skill misses 29 (Attack -> None 17, no other option).
+
+## 0.8.6 (2026-10-22)
+- Advance start radius site: SE 46703+0x16F / AE+1.7 47898+0x127 -> 49716 / 50643 (verified by CallsTarget at install). Advance Enter adds [inner] to CombatInventory+0x1A0 range for CombatTargetLocationSearch 45702 (+0x1B2) and 49062 (+0x281). CheckShouldStop(void* location, float xmm1) at 46704 / 47899 +0x121 left vanilla.
+- Trampoline: 16 distinct thunks, about 224 of 256 bytes. The next new hook needs a bigger trampoline.
+- INI: `BackoffAfterSwing` line repaired (glued to a comment since 0.8.2); scan for `key = value#` lines is clean.
+- Build ok; FileVersion 0.8.6.0; ship-gate PASS. Zip sha256 37F49134424B70A66BC4FCEB01EB0AB2AC9B1330A18C0B1E3CEFEEB69E65934C. Runtime: untested.

@@ -89,6 +89,7 @@ namespace CombatAI
             bool brainBackoffFallback = true;    // Our Backoff/Fallback start where the brain asks (false: vanilla start rules)
             float backoffStepDistance = 150.0f;  // How far our Backoff steps back from where the NPC stands
             bool backoffAfterSwing = true;       // Step out during its own swing's follow-through when the target isn't open
+            bool brainAdvanceDistance = true;    // Our Advance closes to the brain's attack range (false: vanilla's range)
             bool staminaAffectsRetreat = false;  // Off: retreat/backoff depend on health only (light attacks cost no stamina)
             float powerAttackMinStamina = 0.7f;  // Power/sprint attacks and power bashes need this stamina fraction
             float healthThreshold = 0.3f;

@@ -45,8 +45,9 @@ namespace CombatAI::Intents
     Attack TakeAttack(RE::Actor *a_actor);
     bool TakeDefend(RE::Actor *a_actor, Defend a_kind);
     // Brain side, movement: (re)start the movement intent; always true (refreshing is expected).
-    // a_circleSide: +1 circle left, -1 right, 0 no preference (only used with Move::Circle).
-    bool PostMove(RE::Actor *a_actor, Move a_kind, float a_circleSide = 0.0f);
+    // a_param: Circle: +1 circle left, -1 right, 0 no preference. Advance: distance to the target to stop at
+    // (the brain's attack range; 0 = vanilla's). Unused for the other moves.
+    bool PostMove(RE::Actor *a_actor, Move a_kind, float a_param = 0.0f);
     // Drop any movement intent (e.g. no backing off mid-swing).
     void ClearMove(RE::Actor *a_actor);
     // Tree side, movement: the brain currently wants a_kind (not consumed).
@@ -57,6 +58,8 @@ namespace CombatAI::Intents
     void NotePreempted(bool a_vanillaNode);
     // Side the brain wants the running Circle node to take (+1 left, -1 right, 0 vanilla's choice).
     float CircleSide(RE::Actor *a_actor);
+    // Distance the brain wants the running Advance to stop at (0 = vanilla's own).
+    float AdvanceDistance(RE::Actor *a_actor);
 
     // Pending (not consumed) attack/defend intents exist - keeps vanilla branches out of the way.
     bool HasPending(RE::Actor *a_actor);

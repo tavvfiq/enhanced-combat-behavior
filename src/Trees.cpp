@@ -476,6 +476,36 @@ namespace CombatAI::Trees
             LOG_INFO("Tree: Circle start checks audited (MoveNode lines show which one refused)");
         }
 
+        // Our Advance: the start (46703/47898) sets its destination ring to "weapon range + inner radius"
+        // (CombatTargetLocationSearch 45702 and the approach controller 49062 both get [inner] + range).
+        // While our branch's node starts, inner is set so the ring sits at the brain's stop distance.
+        struct AdvanceRing // set_two_radiuses 49716/50643 (self, target, &inner, &outer)
+        {
+            static void thunk(RE::Actor *a_self, RE::Actor *a_target, float *a_inner, float *a_outer)
+            {
+                func(a_self, a_target, a_inner, a_outer);
+                const float stop = t_ourStart && a_self ? Intents::AdvanceDistance(a_self) : 0.0f;
+                if (stop > 0.0f && a_inner) {
+                    *a_inner = stop - CurrentWeaponRange();
+                }
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+        constexpr REL::RelocationID kAdvanceStart{46703, 47898};
+        constexpr std::size_t kAdvanceRingSE = 0x16F;
+        constexpr std::size_t kAdvanceRingAE = 0x127; // same on 1.7.104
+
+        void InstallAdvanceRing(SKSE::Trampoline &a_trampoline)
+        {
+            const auto site = kAdvanceStart.address() + (REL::Module::IsAE() ? kAdvanceRingAE : kAdvanceRingSE);
+            if (!CallsTarget(site, REL::RelocationID(49716, 50643).address())) {
+                LOG_ERROR("Tree: Advance start site does not match - our Advance keeps vanilla's distance");
+                return;
+            }
+            AdvanceRing::func = a_trampoline.write_call<5>(site, AdvanceRing::thunk);
+            LOG_INFO("Tree: Advance start radius hooked (our Advance closes to the brain's attack range)");
+        }
+
         constexpr REL::RelocationID kBackoffStart{46724, 47920};
         constexpr REL::RelocationID kFallbackStart{46712, 47908};
         constexpr REL::RelocationID kWithinHeadingAngle{36756, 37772};
@@ -520,10 +550,11 @@ namespace CombatAI::Trees
         {
             static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
             {
-                if constexpr (K == Intents::Move::Backoff || K == Intents::Move::Fallback) {
+                if constexpr (K == Intents::Move::Backoff || K == Intents::Move::Fallback || K == Intents::Move::Advance) {
                     bool ours = false;
+                    const auto &matrix = Config::GetInstance().GetDecisionMatrix();
                     t_ourStart = MoveSelectorOf(a_node, ours) && ours &&
-                                 Config::GetInstance().GetDecisionMatrix().brainBackoffFallback;
+                                 (K == Intents::Move::Advance ? matrix.brainAdvanceDistance : matrix.brainBackoffFallback);
                 }
                 auto *audited = AuditedActor(a_thread);
                 if (audited) {
@@ -700,6 +731,9 @@ namespace CombatAI::Trees
             HookMoveUpdate<Intents::Move::Backoff>(Id::vtBackoff);
             LOG_INFO("Tree: movement node Enter/Update/Exit hooked (preemption + MoveNode audit for the selected NPC)");
             InstallCircleAudit(trampoline);
+            if (Config::GetInstance().GetDecisionMatrix().brainAdvanceDistance) {
+                InstallAdvanceRing(trampoline);
+            }
             if (Config::GetInstance().GetDecisionMatrix().brainBackoffFallback) {
                 InstallOwnStarts(trampoline);
             } else {

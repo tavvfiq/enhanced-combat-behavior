@@ -1225,8 +1225,13 @@ namespace CombatAI
         bool isMeleeOnly = IsMeleeOnlyActor(a_actor);
         bool cprAvailable = IsCPRAvailable(a_actor);
 
-        // Our CloseMovement tree runs the vanilla Advance node; CPR (below) only shapes it if present
-        Intents::PostMove(a_actor, Intents::Move::Advance);
+        // Our CloseMovement tree runs the vanilla Advance node (CPR below only shapes it if present). It stops
+        // a little inside the brain's attack range, not at the engine's longer melee range (run 16: a reach-82
+        // bandit parked at 125-175 units, outside its own range, and the brain never attacked).
+        const float stopDistance = 0.9f * StateHelpers::EffectiveAttackRange(a_state.weaponReach, a_state.target.boundRadius,
+                                                                             matrix.offenseReachMultiplier,
+                                                                             matrix.offenseReachSafetyMargin);
+        Intents::PostMove(a_actor, Intents::Move::Advance, stopDistance);
 
         // Sprint-charge: CPR (like ProjectGapClose) only shapes movement while the actor
         // is already advancing; it won't move a standing NPC. So actively put a melee
