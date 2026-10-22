@@ -156,3 +156,13 @@
 ## 0.8.2 (2026-10-22)
 - New Backoff trigger in EvaluateBackoff: self kFollowThrough, target in effective attack range, target not in attack recovery and knock state normal.
 - Build ok; FileVersion 0.8.2.0; ship-gate PASS. Zip sha256 DDFC8C29C5CA8F054451EC2FED94234AEB781AF34B10E8370E43B2D5A2800C95. Runtime: untested (watch MoveNode `our Backoff` right after the NPC's swings; `failed` there means IsMovementAnimationDriven still holds).
+
+## 0.8.1 run 13 (2026-10-22, user report) - **FAIL: CTD without crash log**
+- User: crashed "when i approach an npc". Mod log (debug flushes every line) ends 12:17:13 at kDataLoaded, all hooks installed incl. `Backoff/Fallback start checks hooked`; no NPC selected, so no debug lines after. No crash-*.log after 11:59.
+- Not proven. Suspects (all new in 0.8.0): (1) `DecisionMatrix::m_candidates`, a member vector move-assigned on every Evaluate while actor updates run on several threads: a data race, heap corruption, fail-fast with no crash log; (2) empty `topPriorityDecisions` indexed by the new random tie-break; (3) the 7 Backoff/Fallback start call-site patches.
+- Rollback: 0.7.1 (run 12, runtime-evidenced) is last known good.
+
+## 0.8.3 (2026-10-22)
+- Fixes (1) with a thread_local list and (2) with an empty guard; (3) is installed only with BrainBackoffFallback=true at load.
+- Build ok; FileVersion 0.8.3.0; ship-gate PASS. Zip sha256 EA4A5EAA3B2123EA118D498F82B393926517B3E1FEFEF4508C9EAAB2CA4435E1. Runtime: untested.
+- Isolation plan: run 0.8.3 as shipped; if it crashes, set BrainBackoffFallback=false (patches not installed) and retry; if it still crashes, the cause is elsewhere in 0.8.x (mistake path) and 0.7.1 stays.

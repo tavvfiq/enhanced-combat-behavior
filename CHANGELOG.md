@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.8.3 (2026-10-22)
+
+- **Fixed the 0.8.1 crash when approaching an NPC** (no crash log; the mod log ends at data load).
+  - **Main suspect:** 0.8.0 kept the brain's candidate list in one vector shared by every actor update. Actors are updated on several threads, so two NPCs entering combat could write it at once and corrupt the heap. Heap corruption kills the process before a crash logger can run. The list is now per thread.
+  - **Also fixed:** 0.8.0's random tie-break indexed an empty list when no candidate reached the top priority (all priorities below -1, or NaN). It returns None again, like the old tie-break.
+- **Isolation lever:** the seven Backoff/Fallback start patches are installed only when `BrainBackoffFallback = true` at load. The log line `BrainBackoffFallback off at load - ... not hooked` confirms when they are not.
 ## CombatAITree 0.8.2 (2026-10-22)
 
 - **Back off after its own swing** (`BackoffAfterSwing`, default on, in the menu). During the follow-through of its own attack, with the target still in reach and not open to a follow-up (recovering from its own swing, or staggered), the brain now picks Backoff.

@@ -566,7 +566,11 @@ namespace CombatAI::Trees
             HookMoveUpdate<Intents::Move::Fallback>(Id::vtFallback);
             HookMoveUpdate<Intents::Move::Backoff>(Id::vtBackoff);
             LOG_INFO("Tree: movement node Enter/Update/Exit hooked (preemption + MoveNode audit for the selected NPC)");
-            InstallOwnStarts(trampoline);
+            if (Config::GetInstance().GetDecisionMatrix().brainBackoffFallback) {
+                InstallOwnStarts(trampoline);
+            } else {
+                LOG_INFO("Tree: BrainBackoffFallback off at load - Backoff/Fallback start checks not hooked");
+            }
         } else {
             LOG_ERROR("Tree: CloseMovement SetRoot site does not match (byte {:02X}) - movement intents disabled", bytes[0]);
         }

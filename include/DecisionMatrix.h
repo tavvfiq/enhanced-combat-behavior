@@ -16,8 +16,9 @@ namespace CombatAI
         // Evaluate state and return decision
         DecisionResult Evaluate(RE::Actor *a_actor, const ActorStateData &a_state);
 
-        // Every option the last Evaluate scored, so a failed skill roll can make the next-best choice
-        const std::vector<DecisionResult> &LastCandidates() const { return m_candidates; }
+        // Every option this thread's last Evaluate scored, so a failed skill roll can make the next-best choice.
+        // Per thread: actors are updated on several threads at once (a shared vector crashed 0.8.0/0.8.1).
+        static const std::vector<DecisionResult> &LastCandidates();
 
         // Held-back action for combat pacing: when an actor is denied an attack slot it
         // should stay engaged (circle/flank the target) instead of committing. Returns a
@@ -25,7 +26,6 @@ namespace CombatAI
         DecisionResult EvaluateHeldBack(RE::Actor *a_actor, const ActorStateData &a_state);
 
       private:
-        std::vector<DecisionResult> m_candidates;
         // Interrupt (Counter-Play)
         DecisionResult EvaluateInterrupt(RE::Actor *a_actor, const ActorStateData &a_state);
 

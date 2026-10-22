@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.8.2 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.8.3 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -46,6 +46,7 @@ version so any step can be rolled back.
   random ties): build-validated only. Check MoveNode lines: our Backoff/Fallback should be "done", moved > 0.
 - 0.8.1: package = DLL + INI only (OAR jump meshes and BDI json removed with the jump's OAR fallback).
 - 0.8.2: Backoff during own follow-through when the target isn't open (`BackoffAfterSwing`): build-validated only.
+- **0.8.1 CRASHED** (CTD, no crash log) approaching an NPC. Rollback 0.7.1. 0.8.3 fixes the shared candidate-list race and the empty tie pick; start patches only with BrainBackoffFallback=true. Isolation plan in VALIDATION.md.
 
 **Next (for the user):**
 1. Install 0.6.0. A menu-saved INI keeps `SkillBase = 0.55`: set "Skill at level 1" to 0.75 in the menu (load log shows it). Earlier: Turn on "Enable jump evasion" in the menu (or `EnableJumpEvasion = true`, chance 1.0); the log line `Jump evasion: on` confirms. Fight bandits with one selected. For the jump, **the player** must hold a bow drawn and aimed
@@ -59,7 +60,7 @@ version so any step can be rolled back.
    - **circle side** by eye against the `Circle ... (brain side +1)` line (+1 = to its own left).
    - If 0.5.0 misbehaves, 0.4.0 is the same build without the jump change.
 2. Then (dev): Surround + fallback distance parameters. The custom leaf is parked (TREE_DESIGN §6).
-**Last good version:** 0.5.3 (runtime-evidenced, run 9). Then 0.5.2 (run 8). Then 0.3.2 (run 6). Then 0.3.1 (run 5), 0.3.0 (run 4). Before that 0.2.2, then EnhancedCombatAI 1.10.2.
+**Last good version:** 0.7.1 (runtime-evidenced, run 12). Then 0.5.3 (run 9). Then 0.5.2 (run 8). Then 0.3.2 (run 6). Then 0.3.1 (run 5), 0.3.0 (run 4). Before that 0.2.2, then EnhancedCombatAI 1.10.2.
 **Log:** `Documents\My Games\Skyrim Special Edition\SKSE\CombatAITree.log`
 (debug lines need `EnableDebugLog = true` under `[General]` in `CombatAITree.ini`, the shipped default;
 they cover the actor selected in the console).

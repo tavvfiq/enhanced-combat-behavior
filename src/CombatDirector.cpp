@@ -248,7 +248,7 @@ namespace CombatAI
             const bool midSwing = state.self.attackState != RE::ATTACK_STATE_ENUM::kNone &&
                                   state.self.attackState != RE::ATTACK_STATE_ENUM::kFollowThrough;
             DecisionResult mistake;
-            for (const auto &option : m_decisionMatrix.LastCandidates()) {
+            for (const auto &option : DecisionMatrix::LastCandidates()) {
                 const bool pullsBack = option.action == ActionType::Retreat || option.action == ActionType::Backoff;
                 if (option.action != failed && option.action != ActionType::None && !(midSwing && pullsBack) &&
                     (mistake.action == ActionType::None || option.priority > mistake.priority)) {

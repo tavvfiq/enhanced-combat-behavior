@@ -38,6 +38,13 @@ namespace CombatAI
         return StateHelpers::EffectiveAttackRange(a_weaponReach, a_state.target.boundRadius, a_multiplier,
                                                   a_safetyMargin);
     }
+    namespace
+    {
+        thread_local std::vector<DecisionResult> t_candidates;
+    }
+
+    const std::vector<DecisionResult> &DecisionMatrix::LastCandidates() { return t_candidates; }
+
     DecisionResult DecisionMatrix::Evaluate(RE::Actor *a_actor, const ActorStateData &a_state)
     {
         std::vector<DecisionResult> possibleDecisions;
@@ -89,7 +96,7 @@ namespace CombatAI
         }
 
         // If no decisions, return None
-        m_candidates.clear();
+        t_candidates.clear();
         if (possibleDecisions.empty()) {
             return DecisionResult();
         }
@@ -129,10 +136,13 @@ namespace CombatAI
         }
 
         // Ties are a coin flip: the skill roll, not a tie heuristic, decides how good the pick is
+        // (empty when every priority is below -1 or NaN; the old tie-break returned None then, so do the same)
         thread_local std::mt19937 tieGen{std::random_device{}()};
         DecisionResult bestDecision =
-            topPriorityDecisions[std::uniform_int_distribution<std::size_t>(0, topPriorityDecisions.size() - 1)(tieGen)];
-        m_candidates = std::move(enhancedDecisions);
+            topPriorityDecisions.empty()
+                ? DecisionResult()
+                : topPriorityDecisions[std::uniform_int_distribution<std::size_t>(0, topPriorityDecisions.size() - 1)(tieGen)];
+        t_candidates = std::move(enhancedDecisions);
 
         // Log comprehensive state for selected actor (debugging)
         if (debugEnabled && selectedRef && a_actor == selectedRef.get()) {
