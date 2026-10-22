@@ -1,3 +1,3 @@
 CombatAITree 0.3.2 (git, branch master)
-Last known good: 0.3.1 runtime-evidenced (run 5: clean, no hang). 0.3.0 before that, then 0.2.2.
+Last known good: 0.3.2 runtime-evidenced (run 6: ~2.7 min vs bandits, no warnings; brain attacks taken by the tree 26/26). 0.3.1 before that.
 Parent: EnhancedCombatAI 1.10.2 working tree, D:\Modding\combat-ai-ng @ 4ed7e86 + uncommitted changes

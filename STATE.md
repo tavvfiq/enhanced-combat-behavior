@@ -17,14 +17,17 @@ version so any step can be rolled back.
   288 in-range ticks fail on a gate we can't yet see; 0.3.1 logs which one.
 - 0.3.1, run 5 (~1 min): no errors. Every in-range offense skip was `line of sight blocked` (102/102):
   the kLOS ray hits bodies. 0.3.2 ignores actor hits.
-- 0.3.2: build-validated only.
+- 0.3.2, run 6 (~2.7 min): no warnings. **Brain attacks work:** light 20 posted/20 taken/18 with attack data,
+  power 5/5/4. Offense skips are only the intended ones (116 within 0.3 s of its own swing, 55 target swinging).
+  The skill roll dropped 58 of 70 Attack decisions (skill 33-55% early in the fight), by design. LOS blocks 30, all
+  unnamed static refs. Circle side: 46 lines, not yet checked by eye.
 
 **Next (for the user):**
 1. Install 0.3.2, fight bandits with one selected. Expect `post attack 1/2`, `tree took attack`, and
    `light`/`power` above 0 in the `Intents (last 60s ...)` line. Remaining `Offense ... no attack` reasons
    and `LOS ... blocked by <name>` lines show whatever still blocks.
 2. Then (dev): movement preemption probe (TREE_DESIGN §9); own leaf class (§6).
-**Last good version:** 0.3.1 (runtime-evidenced, run 5). Then 0.3.0 (run 4). Before that 0.2.2, then EnhancedCombatAI 1.10.2.
+**Last good version:** 0.3.2 (runtime-evidenced, run 6). Then 0.3.1 (run 5), 0.3.0 (run 4). Before that 0.2.2, then EnhancedCombatAI 1.10.2.
 **Log:** `Documents\My Games\Skyrim Special Edition\SKSE\CombatAITree.log`
 (debug lines need `EnableDebugLog = true` under `[General]` in `CombatAITree.ini`, the shipped default;
 they cover the actor selected in the console).
