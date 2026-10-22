@@ -187,3 +187,11 @@
 ## 0.8.5 (2026-10-22)
 - CircleAngle thunk is now (Actor*, Actor*). Argument-register audit of all hooked callees (script args.py: registers read before written): 36756 rcx/rdx (passed to 36757), xmm2; 46062/46063 rcx, rdx; 36487 rcx; 49716 rcx, rdx, r8, r9; 49718 rcx; 32513 rcx, rdx, xmm2, xmm3; 32507 rcx, rdx. All match the thunks.
 - Build ok; FileVersion 0.8.5.0; ship-gate PASS. Zip sha256 142844EDC78E9BB3631F150DF02DD038110F3F274C798CEB294629BC91D25D36. Runtime: untested.
+
+## 0.8.5 run 16 (2026-10-22, user log, ~2.5 min, 2 bandits selected in turn)
+- No crash in combat; the 21:14:35 crash log is BetterAltTab.dll at exit (0 CombatAITree frames). All patches installed (Circle audit, Backoff/Fallback starts, Backoff update check, Circle angle). **0.8.4 crash fix runtime-evidenced.**
+- Our Backoff: 19 runs, 2 failed at start; 16 stopped by brain at 756 ms median, moved 77, dist +37 (run 14: 24 ended at ~110 ms having moved 6); 1 done at 2.4 s, moved 160. **Backoff while pressed works.**
+- After-swing Backoff: 22 Backoff decisions in AttackState 4 (next-attack window). **Fires.**
+- Our Circle: 23 runs, only 2 failed at start (run 14: 19/36). The start checks on failures: angle limit 2, view cone 2, animation-driven 1; every started run passed all checks. The pre-0.8.5 Circle failures were likely the CircleAngle thunk's garbage target too (unverified).
+- **New finding:** our Advance "done" 105 times at ~24 ms having moved 0, for 0x8E0ED (reach 82, brain attack range ~86) standing at 125-175 units. The vanilla Advance's CheckShouldStop (46698) calls it in place at the engine's range, which is longer than the brain's, so the NPC parks outside its own attack range.
+- Skill misses 29 (Attack -> None 17, no other option).

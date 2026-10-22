@@ -63,7 +63,7 @@ version so any step can be rolled back.
    - **circle side** by eye against the `Circle ... (brain side +1)` line (+1 = to its own left).
    - If 0.5.0 misbehaves, 0.4.0 is the same build without the jump change.
 2. Then (dev): Surround + fallback distance parameters. The custom leaf is parked (TREE_DESIGN §6).
-**Last good version:** 0.8.3 (user-confirmed no crash, run 14). Then 0.7.1 (run 12), 0.5.3 (run 9). Then 0.5.2 (run 8). Then 0.3.2 (run 6). Then 0.3.1 (run 5), 0.3.0 (run 4). Before that 0.2.2, then EnhancedCombatAI 1.10.2.
+**Last good version:** 0.8.5 (runtime-evidenced, run 16). Then 0.8.3 (run 14). Then 0.7.1 (run 12), 0.5.3 (run 9). Then 0.5.2 (run 8). Then 0.3.2 (run 6). Then 0.3.1 (run 5), 0.3.0 (run 4). Before that 0.2.2, then EnhancedCombatAI 1.10.2.
 **Log:** `Documents\My Games\Skyrim Special Edition\SKSE\CombatAITree.log`
 (debug lines need `EnableDebugLog = true` under `[General]` in `CombatAITree.ini`, the shipped default;
 they cover the actor selected in the console).
