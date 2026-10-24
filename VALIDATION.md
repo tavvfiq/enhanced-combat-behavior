@@ -238,3 +238,7 @@
 - Found: TargetTemporalData.attackStartTime += deltaTime (elapsed time), so per-swing keys (Humanizer defense, CombatDirector target-swing backoff) changed every tick. Now keyed on swingCount (incremented at swing start).
 - Damage race from TESHitEvent (all hits, both directions), health delta between the same attacker's consecutive hits, EWMA (EwmaAlpha), cap 0.5. Shortcut: other damage between hits is credited to that attacker.
 - Trade roll: stateless SplitMix64 hash of (self FormID, target swingCount) + session salt; static_assert on SplitMix64(0).
+- Run 21 (2026-10-24, 1.7.104, 9 min, 0.9.2): no crash of ours. Race lines 2709 (both hits known 1856); winning 83 (0x8E1A0 our 0.101/their 0.079; follower 0xFF0008A4 0.302/0.031), losing 510 all at HP 1-13%. Trade passed 38 ticks: 29 then 'last action too recent' (own Atk 16, Bash 13), 8 attack candidate. Backoff rolls: target swing None 149, own swing None 134, Bash 7. Bash never taken 11+11 = archer 0x8E1A4 (WeaponType 8) via Feint -> ExecuteBash. Runtime-evidenced.
+
+## 0.9.3 (2026-10-24)
+- EvaluateFeinting returns for self.isRanged.

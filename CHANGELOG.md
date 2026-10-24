@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.9.3 (2026-10-24)
+
+- **Archers no longer feint.** A feint starts a bash, and our Block tree never runs a bash for a bow or crossbow user. In run 21 one archer posted 23 bashes that were never taken (the summary's `block/bash never taken` line) and stood still meanwhile.
+
 ## CombatAITree 0.9.2 (2026-10-24)
 
 - **Damage race.** Each NPC now knows how hard it hits its target and how hard the target hits it: the average share of max health per hit, over the whole fight, measured from both sides' hits (two hits are needed per side). From that it estimates how many more hits each side needs.

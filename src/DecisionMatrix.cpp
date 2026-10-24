@@ -2491,6 +2491,11 @@ namespace CombatAI
             return result;
         }
 
+        // A feint is a bash, and our Block tree never bashes with a bow or crossbow (run 21: 0 of 23 taken)
+        if (a_state.self.isRanged) {
+            return result;
+        }
+
         // Need sufficient stamina for feint + potential follow-up (reduced threshold)
         if (a_state.self.staminaPercent < 0.25f) {
             return result;
