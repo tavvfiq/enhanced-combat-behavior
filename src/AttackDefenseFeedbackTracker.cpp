@@ -218,6 +218,28 @@ namespace CombatAI
         });
     }
 
+    void AttackDefenseFeedbackTracker::OnAttackBlocked(RE::Actor *a_attacker, RE::Actor *a_target)
+    {
+        if (!a_attacker || !a_target) {
+            return;
+        }
+        const RE::FormID attackerFormID = a_attacker->GetFormID();
+        const RE::FormID targetFormID = a_target->GetFormID();
+        m_recentAttempts.WithWriteLock([&](auto &attemptsMap) {
+            auto it = attemptsMap.find(attackerFormID);
+            if (it == attemptsMap.end()) {
+                return;
+            }
+            for (auto attemptIt = it->second.rbegin(); attemptIt != it->second.rend(); ++attemptIt) {
+                if (attemptIt->targetFormID == targetFormID && !attemptIt->matchedParry &&
+                    !attemptIt->matchedTimedBlock && !attemptIt->matchedHit) {
+                    attemptIt->matchedHit = true; // processed: the miss timeout skips it
+                    break;
+                }
+            }
+        });
+    }
+
     void AttackDefenseFeedbackTracker::OnRaceHit(RE::Actor *a_attacker, RE::Actor *a_victim)
     {
         if (!a_attacker || !a_victim) {

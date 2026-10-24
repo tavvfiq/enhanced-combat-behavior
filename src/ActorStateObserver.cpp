@@ -240,8 +240,9 @@ namespace CombatAI
         // Attacking state - use safe wrapper
         state.isAttacking = ActorUtils::SafeIsAttacking(a_target);
 
-        // Power attacking - IsPowerAttacking already has internal error handling
-        state.isPowerAttacking = IsPowerAttacking(a_target);
+        // Power attacking - IsPowerAttacking already has internal error handling. The attack data can outlive
+        // the swing, so it only counts while the target is in an attack at all.
+        state.isPowerAttacking = state.isAttacking && IsPowerAttacking(a_target);
 
         // Casting - use safe wrapper
         state.isCasting = (ActorUtils::SafeWhoIsCasting(a_target) != 0);
@@ -261,8 +262,13 @@ namespace CombatAI
 
         // Attack recovery state - check if target just finished attack
         // (kFollowThrough) - use safe wrapper
+        // Recovery is everything after the blow landed: hit, combo window, follow-through. IsAttacking() is
+        // attackState != kNone (1.7.104 id 38590), so it stays true through all of these. Run 22: kFollowThrough
+        // alone was true on 1 of 1066 ticks; the NPCs' own non-idle ticks were 58% kHit/kNextAttack.
         RE::ATTACK_STATE_ENUM targetAttackState = ActorUtils::SafeGetAttackState(a_target);
-        state.isInAttackRecovery = (targetAttackState == RE::ATTACK_STATE_ENUM::kFollowThrough);
+        state.isInAttackRecovery = targetAttackState == RE::ATTACK_STATE_ENUM::kHit ||
+                                   targetAttackState == RE::ATTACK_STATE_ENUM::kNextAttack ||
+                                   targetAttackState == RE::ATTACK_STATE_ENUM::kFollowThrough;
 
         // Target health and stamina percentages
         state.healthPercent = GetActorValuePercent(a_target, RE::ActorValue::kHealth);
@@ -442,13 +448,12 @@ namespace CombatAI
             break;
         }
 
-        // Apply actor speed multiplier
-        // Use safe wrapper to access ActorValueOwner
+        // Attack speed multiplier (SpeedMult is movement speed). 0 is the engine's default for 1.0.
         auto actorValueOwner = ActorUtils::SafeAsActorValueOwner(a_target);
         if (actorValueOwner) {
-            float speedMult = actorValueOwner->GetActorValue(RE::ActorValue::kSpeedMult);
-            if (speedMult > 0.0f) {
-                baseDuration /= (speedMult / 100.0f);
+            const float weaponSpeedMult = actorValueOwner->GetActorValue(RE::ActorValue::kWeaponSpeedMult);
+            if (weaponSpeedMult > 0.0f) {
+                baseDuration /= weaponSpeedMult;
             }
         }
 
@@ -1115,8 +1120,10 @@ namespace CombatAI
                     // The cache is keyed by the observing actor, so reset it when that
                     // actor switches opponents instead of carrying habits across targets.
                     if (targetTemporal.targetFormID != targetFormID) {
+                        const auto swings = targetTemporal.swingCount; // keys stay unique across switches
                         targetTemporal = TargetTemporalData{};
                         targetTemporal.targetFormID = targetFormID;
+                        targetTemporal.swingCount = swings;
                     }
 
                     // Update timers
@@ -1201,9 +1208,12 @@ namespace CombatAI
 
                     // Detect when target attacks (state transition from not attacking to
                     // attacking)
-                    if ((targetIsAttacking || targetAttackState == RE::ATTACK_STATE_ENUM::kSwing) &&
-                        !targetTemporal.wasAttacking &&
-                        targetTemporal.previousAttackState != RE::ATTACK_STATE_ENUM::kSwing) {
+                    // A swing starts on entering the wind-up or swing from anything else, so each combo swing
+                    // counts (IsAttacking stays true across a combo; the old !wasAttacking test missed them)
+                    const auto windUp = [](RE::ATTACK_STATE_ENUM s) {
+                        return s == RE::ATTACK_STATE_ENUM::kDraw || s == RE::ATTACK_STATE_ENUM::kSwing;
+                    };
+                    if (windUp(targetAttackState) && !windUp(targetTemporal.previousAttackState)) {
                         // Target just started attacking
                         targetTemporal.timeSinceLastAttack = 0.0f;
                         targetTemporal.attackStartTime = 0.0f; // Reset attack start time

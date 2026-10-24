@@ -243,3 +243,10 @@
 ## 0.9.3 (2026-10-24)
 - EvaluateFeinting returns for self.isRanged.
 - Run 22 (2026-10-24, 1.7.104, 0.9.3, 20 min session, ~2 min combat): no warnings/errors. Light 7/11 per min, bash 8/8 and 32/32 taken, never taken 0. Race per selected NPC: 8E1A1 our 0.375/their 0.112, 8E19F 0.067/0.113, 8E0ED 0.027/0.068. Executed by race state: WIN (HP<=30) Retreat 0 / Advancing 75; LOSE Retreat 95. Backoff rolls: None 98, Bash 1. Advance runs 89 (our done 26, stopped 33). Runtime-evidenced.
+
+## 0.9.4 (2026-10-24) data audit
+- Actor::IsAttacking (1.7.104 id 38590, SE 37637) disassembled: attackState field != 0, so IsAttacking covers kHit/kNextAttack/kFollowThrough.
+- Run 22: target InAtkRecov true 1/1066; NPC self non-idle states draw 32, swing 4, hit 32, next 18, bash 10.
+- Run 22 misses: 17 timeouts, 15 inside reach; 5 matched a blocked=true probe hit within 1 s.
+- Checked, no change: isIdle (= kNone, blocking separate), range category vs offense formula, hit/attempt matching, target reset on switch.
+- Not checked at runtime: timeUntilAttackHits accuracy (60%-of-duration guess); kHit being post-impact is inferred from state order (hit -> next attack).

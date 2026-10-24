@@ -1,5 +1,15 @@
 # Changelog
 
+## CombatAITree 0.9.4 (2026-10-24)
+
+Data audit: fixes to what the brain sees, each found in code and checked against run 22.
+
+- **Your recovery is an opening again.** The target counted as recovering only in follow-through, which happened on 1 of 1066 ticks. Every "punish the recovery" rule was dead, and NPCs treated your post-hit moments as a live swing: they backed off, held their attack and didn't advance. Recovery is now everything after your blow lands (hit, combo window, follow-through). NPCs no longer back off from a swing that already landed.
+- **Each combo swing is its own swing.** Swing starts were detected only from idle, and a combo never returns to idle. So your second and third swings shared the first one's rolls, and parry/timed-block timing ran from the first swing.
+- **Attack timing uses attack speed.** The swing-duration estimate divided by `SpeedMult`, which is movement speed. It now uses `WeaponSpeedMult`.
+- **Power-attack flag** only while the target is attacking (the attack data can outlive the swing).
+- **Swing ids stay unique across target switches**, so an old roll can't come back.
+- **A blocked hit is neither a hit nor a miss.** 5 of 17 in-reach "misses" in run 22 were blocked hits. They inflated the miss rate, which cuts attack priority by up to 0.4.
 ## CombatAITree 0.9.3 (2026-10-24)
 
 - **Archers no longer feint.** A feint starts a bash, and our Block tree never runs a bash for a bow or crossbow user. In run 21 one archer posted 23 bashes that were never taken (the summary's `block/bash never taken` line) and stood still meanwhile.

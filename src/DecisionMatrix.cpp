@@ -2149,11 +2149,13 @@ namespace CombatAI
         // Secondary trigger: Target attacking aggressively (power attack or rapid
         // attacks) Only backoff if we're in close range and target is being very
         // aggressive
-        if (a_state.target.isPowerAttacking) {
+        // Not once the blow has landed: the target's recovery is the opening, not the threat
+        const bool swingThreat = !a_state.target.isInAttackRecovery;
+        if (swingThreat && a_state.target.isPowerAttacking) {
             shouldBackoff = true;
             urgencyModifier = (std::max)(urgencyModifier,
                                          0.4f); // Very high urgency for power attacks
-        } else if (a_state.target.isAttacking && a_state.target.distance <= sprintAttackMinDist) {
+        } else if (swingThreat && a_state.target.isAttacking && a_state.target.distance <= sprintAttackMinDist) {
             // Target is attacking and we're very close - backoff to create space
             shouldBackoff = true;
             urgencyModifier = (std::max)(urgencyModifier,

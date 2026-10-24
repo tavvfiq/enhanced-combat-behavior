@@ -68,6 +68,8 @@ namespace CombatAI
             RE::FormID lastTargetFormID = 0;      // Target of our previous hit (reset delta on change)
         };
         AttackDefenseFeedback GetFeedback(RE::Actor *a_actor);
+        // A blocked hit closes its attempt without counting it as a hit or a miss
+        void OnAttackBlocked(RE::Actor *a_attacker, RE::Actor *a_target);
 
         // Damage race: every hit (anyone's, blocked or not) folds the victim's health lost since the same
         // attacker's previous hit into that pair's average. Unlike momentum it doesn't fade.

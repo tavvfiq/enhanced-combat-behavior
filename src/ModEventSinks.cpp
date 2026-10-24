@@ -118,7 +118,9 @@ namespace CombatAI
         // (parries and timed blocks are handled by mod events, normal blocks are still blocks)
         bool isBlocked = a_event->flags.any(RE::TESHitEvent::Flag::kHitBlocked);
         if (isBlocked) {
-            return RE::BSEventNotifyControl::kContinue; // Blocked hits are not successful hits
+            // Not a hit, but not a miss either (run 22: 5 of 17 "misses" in reach were blocked hits)
+            AttackDefenseFeedbackTracker::GetInstance().OnAttackBlocked(attacker, target);
+            return RE::BSEventNotifyControl::kContinue;
         }
 
         // This is a successful hit - notify the tracker
