@@ -232,3 +232,4 @@
 ## 0.9.1 (2026-10-24)
 - In-range ticks without an Attack candidate (selected NPC): not idle 163, target is attacking 147, last action too recent 131, LOS 8; with Attack candidate 58 (executed 26).
 - Change: failed Backoff roll -> next-best only if not IsMovementAction, else None (vanilla).
+- Run 20 (2026-10-24, 1.7.104, 8.8 min): no crash of ours (exit crash BetterAltTab+0x25259). Failed Backoff rolls: None 128, Bash 4. Light 6/15/5 per min. Healthy (HP>=30%) in-range ticks: Attack candidate 74 (failed skill roll -> None 54), target attacking 63, last action too recent 43, not idle 33. Retreat 443, all at HP 10-29% (0x8E0ED 430). Bash never taken 0. Runtime-evidenced.

@@ -56,7 +56,8 @@ version so any step can be rolled back.
 - 0.9.0: Backoff rolled per swing (BackoffOnSwingChance 0.35, BackoffAfterSwingChance 0.4; failed roll -> next-best or
   vanilla); summary names the NPC whose block/bash intents expire untaken.
   Run 19: stable 5.7 min; our Advance done ends 79-117 (avg 97) = stop distance (0.8.8 confirmed). Failed rolls went to Strafe 177/273.
-- 0.9.1: failed Backoff roll never becomes another movement (vanilla takes the tick). Build-validated only.
+- 0.9.1: failed Backoff roll never becomes another movement (vanilla takes the tick).
+  Run 20: stable 8.8 min; failed rolls -> None 128/132. Healthy in-range NPC: Attack candidate 74 ticks, 54 lost to failed skill rolls (skill 62-69%, 1 s reroll window). Retreat 443 = all at 10-29% HP (health rule).
   Open: in range the gate `target is attacking` blocks Attack on 147 ticks, `last action too recent` 131 (after own attack/bash).
 - 0.8.1: package = DLL + INI only (OAR jump meshes and BDI json removed with the jump's OAR fallback).
 - 0.8.2: Backoff during own follow-through when the target isn't open (`BackoffAfterSwing`): build-validated only.
