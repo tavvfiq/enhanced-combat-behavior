@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.9.1 (2026-10-24)
+
+- **A failed back-off roll no longer turns into a sidestep.** In run 19, 177 of 273 failed rolls picked Strafe and 46 picked Retreat, so the NPC still disengaged, only sideways. A failed roll now takes the next-best option only when it is not a movement (bash, dodge, attack...). Otherwise it leaves the moment to vanilla, which blocks or swings. The debug line reads `- None instead` then.
+
 ## CombatAITree 0.9.0 (2026-10-22)
 
 - **Less passive: backing off is a choice, rolled once per swing.**

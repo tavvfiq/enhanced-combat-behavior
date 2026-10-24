@@ -276,7 +276,11 @@ namespace CombatAI
                                                  matrix.backoffOnSwingChance);
             }
             if (rolled && !*rolled) {
-                const DecisionResult instead = nextBest(ActionType::Backoff);
+                // Not a sidestep either: run 19 swapped 177 of 273 failed rolls for Strafe, so it still disengaged
+                DecisionResult instead = nextBest(ActionType::Backoff);
+                if (IsMovementAction(instead.action)) {
+                    instead = DecisionResult();
+                }
                 if (debugEnabled) {
                     LOG_DEBUG("Skip 0x{:08X}: no back off this swing ({}) - {} instead", static_cast<std::uint32_t>(formID),
                               ownSwing ? "own swing" : "target's swing", ActionName(instead.action));

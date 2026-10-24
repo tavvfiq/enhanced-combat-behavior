@@ -227,3 +227,8 @@
 - Run 18 in-range Backoff causes (0x8E1A1 etc.): target swinging p1.6-2.3 about 155, own next-attack window p1.6-1.8 about 55, pacing p1.00 47. Bash for selected NPCs: 37/38 taken within 1.5 s.
 - Shortcut: the own-swing roll key is (Humanizer time - timeSinceLastAttack) in 0.25 s bins; clock drift can re-roll once mid-swing.
 - Build ok; FileVersion 0.9.0.0; ship-gate PASS. Zip sha256 976446CE4736369FC5BBF42D454496431845AE36C8CB45A324AD61A11094C543. Runtime: untested.
+- Run 19 (2026-10-24, 1.7.104, 5.7 min): no crash of ours (exit crash BetterAltTab+0x25259, CombatAITree frames 0). Light attacks 11/5/4/6 per min. Failed Backoff rolls: Strafe 177, Retreat 46, None 20 of 273. Our Advance done 25 (end 79-117, avg 97), stopped by brain 33. Bash never taken: 4 (0x8E0A6). Runtime-evidenced.
+
+## 0.9.1 (2026-10-24)
+- In-range ticks without an Attack candidate (selected NPC): not idle 163, target is attacking 147, last action too recent 131, LOS 8; with Attack candidate 58 (executed 26).
+- Change: failed Backoff roll -> next-best only if not IsMovementAction, else None (vanilla).
