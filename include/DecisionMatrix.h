@@ -20,6 +20,17 @@ namespace CombatAI
         // Per thread: actors are updated on several threads at once (a shared vector crashed 0.8.0/0.8.1).
         static const std::vector<DecisionResult> &LastCandidates();
 
+        // Damage race against the current target: hits each side still needs (0 = unknown). Winning: it kills
+        // in fewer hits than it dies in. Losing: a few more of the target's hits kill it and it isn't winning.
+        struct DamageRace
+        {
+            float toKill = 0.0f;
+            float toDie = 0.0f;
+            bool winning = false;
+            bool losing = false;
+        };
+        static DamageRace Race(const ActorStateData &a_state);
+
         // Held-back action for combat pacing: when an actor is denied an attack slot it
         // should stay engaged (circle/flank the target) instead of committing. Returns a
         // ready Flanking decision (execution falls back to strafe if CPR is unavailable).

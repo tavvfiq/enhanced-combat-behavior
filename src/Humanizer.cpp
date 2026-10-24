@@ -87,8 +87,7 @@ namespace CombatAI
         const auto &target = a_state.target;
         if (skillClass == SkillClass::Defense && target.isValid && (target.isAttacking || target.isPowerAttacking) &&
             a_state.temporal.target.attackStartTime >= 0.0f) {
-            key = (static_cast<std::uint64_t>(target.targetFormID) << 32) |
-                  std::bit_cast<std::uint32_t>(a_state.temporal.target.attackStartTime);
+            key = (static_cast<std::uint64_t>(target.targetFormID) << 32) | a_state.temporal.target.swingCount;
         }
 
         const float chance = SkillChance(a_actor, a_action, a_combatTime, a_state.self);

@@ -204,6 +204,11 @@ namespace CombatAI
         // whether enough data exists to trust it. Drives aggression scaling.
         float recentDamageFraction = 0.0f;
         bool hasMomentumData = false;
+
+        // Damage race: average hit (fraction of the victim's max health) it landed on its target, and the
+        // target on it, over the whole fight (0 = not measured yet; needs two hits)
+        float ourAverageHit = 0.0f;
+        float theirAverageHit = 0.0f;
     };
 
     struct TargetTemporalState
@@ -221,6 +226,7 @@ namespace CombatAI
         float attackStartTime = -1.0f;        // When current attack started (relative time, -1 if not attacking)
         float estimatedAttackDuration = 0.0f; // Estimated total duration of current attack
         float timeUntilAttackHits = 999.0f;   // Estimated time until attack hits (999 if not attacking or already hit)
+        std::uint32_t swingCount = 0;         // Counts the target's swings: the key for once-per-swing rolls
     };
 
     struct TemporalState

@@ -64,6 +64,10 @@ namespace CombatAI
         LOG_INFO("Stamina: retreat/backoff {}; power attacks, sprint attacks and power bashes need {:.0f}% stamina",
                  m_decisionMatrix.staminaAffectsRetreat ? "also on low stamina" : "on health only",
                  m_decisionMatrix.powerAttackMinStamina * 100.0f);
+        LOG_INFO("Damage race: {} (retreat at <= {:.1f} hits from death up to {:.0f}% health, press +{:.2f}); trade blows {:.2f}",
+                 m_damageMomentum.enableDamageRace ? "on" : "OFF", m_damageMomentum.raceRetreatHits,
+                 m_damageMomentum.raceRetreatMaxHealth * 100.0f, m_damageMomentum.racePressBonus,
+                 m_decisionMatrix.tradeBlowsChance);
         return true;
     }
 
@@ -152,6 +156,7 @@ namespace CombatAI
         B("DecisionMatrix", "BrainAdvanceDistance", m_decisionMatrix.brainAdvanceDistance);
         D("DecisionMatrix", "BackoffOnSwingChance", m_decisionMatrix.backoffOnSwingChance);
         D("DecisionMatrix", "BackoffAfterSwingChance", m_decisionMatrix.backoffAfterSwingChance);
+        D("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance);
         D("DecisionMatrix", "PowerAttackMinStamina", m_decisionMatrix.powerAttackMinStamina);
         D("DecisionMatrix", "HealthThreshold", m_decisionMatrix.healthThreshold);
         B("DecisionMatrix", "EnableSurvivalRetreat", m_decisionMatrix.enableSurvivalRetreat);
@@ -244,6 +249,10 @@ namespace CombatAI
         D("DamageMomentum", "DefensivePenaltyMax", m_damageMomentum.defensivePenaltyMax);
         D("DamageMomentum", "MomentumDecaySeconds", m_damageMomentum.momentumDecaySeconds);
         D("DamageMomentum", "EwmaAlpha", m_damageMomentum.ewmaAlpha);
+        B("DamageMomentum", "EnableDamageRace", m_damageMomentum.enableDamageRace);
+        D("DamageMomentum", "RaceRetreatHits", m_damageMomentum.raceRetreatHits);
+        D("DamageMomentum", "RaceRetreatMaxHealth", m_damageMomentum.raceRetreatMaxHealth);
+        D("DamageMomentum", "RacePressBonus", m_damageMomentum.racePressBonus);
 
         B("EnvSensor", "EnableLosGate", m_envSensor.enableLosGate);
         D("EnvSensor", "LosEyeHeight", m_envSensor.losEyeHeight);
@@ -458,6 +467,9 @@ namespace CombatAI
             0.0f, 1.0f);
         m_decisionMatrix.backoffAfterSwingChance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "BackoffAfterSwingChance", m_decisionMatrix.backoffAfterSwingChance)),
+            0.0f, 1.0f);
+        m_decisionMatrix.tradeBlowsChance = std::clamp(
+            static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance)),
             0.0f, 1.0f);
         m_decisionMatrix.backoffStepDistance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "BackoffStepDistance", m_decisionMatrix.backoffStepDistance)),
@@ -721,6 +733,17 @@ namespace CombatAI
         m_damageMomentum.defensivePenaltyMax = ClampValue(m_damageMomentum.defensivePenaltyMax, 0.0f, 2.0f);
         m_damageMomentum.momentumDecaySeconds = (std::max)(0.5f, m_damageMomentum.momentumDecaySeconds);
         m_damageMomentum.ewmaAlpha = ClampValue(m_damageMomentum.ewmaAlpha, 0.05f, 1.0f);
+        m_damageMomentum.enableDamageRace =
+            a_ini.GetBoolValue("DamageMomentum", "EnableDamageRace", m_damageMomentum.enableDamageRace);
+        m_damageMomentum.raceRetreatHits = ClampValue(
+            static_cast<float>(a_ini.GetDoubleValue("DamageMomentum", "RaceRetreatHits", m_damageMomentum.raceRetreatHits)),
+            0.0f, 10.0f);
+        m_damageMomentum.raceRetreatMaxHealth = ClampValue(
+            static_cast<float>(a_ini.GetDoubleValue("DamageMomentum", "RaceRetreatMaxHealth", m_damageMomentum.raceRetreatMaxHealth)),
+            0.0f, 1.0f);
+        m_damageMomentum.racePressBonus = ClampValue(
+            static_cast<float>(a_ini.GetDoubleValue("DamageMomentum", "RacePressBonus", m_damageMomentum.racePressBonus)),
+            0.0f, 2.0f);
     }
 
     void Config::ReadEnvSensorSettings(CSimpleIniA &a_ini)

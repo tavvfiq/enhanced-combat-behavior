@@ -97,6 +97,7 @@ namespace CombatAI
 
         // Any hit (player's included, blocked or not) can provoke a target switch
         CombatDirector::GetInstance().OnActorHit(target, attacker);
+        AttackDefenseFeedbackTracker::GetInstance().OnRaceHit(attacker, target); // the player's hits count too
 
         const auto &config = Config::GetInstance();
         if (config.IsDebugTarget(attacker->GetFormID()) || config.IsDebugTarget(target->GetFormID())) {

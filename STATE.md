@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.9.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.9.2 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -57,7 +57,8 @@ version so any step can be rolled back.
   vanilla); summary names the NPC whose block/bash intents expire untaken.
   Run 19: stable 5.7 min; our Advance done ends 79-117 (avg 97) = stop distance (0.8.8 confirmed). Failed rolls went to Strafe 177/273.
 - 0.9.1: failed Backoff roll never becomes another movement (vanilla takes the tick).
-  Run 20: stable 8.8 min; failed rolls -> None 128/132. Healthy in-range NPC: Attack candidate 74 ticks, 54 lost to failed skill rolls (skill 62-69%, 1 s reroll window). Retreat 443 = all at 10-29% HP (health rule).
+- 0.9.2: damage race (press when winning, retreat when losing up to 75% HP), trade-blows roll 0.3, per-swing roll keys fixed (were per tick). Build-validated only.
+  Run 20 (0.9.1): stable 8.8 min; failed rolls -> None 128/132. Healthy in-range NPC: Attack candidate 74 ticks, 54 lost to failed skill rolls (skill 62-69%, 1 s reroll window). Retreat 443 = all at 10-29% HP (health rule).
   Open: in range the gate `target is attacking` blocks Attack on 147 ticks, `last action too recent` 131 (after own attack/bash).
 - 0.8.1: package = DLL + INI only (OAR jump meshes and BDI json removed with the jump's OAR fallback).
 - 0.8.2: Backoff during own follow-through when the target isn't open (`BackoffAfterSwing`): build-validated only.

@@ -233,3 +233,8 @@
 - In-range ticks without an Attack candidate (selected NPC): not idle 163, target is attacking 147, last action too recent 131, LOS 8; with Attack candidate 58 (executed 26).
 - Change: failed Backoff roll -> next-best only if not IsMovementAction, else None (vanilla).
 - Run 20 (2026-10-24, 1.7.104, 8.8 min): no crash of ours (exit crash BetterAltTab+0x25259). Failed Backoff rolls: None 128, Bash 4. Light 6/15/5 per min. Healthy (HP>=30%) in-range ticks: Attack candidate 74 (failed skill roll -> None 54), target attacking 63, last action too recent 43, not idle 33. Retreat 443, all at HP 10-29% (0x8E0ED 430). Bash never taken 0. Runtime-evidenced.
+
+## 0.9.2 (2026-10-24)
+- Found: TargetTemporalData.attackStartTime += deltaTime (elapsed time), so per-swing keys (Humanizer defense, CombatDirector target-swing backoff) changed every tick. Now keyed on swingCount (incremented at swing start).
+- Damage race from TESHitEvent (all hits, both directions), health delta between the same attacker's consecutive hits, EWMA (EwmaAlpha), cap 0.5. Shortcut: other damage between hits is credited to that attacker.
+- Trade roll: stateless SplitMix64 hash of (self FormID, target swingCount) + session salt; static_assert on SplitMix64(0).

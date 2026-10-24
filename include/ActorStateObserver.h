@@ -183,6 +183,7 @@ namespace CombatAI
             float timeUntilAttackHits = 999.0f;   // Estimated time until attack hits (999
                                                   // if not attacking or already hit)
             bool isPowerAttack = false;           // Track if current attack is a power attack
+            std::uint32_t swingCount = 0;         // One id per swing (attackStartTime is elapsed time, not an id)
 
             // Previous states for duration tracking
             bool wasBlocking = false;

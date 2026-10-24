@@ -1093,6 +1093,13 @@ namespace CombatAI
             actorTemporal.hasMomentumData = attackDefenseFeedback.hasMomentumData;
         });
 
+        // Damage race inputs: both directions between this actor and its target
+        if (a_target) {
+            const auto &tracker = AttackDefenseFeedbackTracker::GetInstance();
+            temporal.self.ourAverageHit = tracker.AverageHit(formID, a_target->GetFormID());
+            temporal.self.theirAverageHit = tracker.AverageHit(a_target->GetFormID(), formID);
+        }
+
         // Track target temporal state
         if (a_target) {
             auto targetFormIDOpt = ActorUtils::SafeGetFormID(a_target);
@@ -1200,6 +1207,7 @@ namespace CombatAI
                         // Target just started attacking
                         targetTemporal.timeSinceLastAttack = 0.0f;
                         targetTemporal.attackStartTime = 0.0f; // Reset attack start time
+                        ++targetTemporal.swingCount;
 
                         // Check if it's a power attack
                         bool isPowerAttack = IsPowerAttacking(a_target);
@@ -1264,6 +1272,7 @@ namespace CombatAI
                     temporal.target.idleDuration = targetTemporal.idleDuration;
                     temporal.target.timeSinceLastPowerAttack = targetTemporal.timeSinceLastPowerAttack;
                     temporal.target.attackStartTime = targetTemporal.attackStartTime;
+                    temporal.target.swingCount = targetTemporal.swingCount;
                     temporal.target.estimatedAttackDuration = targetTemporal.estimatedAttackDuration;
                     temporal.target.timeUntilAttackHits = targetTemporal.timeUntilAttackHits;
                 });

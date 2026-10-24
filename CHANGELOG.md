@@ -1,5 +1,13 @@
 # Changelog
 
+## CombatAITree 0.9.2 (2026-10-24)
+
+- **Damage race.** Each NPC now knows how hard it hits its target and how hard the target hits it: the average share of max health per hit, over the whole fight, measured from both sides' hits (two hits are needed per side). From that it estimates how many more hits each side needs.
+  - **Winning** (it kills you in fewer hits than you need): it keeps pressing. Attack priority +`RacePressBonus` (0.4), no low-health retreat, and both back-off chances halved. Glass cannons (mages, archers in light armor) usually put it here without any special rule.
+  - **Losing** (`RaceRetreatHits` = 2 or fewer of your hits from death, and not winning): it retreats even above `HealthThreshold`, up to `RaceRetreatMaxHealth` (75%). This is the "it got hit hard" retreat.
+  - No data yet: the old rules apply. Menu: Momentum tab. Debug line per tick: `Race: OurHit= TheirHit= ToKill= ToDie= Winning= Losing=`.
+- **Trading blows.** While you swing (not a power attack), `TradeBlowsChance` (0.3) per swing lets it attack anyway instead of waiting, doubled while it's winning the race. Debug line: `trades blows with the target's swing`.
+- **Fix: once-per-swing rolls were once per tick.** `attackStartTime` is the swing's elapsed time, not an id, so the Humanizer's defense skill roll and the back-off roll on your swings re-rolled every tick. A 35% back-off chance worked out near 90% over one swing. They now key on a swing counter. Expect fewer back-offs from your swings, and defense skill rolls that really fail sometimes.
 ## CombatAITree 0.9.1 (2026-10-24)
 
 - **A failed back-off roll no longer turns into a sidestep.** In run 19, 177 of 273 failed rolls picked Strafe and 46 picked Retreat, so the NPC still disengaged, only sideways. A failed roll now takes the next-best option only when it is not a movement (bash, dodge, attack...). Otherwise it leaves the moment to vanilla, which blocks or swings. The debug line reads `- None instead` then.

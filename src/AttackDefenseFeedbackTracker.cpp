@@ -218,6 +218,39 @@ namespace CombatAI
         });
     }
 
+    void AttackDefenseFeedbackTracker::OnRaceHit(RE::Actor *a_attacker, RE::Actor *a_victim)
+    {
+        if (!a_attacker || !a_victim) {
+            return;
+        }
+        auto *avo = ActorUtils::SafeAsActorValueOwner(a_victim);
+        const float mx = a_victim->GetActorValueMax(RE::ActorValue::kHealth);
+        if (!avo || mx <= 0.0f) {
+            return;
+        }
+        const float health = avo->GetActorValue(RE::ActorValue::kHealth) / mx;
+        if (m_raceHits.Size() > 1024) {
+            m_raceHits.Clear(); // pairs pile up over a session; a reset only costs two hits of data
+        }
+        const float alpha = Config::GetInstance().GetDamageMomentum().ewmaAlpha;
+        const auto key = (static_cast<std::uint64_t>(a_attacker->GetFormID()) << 32) | a_victim->GetFormID();
+        m_raceHits.ModifyOrCreate(key, [&](RaceHit &race) {
+            if (race.lastHealth >= 0.0f) {
+                // shortcut: other damage between this attacker's hits (allies, poison) counts as theirs; a
+                // per-hit damage hook would be exact
+                const float delta = std::clamp(race.lastHealth - health, 0.0f, 0.5f);
+                race.average = race.average > 0.0f ? alpha * delta + (1.0f - alpha) * race.average : delta;
+            }
+            race.lastHealth = health;
+        });
+    }
+
+    float AttackDefenseFeedbackTracker::AverageHit(RE::FormID a_attacker, RE::FormID a_victim) const
+    {
+        const auto race = m_raceHits.Find((static_cast<std::uint64_t>(a_attacker) << 32) | a_victim);
+        return race ? race->average : 0.0f;
+    }
+
     void AttackDefenseFeedbackTracker::OnAttackHit(RE::Actor *a_attacker, RE::Actor *a_target)
     {
         if (!a_attacker || !a_target) {

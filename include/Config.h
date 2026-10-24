@@ -92,6 +92,7 @@ namespace CombatAI
             bool brainAdvanceDistance = true;    // Our Advance closes to the brain's attack range (false: vanilla's range)
             float backoffOnSwingChance = 0.35f;   // Chance to back off from each of the target's normal swings
             float backoffAfterSwingChance = 0.4f; // Chance to step out after each of its own swings
+            float tradeBlowsChance = 0.3f;        // Chance to attack into each of the target's normal swings
             bool staminaAffectsRetreat = false;  // Off: retreat/backoff depend on health only (light attacks cost no stamina)
             float powerAttackMinStamina = 0.7f;  // Power/sprint attacks and power bashes need this stamina fraction
             float healthThreshold = 0.3f;
@@ -212,6 +213,10 @@ namespace CombatAI
             float defensivePenaltyMax = 0.3f;   // Max attack-priority penalty at full chip (anti-turtle cap)
             float momentumDecaySeconds = 5.0f;  // Momentum fades to 0 over this long with no hits
             float ewmaAlpha = 0.5f;             // Smoothing of per-hit damage fraction (0-1)
+            bool enableDamageRace = true;       // Weigh hits-to-kill against hits-to-die
+            float raceRetreatHits = 2.0f;       // Losing and this many of the target's hits from death: retreat
+            float raceRetreatMaxHealth = 0.75f; // ...but never above this health fraction
+            float racePressBonus = 0.4f;        // Attack priority while winning (and no health retreat)
         };
 
         // Environmental sensing (raycast-driven spatial awareness).

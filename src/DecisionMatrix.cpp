@@ -45,6 +45,44 @@ namespace CombatAI
 
     const std::vector<DecisionResult> &DecisionMatrix::LastCandidates() { return t_candidates; }
 
+    DecisionMatrix::DamageRace DecisionMatrix::Race(const ActorStateData &a_state)
+    {
+        const auto &dm = Config::GetInstance().GetDamageMomentum();
+        DamageRace race;
+        if (!dm.enableDamageRace || !a_state.target.isValid) {
+            return race;
+        }
+        if (a_state.temporal.self.ourAverageHit > 0.0f) {
+            race.toKill = a_state.target.healthPercent / a_state.temporal.self.ourAverageHit;
+        }
+        if (a_state.temporal.self.theirAverageHit > 0.0f) {
+            race.toDie = a_state.self.healthPercent / a_state.temporal.self.theirAverageHit;
+        }
+        race.winning = race.toKill > 0.0f && race.toDie > 0.0f && race.toKill < race.toDie;
+        race.losing = race.toDie > 0.0f && race.toDie <= dm.raceRetreatHits && !race.winning &&
+                      a_state.self.healthPercent <= dm.raceRetreatMaxHealth;
+        return race;
+    }
+
+    namespace
+    {
+        constexpr std::uint64_t SplitMix64(std::uint64_t a_state)
+        {
+            std::uint64_t z = a_state + 0x9E3779B97F4A7C15ull;
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
+            return z ^ (z >> 31);
+        }
+        static_assert(SplitMix64(0) == 0xE220A8397B1DCDAFull); // reference first output for seed 0
+
+        // A stateless once-per-key roll: every tick of the same swing gets the same answer
+        bool RollOnce(std::uint64_t a_key, float a_chance)
+        {
+            static const std::uint64_t salt = std::random_device{}(); // a new sequence each session
+            return static_cast<float>(SplitMix64(a_key + salt) >> 40) * (1.0f / 16777216.0f) < a_chance;
+        }
+    }
+
     DecisionResult DecisionMatrix::Evaluate(RE::Actor *a_actor, const ActorStateData &a_state)
     {
         std::vector<DecisionResult> possibleDecisions;
@@ -1056,8 +1094,9 @@ namespace CombatAI
         // Check if NPC is outnumbering the target (we have more allies than enemies)
         bool outnumberingTarget = (a_state.combatContext.allyCount > a_state.combatContext.enemyCount);
 
-        // Health-based retreat (survival)
-        if (a_state.self.healthPercent <= healthThreshold) {
+        // Health-based retreat (survival), unless it is winning the damage race: then it presses on
+        const DamageRace race = Race(a_state);
+        if (a_state.self.healthPercent <= healthThreshold && !race.winning) {
             shouldRetreat = true;
             retreatPriority = 2.0f; // Survival is highest priority
 
@@ -1074,6 +1113,13 @@ namespace CombatAI
                 retreatPriority *= 0.7f; // Reduce by 30% when outnumbering (still high
                                          // priority but less urgent)
             }
+        }
+
+        // Losing the damage race: a few more of the target's hits would kill it, so it gets out even above the
+        // health threshold (up to RaceRetreatMaxHealth)
+        if (!shouldRetreat && race.losing) {
+            shouldRetreat = true;
+            retreatPriority = 2.0f;
         }
 
         // Stamina-based tactical retreat: an exhausted NPC can't attack/power/sprint
@@ -1478,9 +1524,21 @@ namespace CombatAI
             // evasion/strafe) Exception: if target is in attack recovery
             // (kFollowThrough), we can attack during their recovery window
             // A bow or crossbow being drawn also reads as "attacking"; up close that is the opening, not a threat.
+            const DamageRace race = Race(a_state);
             if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && !a_state.target.isInAttackRecovery &&
                 !a_state.target.isRanged) {
-                return skip("target is attacking"); // Let evasion handle this - strafe/dodge instead
+                // Trading blows: one roll per normal swing of the target, twice the chance while winning the race
+                const float trade =
+                    (std::min)(1.0f, config.GetDecisionMatrix().tradeBlowsChance * (race.winning ? 2.0f : 1.0f));
+                const auto swing =
+                    (static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) | a_state.temporal.target.swingCount;
+                if (a_state.target.isPowerAttacking || !RollOnce(swing, trade)) {
+                    return skip("target is attacking"); // Let evasion handle this - strafe/dodge instead
+                }
+                if (debugOffense) {
+                    LOG_DEBUG("Offense 0x{:08X}: trades blows with the target's swing (chance {:.2f})",
+                              a_actor->GetFormID(), trade);
+                }
             }
 
             // Use temporal state: Prevent action spam - don't attack too quickly after
@@ -1871,6 +1929,11 @@ namespace CombatAI
                 } else {
                     finalPriority -= (-momentum) * dm.defensivePenaltyMax;
                 }
+            }
+
+            // Winning the damage race: keep pressing
+            if (race.winning) {
+                finalPriority += config.GetDamageMomentum().racePressBonus;
             }
 
             // Additional weapon type considerations for attack priority
@@ -2790,6 +2853,10 @@ namespace CombatAI
                   a_state.temporal.self.totalDefenseRate * 100.0f);
         LOG_DEBUG("Momentum: RecentDamageFrac={:.3f} HasData={}", a_state.temporal.self.recentDamageFraction,
                   a_state.temporal.self.hasMomentumData);
+        const DamageRace race = Race(a_state);
+        LOG_DEBUG("Race: OurHit={:.3f} TheirHit={:.3f} ToKill={:.1f} ToDie={:.1f} Winning={} Losing={}",
+                  a_state.temporal.self.ourAverageHit, a_state.temporal.self.theirAverageHit, race.toKill, race.toDie,
+                  race.winning, race.losing);
         LOG_DEBUG("AtkDefFeedback: TimeSince: LastParriedAtk={:.2f}s "
                   "LastTBlockedAtk={:.2f}s LastHitAtk={:.2f}s LastMissedAtk={:.2f}s",
                   a_state.temporal.self.timeSinceLastParriedAttack,

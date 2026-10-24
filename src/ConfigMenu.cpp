@@ -157,6 +157,7 @@ namespace CombatAI
         ImGuiMCP::Checkbox("Advance into own attack range", &config.m_decisionMatrix.brainAdvanceDistance);
         liveFloat("Back off from a swing (chance)", &config.m_decisionMatrix.backoffOnSwingChance, 0.0f, 1.0f);
         liveFloat("Step out after own swing (chance)", &config.m_decisionMatrix.backoffAfterSwingChance, 0.0f, 1.0f);
+        liveFloat("Trade blows with a swing (chance)", &config.m_decisionMatrix.tradeBlowsChance, 0.0f, 1.0f);
         liveFloat("Power attack min stamina", &config.m_decisionMatrix.powerAttackMinStamina, 0.0f, 1.0f);
                 liveFloat("Health threshold", &config.m_decisionMatrix.healthThreshold, 0.0f, 1.0f);
                 ImGuiMCP::Checkbox("Power attack stamina check",
@@ -253,6 +254,12 @@ namespace CombatAI
                 liveFloat("Defensive penalty max", &config.m_damageMomentum.defensivePenaltyMax, 0.0f, 2.0f);
                 liveFloat("Momentum decay (s)", &config.m_damageMomentum.momentumDecaySeconds, 0.5f, 20.0f, "%.1f");
                 liveFloat("EWMA alpha", &config.m_damageMomentum.ewmaAlpha, 0.05f, 1.0f);
+                ImGuiMCP::Separator();
+                ImGuiMCP::Text("Damage race: hits each side still needs, from the hits each has landed.");
+                ImGuiMCP::Checkbox("Enable damage race", &config.m_damageMomentum.enableDamageRace);
+                liveFloat("Retreat at hits from death", &config.m_damageMomentum.raceRetreatHits, 0.0f, 10.0f, "%.1f");
+                liveFloat("Race retreat max health", &config.m_damageMomentum.raceRetreatMaxHealth, 0.0f, 1.0f);
+                liveFloat("Press bonus while winning", &config.m_damageMomentum.racePressBonus, 0.0f, 2.0f);
                 ImGuiMCP::EndTabItem();
             }
 

@@ -69,6 +69,12 @@ namespace CombatAI
         };
         AttackDefenseFeedback GetFeedback(RE::Actor *a_actor);
 
+        // Damage race: every hit (anyone's, blocked or not) folds the victim's health lost since the same
+        // attacker's previous hit into that pair's average. Unlike momentum it doesn't fade.
+        void OnRaceHit(RE::Actor *a_attacker, RE::Actor *a_victim);
+        // Average hit of attacker on victim, fraction of the victim's max health; 0 until two hits landed
+        float AverageHit(RE::FormID a_attacker, RE::FormID a_victim) const;
+
       private:
         AttackDefenseFeedbackTracker() = default;
         ~AttackDefenseFeedbackTracker() = default;
@@ -95,6 +101,14 @@ namespace CombatAI
 
         // Track feedback per actor (keyed by attacker FormID)
         ThreadSafeMap<RE::FormID, AttackDefenseFeedback> m_feedbackData;
+
+        // Damage race per attacker -> victim pair, keyed (attacker << 32) | victim
+        struct RaceHit
+        {
+            float lastHealth = -1.0f; // victim health fraction at this attacker's previous hit
+            float average = 0.0f;
+        };
+        ThreadSafeMap<std::uint64_t, RaceHit> m_raceHits;
 
         // Maximum age for attack attempts (clean up old attempts)
         static constexpr float MAX_ATTEMPT_AGE = 2.0f;          // 2 seconds

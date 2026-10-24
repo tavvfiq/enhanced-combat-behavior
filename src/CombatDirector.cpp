@@ -264,16 +264,18 @@ namespace CombatAI
                                   state.self.attackState == RE::ATTACK_STATE_ENUM::kFollowThrough;
             const bool targetSwing = state.target.isAttacking && !state.target.isPowerAttacking &&
                                      state.temporal.target.attackStartTime >= 0.0f;
+            // Winning the damage race halves both chances: it keeps pressing
+            const float pressing = DecisionMatrix::Race(state).winning ? 0.5f : 1.0f;
             std::optional<bool> rolled;
             if (ownSwing) {
                 const float swingStart = m_humanizer.Now() - state.temporal.self.timeSinceLastAttack; // constant over one swing
                 rolled = m_humanizer.RollBackoff(formID, (1ull << 62) | static_cast<std::uint32_t>(swingStart * 4.0f),
-                                                 matrix.backoffAfterSwingChance);
+                                                 matrix.backoffAfterSwingChance * pressing);
             } else if (targetSwing) {
                 rolled = m_humanizer.RollBackoff(formID,
                                                  (static_cast<std::uint64_t>(state.target.targetFormID) << 32) |
-                                                     std::bit_cast<std::uint32_t>(state.temporal.target.attackStartTime),
-                                                 matrix.backoffOnSwingChance);
+                                                     state.temporal.target.swingCount,
+                                                 matrix.backoffOnSwingChance * pressing);
             }
             if (rolled && !*rolled) {
                 // Not a sidestep either: run 19 swapped 177 of 273 failed rolls for Strafe, so it still disengaged
