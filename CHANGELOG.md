@@ -1,5 +1,12 @@
 # Changelog
 
+## CombatAITree 0.18.1 (2026-10-26)
+
+Run 35 (0.18.0): the dual block works through the Melee tree. A dual-wielding Bandit Chief blocked 3 times; the first caught your hit (`blocked=true`), and you didn't land one during the other two.
+
+- **Spell hands get the dual block now.** The Magic tree was left vanilla ("unexpected shape"): vanilla's Magic tree has no loop right under its root, it has one per casting branch further down. Our branch now goes inside every loop it finds (the log says how many).
+- **A held block stays up while the NPC moves.** The old executor drops any block before a movement action, and a Feint cut one 0.15 s early. It now leaves a held dual block alone, and the brain doesn't feint (a bash) while the block is held.
+
 ## CombatAITree 0.18.0 (2026-10-25)
 
 - **NPCs with a weapon plus a spell, torch or second weapon can timed-block.** Vanilla never gives them the Block tree, so nothing ever asked them to block. Run 34's probe showed their animations do block when told the way Simple Dual Wield Block does it for the player: set the "wants to block" flag, send `blockStart`. Both tries that weren't cut short blocked your hit. Now a timed block for these NPCs runs a new tree node (an Idle node with our own start and end steps). It is the first branch in the Melee tree (dual wield) and in the Magic tree (a spell in the left hand, via a new hook on the vanilla Magic builder). The node holds the block until just after your predicted hit (0.3-1.0 s), and while it runs that hand can't swing or cast. The brain also posts no attacks or bashes while the block is held, which is what broke one probe block. Same per-swing defend roll and priority as the shield timed block. No parry for these NPCs (that needs the Block tree's bash).

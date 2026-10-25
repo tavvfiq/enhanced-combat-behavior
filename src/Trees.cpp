@@ -716,26 +716,42 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
-        // Vanilla Magic: Context > Repeat > <cast selection>. Ours: Context > Repeat > NextSelector{ DualBlock, <vanilla> }.
+        // Vanilla Magic has no Repeat under its root: the builder (SE 48065) makes two, deeper down, one per casting
+        // branch (two Repeat factory calls). Run 35 logged "unexpected shape" for a Context > Repeat check. Each
+        // single-child Repeat gets Repeat > NextSelector{ DualBlock, <its vanilla child> }, so the branch is re-read
+        // inside every loop.
+        void CollectRepeats(Node *a_node, std::vector<Node *> &a_out, int a_depth)
+        {
+            if (!a_node || a_depth > 16) {
+                return;
+            }
+            if (Is(a_node, Id::vtRepeat) && a_node->childCount == 1 && a_node->children[0]) {
+                a_out.push_back(a_node);
+            }
+            for (std::int32_t i = 0; i < a_node->childCount; ++i) {
+                CollectRepeats(a_node->children[i], a_out, a_depth + 1);
+            }
+        }
+
         struct MagicSetRoot
         {
             static void thunk(void *a_tree, Node *a_root)
             {
-                Node *repeat = a_root && a_root->childCount == 1 ? a_root->children[0] : nullptr;
-                Node *vanilla = repeat && repeat->childCount == 1 ? repeat->children[0] : nullptr;
-                if (!Is(repeat, Id::vtRepeat) || !vanilla) {
-                    LOG_ERROR("Tree: Magic tree has an unexpected shape - no dual block for spell hands");
-                    func(a_tree, a_root);
-                    return;
+                std::vector<Node *> repeats;
+                CollectRepeats(a_root, repeats, 0);
+                for (auto *repeat : repeats) {
+                    Node *vanilla = repeat->children[0];
+                    vanilla->parent = nullptr; // detach, or SetChildren would add the whole tree's root
+                    auto *selector = Checked(Named(NextSelector(), "Intent Magic Selector"), "Intent Magic Selector");
+                    SetChildren(selector, {DualBlockBranch(), vanilla});
+                    repeat->children[0] = selector; // Repeat keeps its one-slot child array
+                    selector->parent = repeat;
                 }
-                vanilla->parent = nullptr; // detach, or SetChildren would add the whole tree's root
-                auto *selector = Checked(Named(NextSelector(), "Intent Magic Selector"), "Intent Magic Selector");
-                SetChildren(selector, {DualBlockBranch(), vanilla});
-                repeat->children[0] = selector;
-                selector->parent = repeat;
                 func(a_tree, a_root);
-                if (g_magicBuilt.fetch_add(1) == 0) {
-                    LOG_INFO("Tree: Magic tree extended (dual block over vanilla casting)");
+                if (repeats.empty()) {
+                    LOG_ERROR("Tree: Magic tree has no Repeat node - no dual block for spell hands");
+                } else if (g_magicBuilt.fetch_add(1) == 0) {
+                    LOG_INFO("Tree: Magic tree extended (dual block under {} cast loops)", repeats.size());
                 }
             }
             static inline REL::Relocation<decltype(thunk)> func;

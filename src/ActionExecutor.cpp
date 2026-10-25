@@ -105,7 +105,8 @@ namespace CombatAI
         }
 
         bool blockReleased = false;
-        if (a_state.self.isBlocking && movementCanRun) {
+        // A held direct block (DualBlock node) stays up while the NPC moves (run 35: a Feint cut one 0.15 s early)
+        if (a_state.self.isBlocking && movementCanRun && !Intents::WantsDualBlock(a_actor)) {
             switch (a_decision.action) {
             case ActionType::Bash:
             case ActionType::Parry:

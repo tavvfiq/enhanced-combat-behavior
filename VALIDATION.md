@@ -343,3 +343,7 @@
 ## 0.18.0 (2026-10-25) DualBlock tree node
 - RE: Magic builder SE 48065 calls initNodes (46263) at +0x4AC; AE 1.6.1170 and 1.7.104 id 49112 calls 47518 at +0x7AC. Idle vtable (SE 256701 / AE 205318): RTTI at [-1], 10 slots; slot 2 Enter, 3 Exit. The Magic tree shape (Context > Repeat > child) is checked at runtime; a mismatch logs an error and leaves it vanilla.
 - Built; untested in game. Pass: `Tree: Magic tree extended`, DualBlock blockStart/release lines for a weapon+spell or dual-wield NPC, the player's hits blocked=true during holds, no stuck blocking after combat.
+- Run 35 (0.18.0): `Tree: Magic SetRoot hooked`, then `Tree: Magic tree has an unexpected shape` (root's child is not a Repeat). Dual block posts 3, all for 0xFF0008C8 (Bandit Chief): blockStart accepted 3; 00:04:50.234 player hit blocked=true (blockHitStart); release blockStop accepted 2, rejected 1 (00:04:50.590, after a blockStop at 50.418 from the executor's pre-movement block release when Feint executed). SE 48065 call list: Repeat factory 32409 at +0x1AE and +0x31D, NextSelector 32407 at +0x191 and +0x302 (one Repeat per cast branch).
+
+## 0.18.1 (2026-10-26)
+- Fixes from run 35 above. Untested in game.

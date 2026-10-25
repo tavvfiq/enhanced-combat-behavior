@@ -2599,7 +2599,7 @@ namespace CombatAI
         }
 
         // A feint is a bash, and our Block tree never bashes with a bow or crossbow (run 21: 0 of 23 taken)
-        if (a_state.self.isRanged || Intents::DefendUnavailable(a_actor) ||
+        if (a_state.self.isRanged || Intents::DefendUnavailable(a_actor) || Intents::WantsDualBlock(a_actor) ||
             a_state.self.currentStamina < BashStaminaCost()) {
             return result;
         }
