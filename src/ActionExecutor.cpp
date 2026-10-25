@@ -292,11 +292,11 @@ namespace CombatAI
             return false;
         }
 
-        // Apply timed block window spell (creates 0.33s window for timed block)
-        // This must be applied before blocking starts
-        if (!TimedBlockIntegration::GetInstance().ApplyTimedBlockWindow(a_actor)) {
-            LOG_WARN("Failed to apply timed block window spell");
-            return false;
+        // With Simple Timed Block loaded, its window spell (0.33 s) makes this a timed block and must go on
+        // before blocking starts. Without the mod it is a well-timed plain block.
+        auto &timedBlock = TimedBlockIntegration::GetInstance();
+        if (timedBlock.IsAvailable() && !timedBlock.ApplyTimedBlockWindow(a_actor)) {
+            LOG_WARN("Failed to apply timed block window spell - blocking without it");
         }
 
         // Record timed block attempt for feedback tracking

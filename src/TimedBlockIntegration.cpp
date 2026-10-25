@@ -47,7 +47,7 @@ namespace CombatAI
     bool TimedBlockIntegration::Initialize()
     {
         if (!IsModLoaded()) {
-            LOG_INFO("Simple Timed Block mod not found, timed block integration disabled");
+            LOG_INFO("Simple Timed Block not found: timed blocks run as well-timed plain blocks (no window effect)");
             m_isAvailable = false;
             return false;
         }

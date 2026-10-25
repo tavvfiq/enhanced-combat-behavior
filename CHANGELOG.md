@@ -1,5 +1,13 @@
 # Changelog
 
+## CombatAITree 0.15.0 (2026-10-25)
+
+- **Parry and timed block are on by default and need no mod.** A parry is a bash timed to land when your swing hits; a timed block is a block started just before it. Both are vanilla actions run through the Block tree. EldenParry and Simple Timed Block are now optional: EldenParry adds the parry effect and success feedback, and Simple Timed Block's window spell is applied only when it is loaded. Before, timed block needed `SimpleTimedBlock.esp` or never ran, and both were off in the shipped INI. This is also the first time the brain asks for a block at all (0 block requests in every earlier run).
+- **Only against swings aimed at the NPC**, like the dodge and strafe: no parry or block against your swing at its neighbour.
+- **A timed block works at low stamina.** It no longer waits for the bash stamina cost (a block costs none); a parry still does.
+- Needs a shield: only shield users run the Block tree (0.14.0 finding).
+- If your INI was saved from the in-game menu, it may still say `EnableParry = false` / `EnableTimedBlock = false`; turn them on in the menu (Parry / Timed Block tabs).
+
 ## CombatAITree 0.14.1 (2026-10-25)
 
 - **Fix (0.13.1 regression): a forward dodge that can't go is an advance again, not a dodge.** CombatDirector already turned a failed forward dodge into an Advance and recorded it as one. 0.13.1 added a second fallback inside the executor that reported the advance as a successful forward dodge. In run 31, 43 of 47 "forward dodges" were really advances, and each reset the dodge and evasion timers. Removed; the 0.13.1 note that run 30's NPC "stood still" was wrong, CombatDirector's fallback was already advancing it.

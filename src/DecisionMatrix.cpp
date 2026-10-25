@@ -266,7 +266,7 @@ namespace CombatAI
         // Shortcut: base cost only (vanilla may scale it), upgrade if bashes are still refused with stamina left.
         // Run 28: 10 of 11 refused bashes came at 0-8% stamina.
         if (a_state.self.currentStamina < BashStaminaCost()) {
-            return result;
+            return EvaluateTimedBlock(a_actor, a_state); // a block costs no stamina: a timed block can still go
         }
 
         // Get interrupt distance - use actual weapon reach from state
@@ -502,8 +502,9 @@ namespace CombatAI
             return result;
         }
 
-        // Check if target is valid and attacking
-        if (!a_state.target.isValid || (!a_state.target.isAttacking && !a_state.target.isPowerAttacking)) {
+        // Check if target is valid and attacking, at this NPC (not a neighbour in a group fight)
+        if (!a_state.target.isValid || (!a_state.target.isAttacking && !a_state.target.isPowerAttacking) ||
+            !TargetAimedAtUs(a_actor, a_state)) {
             return result;
         }
 
@@ -603,13 +604,12 @@ namespace CombatAI
             return result;
         }
 
-        // Check if Timed Block mod is available
-        if (!TimedBlockIntegration::GetInstance().IsAvailable()) {
-            return result;
-        }
+        // No mod check: the trigger is a vanilla block at the right moment. Simple Timed Block, when loaded, only
+        // adds its window effect (ActionExecutor::ExecuteTimedBlock).
 
-        // Check if target is valid and attacking
-        if (!a_state.target.isValid || (!a_state.target.isAttacking && !a_state.target.isPowerAttacking)) {
+        // Check if target is valid and attacking, at this NPC (not a neighbour in a group fight)
+        if (!a_state.target.isValid || (!a_state.target.isAttacking && !a_state.target.isPowerAttacking) ||
+            !TargetAimedAtUs(a_actor, a_state)) {
             return result;
         }
 

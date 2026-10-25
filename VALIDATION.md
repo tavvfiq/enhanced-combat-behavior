@@ -315,3 +315,7 @@
 
 ## 0.14.1 (2026-10-25)
 - Executor ForwardDodge fallback removed. Untested in game.
+
+## 0.15.0 (2026-10-25) parry and timed block without mods
+- Code audit before the change: EvaluateParry had no mod check (EldenParry only feeds ParryFeedbackTracker via a mod callback; parry scoring does not read it). EvaluateTimedBlock returned while SimpleTimedBlock.esp was missing and ExecuteTimedBlock failed without its window spell. Config.h defaults were already true; the shipped INI set both false.
+- Timing is the open question: both use timeUntilAttackHits (hit assumed at 60% of the estimated swing), unverified. parrytime.py measures executed Parry/TimedBlock against the player's next Probe Hit on that NPC. Untested in game.
