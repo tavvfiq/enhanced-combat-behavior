@@ -31,6 +31,45 @@ namespace CombatAI::EngineProbes
 
             static inline REL::Relocation<decltype(thunk)> func;
         };
+
+        // ContextMelee::StartAttack (SE 48139 / AE 49170) picks an attack, then fires it only if the hit-cone
+        // check (SE 46033 / AE 47297) and CheckAttack (SE 48140 / AE 49171) both pass. Same offsets in AE
+        // 1.6.1170 and 1.7.104. Args from the call setup; only the actors are read, the rest is passed through.
+        thread_local RE::Actor *t_checking = nullptr; // set by the hit-cone call, read by CheckAttack right after
+
+        struct HitCone
+        {
+            static bool thunk(RE::Actor *a_self, RE::Actor *a_target, void *a_a3, void *a_a4, void *a_a5, float a_a6,
+                              void *a_a7, bool a_a8)
+            {
+                const bool pass = func(a_self, a_target, a_a3, a_a4, a_a5, a_a6, a_a7, a_a8);
+                t_checking = nullptr;
+                if (a_self && a_target && Config::GetInstance().IsDebugTarget(a_self->GetFormID())) {
+                    t_checking = pass ? a_self : nullptr;
+                    LOG_DEBUG("AttackCheck 0x{:08X}: hit cone {} (target at {:.0f} deg, dist {:.0f}, arg {:.2f})",
+                              a_self->GetFormID(), pass ? "pass" : "FAIL",
+                              a_self->GetHeadingAngle(a_target->GetPosition(), false), a_self->GetDistance(a_target),
+                              a_a6);
+                }
+                return pass;
+            }
+
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
+        struct CheckAttack
+        {
+            static bool thunk(void *a_context, void *a_entry)
+            {
+                const bool pass = func(a_context, a_entry);
+                if (auto *self = std::exchange(t_checking, nullptr)) {
+                    LOG_DEBUG("AttackCheck 0x{:08X}: range/path check {}", self->GetFormID(), pass ? "pass" : "FAIL");
+                }
+                return pass;
+            }
+
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
     } // namespace
 
     void Install()
@@ -38,6 +77,21 @@ namespace CombatAI::EngineProbes
         REL::Relocation<std::uintptr_t> holderVTable{RE::Character::VTABLE[3]};
         NotifyGraph::func = holderVTable.write_vfunc(0x1, NotifyGraph::thunk);
         LOG_INFO("Probe: NPC attack/bash/block animation events hooked (debug log, selected NPC)");
+
+        if (REL::Module::IsVR()) {
+            return;
+        }
+        auto &trampoline = SKSE::GetTrampoline();
+        REL::Relocation<std::uintptr_t> start{RELOCATION_ID(48139, 49170)};
+        const auto cone = start.address() + REL::Relocate(0x493, 0x3F1);
+        const auto check = start.address() + REL::Relocate(0x4A6, 0x404);
+        if (*reinterpret_cast<const std::uint8_t *>(cone) != 0xE8 || *reinterpret_cast<const std::uint8_t *>(check) != 0xE8) {
+            LOG_WARN("Probe: StartAttack check sites are not calls - attack check probe off");
+            return;
+        }
+        HitCone::func = trampoline.write_call<5>(cone, HitCone::thunk);
+        CheckAttack::func = trampoline.write_call<5>(check, CheckAttack::thunk);
+        LOG_INFO("Probe: vanilla attack start checks hooked (hit cone, range/path; debug log, selected NPC)");
     }
 
     void Update(float a_deltaTime)

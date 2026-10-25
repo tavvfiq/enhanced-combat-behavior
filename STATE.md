@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.9.8 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.9.9 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -65,7 +65,8 @@ version so any step can be rolled back.
 - 0.9.5: per-NPC temporal timers advance by time since that NPC was last processed (was one frame: ~9x slow; 0.3 s anti-spam gate lasted ~2.7 s, 185 in-reach attacks blocked in run 23). Runtime-evidenced (run 24: DeltaTime 0.109 s, gate blocks 49).
 - 0.9.6: EvaluateInterrupt (bash) returns while timeSinceLastAction < 0.3 s, like EvaluateOffense (run 24: bash re-posted each tick mid-bash). Runtime-evidenced (run 25).
 - 0.9.7: health and race retreats stop after 8 s total retreating without +5% health from its lowest (retreatTime in temporal self). Threat/outnumbered retreats unchanged. Build-validated only.
-- 0.9.8: debug probe on Character NotifyAnimationGraph (VTABLE_Character[3] slot 1): `AnimEvent` lines for attack/bash/block events of the selected NPC. Log-only. Build-validated only.
+- 0.9.8: debug probe on Character NotifyAnimationGraph (VTABLE_Character[3] slot 1): `AnimEvent` lines for attack/bash/block events of the selected NPC. Log-only. Runtime-evidenced (run 26).
+- 0.9.9: debug probe on the hit-cone (SE 48139+0x493 -> 46033, AE 49170+0x3F1 -> 47297) and CheckAttack (SE +0x4A6 -> 48140, AE +0x404 -> 49171) calls in StartAttack: `AttackCheck` lines. Log-only. Build-validated only.
 Open (actuator, run 25): taken attack intents started a swing within 1 s 14/33, bash 6/25 (0/4 at 0 stamina); dodge events all rejected (TK Dodge not installed, expected); feint/dodge/jump still on the old executor; block intents never posted; feedback channel (roadmap 0.3.0) not built.
   Run 20 (0.9.1): stable 8.8 min; failed rolls -> None 128/132. Healthy in-range NPC: Attack candidate 74 ticks, 54 lost to failed skill rolls (skill 62-69%, 1 s reroll window). Retreat 443 = all at 10-29% HP (health rule).
   Open: in range the gate `target is attacking` blocks Attack on 147 ticks, `last action too recent` 131 (after own attack/bash).

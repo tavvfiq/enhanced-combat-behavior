@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.9.9 (2026-10-25)
+
+- **Debug probe: vanilla attack start checks.** Run 26 (0.9.8) showed that every attack event sent was accepted; the lost attacks never sent one. Of 65 taken attack intents, 12 picked an attack and then sent nothing, and 8 never got as far as picking one. Vanilla's StartAttack fires only after a hit-cone check and a range/path check, and now each is logged for the selected NPC: `AttackCheck 0x..: hit cone pass|FAIL (target at X deg, dist Y, arg Z)` and `AttackCheck 0x..: range/path check pass|FAIL`. A taken intent with no AttackCheck line was turned down before either check (per-attack cooldown, stamina cost or no candidates). No behavior change.
+- Run 26 also confirms TK Dodge: 14 of 14 dodge events accepted, the NPC moves 150-340 units in about 0.7 s.
+
 ## CombatAITree 0.9.8 (2026-10-25)
 
 - **Debug probe: animation events.** With the debug log on, every attack, bash and block animation event the game sends the selected NPC is logged as `AnimEvent 0x..: <event> accepted|rejected`. In run 25 the tree took every attack intent, but only 14 of 33 started a swing within 1 s (bashes 6 of 25), and the log had no signal past the hand-off. This shows whether the attack node sends its event and whether the graph takes it. No behavior change.

@@ -15,5 +15,6 @@ namespace CombatAI::EngineProbes
     // Log-only probe of the attack, bash and block animation events sent to the console-selected NPC and
     // whether its graph accepted them: shows where an attack intent the tree took gets lost.
     // Hooks Character's NotifyAnimationGraph (IAnimationGraphManagerHolder, VTABLE_Character[3] slot 1).
+    // Also logs the hit-cone and range/path checks vanilla StartAttack runs before it fires an attack or bash.
     void Install();
 } // namespace CombatAI::EngineProbes
