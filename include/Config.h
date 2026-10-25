@@ -95,6 +95,7 @@ namespace CombatAI
             float tradeBlowsChance = 0.3f;        // Chance to attack into each of the target's normal swings
             float closeDodgeChance = 0.3f;        // Chance to dodge each melee swing aimed at it from within reach
             float defendOnSwingChance = 0.5f;     // Chance to parry / timed block each swing aimed at it (in window)
+            bool allowDaggerBlock = true;         // Let daggers block and bash (patches vanilla; applies at game start)
             bool staminaAffectsRetreat = false;  // Off: retreat/backoff depend on health only (light attacks cost no stamina)
             float powerAttackMinStamina = 0.7f;  // Power/sprint attacks and power bashes need this stamina fraction
             float healthThreshold = 0.3f;

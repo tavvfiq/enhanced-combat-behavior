@@ -1,6 +1,7 @@
 #include "DecisionMatrix.h"
 #include "ActorUtils.h"
 #include "Config.h"
+#include "Hooks.h"
 #include "Intents.h"
 #include "Logger.h"
 #include "ProjectileAwareness.h"
@@ -137,6 +138,8 @@ namespace CombatAI
         case RE::WEAPON_TYPE::kTwoHandSword:
         case RE::WEAPON_TYPE::kTwoHandAxe:
             return true;
+        case RE::WEAPON_TYPE::kOneHandDagger:
+            return Hooks::DaggerBlockPatched(); // AllowDaggerBlock
         default:
             return false;
         }

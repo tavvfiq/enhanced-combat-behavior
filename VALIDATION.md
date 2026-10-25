@@ -330,3 +330,7 @@
 
 ## 0.16.2 (2026-10-25) vanilla weapon-block rule
 - Disassembly, SE 1.5.97: CombatInventoryItemOneHandedBlock vtable 0x141681cf8, GetType slot 9 = 43824 = CombatInventoryItemShield's (TYPE kShield, CommonLib kOneHandedBlock = kShield). Created in CombatInventory 43626 (+0x2d7: `call 24852` on Actor+0x1F0 race; 24852 = `test byte [rcx+0x428], 0x7e; seta al` = TESRace::validEquipTypes bits 1-6), ctor 43833 at +0x337. CheckShouldEquip 43837: other item's vfunc slot 9 (GetType) == 1 (Melee), then `movzx ecx, byte [weapon+0x19d]` (weaponData.animationType) `and cl, 0xfd`, true when non-zero (not 0 hand-to-hand, not 2 dagger). AE not disassembled (same data-driven rule assumed). Untested in game.
+
+## 0.17.0 (2026-10-25) dagger block
+- Disassembly: SE 43837 `and cl, 0xfd` at +0x72 (bytes 80e1fd); AE 1.7.104 and 1.6.1170 id 45056 `test byte ptr [rax+0x19d], 0xfd` at +0x6b (bytes f6809d010000fd). Same control flow in all three (controller check, right-hand combat item GetType == 1, then the mask). Install checks the byte is 0xFD, writes 0xFF.
+- Unknown until tested: whether the humanoid behavior graph accepts blockStart / bashStart with a dagger drawn (AnimEvent lines will show accepted/rejected). Untested in game.

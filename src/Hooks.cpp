@@ -1,6 +1,7 @@
 #include "Hooks.h"
 #include "ActorUtils.h"
 #include "CombatDirector.h"
+#include "Config.h"
 #include "EngineProbes.h"
 #include "Logger.h"
 #include "VanillaAttackShaper.h"
@@ -54,9 +55,37 @@ namespace CombatAI
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
+        namespace
+        {
+            std::atomic<bool> g_daggerBlock{false};
+
+            // Vanilla's one-handed weapon block (CombatInventoryItemOneHandedBlock::CheckShouldEquip, SE 43837 /
+            // AE 45056) masks the right-hand weapon's animationType with 0xFD, refusing fists (0) and daggers (2).
+            // 0xFF refuses only fists. SE: `and cl, 0xFD` at +0x72 (imm +0x74); AE 1.6.1170 and 1.7.104:
+            // `test byte ptr [rax+0x19D], 0xFD` at +0x6B (imm +0x71).
+            void PatchDaggerBlock()
+            {
+                if (!Config::GetInstance().GetDecisionMatrix().allowDaggerBlock || REL::Module::IsVR()) {
+                    return;
+                }
+                REL::Relocation<std::uintptr_t> check{RELOCATION_ID(43837, 45056)};
+                const auto imm = check.address() + REL::Relocate(0x74, 0x71);
+                if (*reinterpret_cast<const std::uint8_t *>(imm) != 0xFD) {
+                    LOG_WARN("Dagger block: unexpected byte at the weapon-block check - not patched (another mod?)");
+                    return;
+                }
+                REL::safe_write(imm, std::uint8_t{0xFF});
+                g_daggerBlock = true;
+                LOG_INFO("Dagger block: NPCs with a dagger can block and bash");
+            }
+        } // namespace
+
+        bool DaggerBlockPatched() { return g_daggerBlock; }
+
         void Install()
         {
             LOG_INFO("Installing hooks...");
+            PatchDaggerBlock();
 
             // Trampoline is allocated once in SKSEPlugin_Load (the tree hooks need it before kDataLoaded)
             auto &trampoline = SKSE::GetTrampoline();

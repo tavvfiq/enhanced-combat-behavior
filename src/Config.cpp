@@ -160,6 +160,7 @@ namespace CombatAI
         D("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance);
         D("DecisionMatrix", "CloseDodgeChance", m_decisionMatrix.closeDodgeChance);
         D("DecisionMatrix", "DefendOnSwingChance", m_decisionMatrix.defendOnSwingChance);
+        B("DecisionMatrix", "AllowDaggerBlock", m_decisionMatrix.allowDaggerBlock);
         D("DecisionMatrix", "PowerAttackMinStamina", m_decisionMatrix.powerAttackMinStamina);
         D("DecisionMatrix", "HealthThreshold", m_decisionMatrix.healthThreshold);
         B("DecisionMatrix", "EnableSurvivalRetreat", m_decisionMatrix.enableSurvivalRetreat);
@@ -477,6 +478,8 @@ namespace CombatAI
         m_decisionMatrix.closeDodgeChance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "CloseDodgeChance", m_decisionMatrix.closeDodgeChance)),
             0.0f, 1.0f);
+        m_decisionMatrix.allowDaggerBlock =
+            a_ini.GetBoolValue("DecisionMatrix", "AllowDaggerBlock", m_decisionMatrix.allowDaggerBlock);
         m_decisionMatrix.defendOnSwingChance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "DefendOnSwingChance", m_decisionMatrix.defendOnSwingChance)),
             0.0f, 1.0f);

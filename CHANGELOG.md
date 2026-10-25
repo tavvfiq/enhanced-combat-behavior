@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.17.0 (2026-10-25)
+
+- **Daggers can block and bash** (`AllowDaggerBlock = true`, `[DecisionMatrix]`, applies at game start). Vanilla's weapon-block check refuses daggers and fists with one bit mask; the plugin changes that mask so only fists are refused. Dagger users then run the block/bash behavior like other one-handed weapons: vanilla blocks and bashes, plus our bash, parry and timed block. This changes vanilla for every dagger user. Patched in SE 1.5.97, AE 1.6.1170 and 1.7.104 after checking the original byte; if another mod already changed it, nothing is written and the log says so. The load log shows `Dagger block: NPCs with a dagger can block and bash`.
+
 ## CombatAITree 0.16.2 (2026-10-25)
 
 - **Weapon blocking is back for swords, axes, maces and two-handed weapons.** 0.16.1 allowed parry and timed block only with a shield, which was too strict. Disassembly (SE 1.5.97) shows how vanilla decides: the Block tree runs for a shield, or for a "one-handed block" combat item that every humanoid NPC has. That item is equipped when the right hand holds a melee weapon that is not a dagger and not fists. So daggers and fists can't block, which is why run 33's dagger bandit never blocked even in vanilla, and bows, staffs and crossbows can't either. A spell or torch in the left hand takes the slot. Parry and timed block now follow the same rule.
