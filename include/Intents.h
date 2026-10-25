@@ -68,6 +68,8 @@ namespace CombatAI::Intents
     // Direct block (DualBlock tree node) for NPCs without the Block tree. Unlike block/bash it is a state: the
     // node holds while the brain's hold lasts. Start/End return true once, for the caller to send the events.
     void PostDualBlock(RE::Actor *a_actor, float a_seconds);
+    // The swing it guards against is over: end the hold now (the tree releases on its next pass)
+    void EndDualBlockHold(RE::Actor *a_actor);
     bool WantsDualBlock(RE::Actor *a_actor);
     bool StartDualBlock(RE::Actor *a_actor);
     bool EndDualBlock(RE::Actor *a_actor, bool a_force);

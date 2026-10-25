@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.18.6 (2026-10-26)
+
+Run 39 (0.18.5): the fixes worked. Your hits blocked on the sword+spell Bandit Chief went from 2 to 7 of 57, defend checks from 25 to 55 window ticks, and 17 timed blocks ran. But 7 of the 17 ended before your blow, which landed 0.56-0.78 s after the block went up. Your swings came in two speeds (start to hit 0.12-0.50 s for 33 of them, 0.63-1.11 s for 24), so a single predicted hit time can't fit both.
+
+- **A dual block holds until the swing is over**, not until the predicted hit plus 0.25 s: it ends once your blow lands (you go into recovery) or you stop attacking, at most 1.2 s. The NPC can't attack while it holds, so this trades some of its offense for blocks that last. Debug log: `DualBlock 0x..: swing over (hit landed|target stopped attacking), ending the hold`.
+
 ## CombatAITree 0.18.5 (2026-10-26)
 
 Run 38: of your 57 hits on the sword+spell Bandit Chief, 20 landed with no block check at all. Three causes, each fixed:

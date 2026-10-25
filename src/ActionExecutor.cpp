@@ -323,10 +323,12 @@ namespace CombatAI
         }
 
         // Without the Block tree (a weapon with a spell, torch or second weapon): our DualBlock node holds a direct
-        // block until just after the predicted hit
+        // block until the swing is over (CombatDirector ends the hold once the hit lands or the swing stops), at most
+        // 1.2 s. Run 39: holding to the predicted hit + 0.25 s ran out before 7 of 17 blows, which landed 0.56-0.78 s
+        // after the block went up (the player's swings came in two speeds, 0.12-0.50 s and 0.63-1.11 s).
         if (!BlockRules::CanRunBlockTree(a_actor)) {
-            const float timeUntilHit = a_state.temporal.target.timeUntilAttackHits;
-            Intents::PostDualBlock(a_actor, std::clamp(timeUntilHit < 999.0f ? timeUntilHit + 0.25f : 0.6f, 0.3f, 1.0f));
+            constexpr float kDualBlockMaxHold = 1.2f;
+            Intents::PostDualBlock(a_actor, kDualBlockMaxHold);
             return true;
         }
 

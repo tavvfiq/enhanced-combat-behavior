@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.18.5 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.18.6 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -90,7 +90,8 @@ Open (run 28): bash fired 1/12 taken, 10 of 11 refusals at stamina <= 8% (bash s
 - 0.18.3: one-time Tree dump of the vanilla Magic tree at SetRoot (run 36: no vtRepeat node found under the root). Runtime-evidenced (run 37 dump).
 - 0.18.4: Magic splice under ValueNodeT<CastingType> cases (SE 266709 / AE 213739); cast-stop hook on all four cast vtables (single SE 266705/266707 AE 213720/213735, dual SE 266704/266706 AE 213718/213733). Runtime-evidenced (run 38).
 Open (run 38, sword+spell Bandit Chief): 57 player hits, blocked 2. 29 landed while it was attacking itself, 20 with no defend evaluation in the window, 4 lost the defend roll, 2 won it but the hit got through.
-- 0.18.5: parry/timed-block min distance 0; HitDelay = median of last 9 per attacker and kind (replaces EWMA + outlier filter); EvaluateInterrupt returns EvaluateTimedBlock right away for NPCs without the Block tree (no bash posts, DefendUnavailable not reached); feint needs the Block tree. Build-validated only.
+- 0.18.5: parry/timed-block min distance 0; HitDelay = median of last 9 per attacker and kind (replaces EWMA + outlier filter); EvaluateInterrupt returns EvaluateTimedBlock right away for NPCs without the Block tree (no bash posts, DefendUnavailable not reached); feint needs the Block tree. Runtime-evidenced (run 39).
+- 0.18.6: dual block posts a 1.2 s hold; CombatDirector ends it (Intents::EndDualBlockHold) when the target stops attacking or enters recovery. Build-validated only.
 Next (if accepted): custom block leaf (TREE_DESIGN 6, Idle clone) in the Melee tree for dual wield, then the Magic tree (needs its builder hook, SE/AE RE).
 Finding (#4, RE notes COMBAT_AI_RE.md ActionEquipmentSelector): the Block tree (bash, block, parry, timed block) is linked only for equipment type 3 Shield. NPCs without a shield never run it, so their bash/block/parry/timed-block intents can't be taken (0x8E1A4 with a dagger, archers). DefendUnavailable (0.11.1) stops the requests after 3. Whether two-handed or one-handed weapon blocking goes through another path is unknown.
 Open (run 29): selected-NPC attacks fired 44 of 74 taken; 12 refused before vanilla checks, mostly within 0-3 s of the previous attack (per-attack cooldown suspected, not probed); range/path FAIL 16.

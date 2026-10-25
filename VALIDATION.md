@@ -363,3 +363,7 @@
 ## 0.18.5 (2026-10-26) the 20 unchecked hits
 - Run 38, 0xFF00082B, 20 player hits with the NPC idle and no Defend line since the previous hit (miss20b.py): in the window but dist 42-47 < TimedBlockMinDistance 50 on 8; predicted hit never in 0.05-0.33 (tuh 0.45-0.83 while the hit came 0.01-0.56 s later) on 6; in window with no gate visible in the log on 6; own attack 3; facing away 1; no tick saw the swing 1 (some hits have two reasons). HitTiming for it: samples 0.59, 0.24, 0.98, 1.23, 1.23 then 17 samples 0.12-0.45 "ignored", average 0.77-0.94. It posted defend (bash) 8, taken 0; summary `block/bash never taken: 5 (most 0xFF00082B x5)`, so DefendUnavailable was on (3 in a row, 10 s) and EvaluateInterrupt returned before the timed block. Target PAtk false on all 502 attacking ticks; all 57 hits power=false.
 - Fixes built; untested in game.
+- Run 39 (0.18.5): 0xFF000815 (Bandit Chief, sword + spell). Player hits 57: blocked 7 (run 38: 2). Defend ticks: won 21, lost 34 (run 38: 7 / 18). Executed TimedBlock 17 (dual block): blockStart then hit blocked=true 6 (hit 0.05-0.52 s after the request); blockStart then hit blocked=false 7, hit 0.56-0.78 s after the request (hold = predicted hit + 0.25 s ended first); no hit 2; no event 1. HitTiming samples 57, bimodal: 33 at 0.12-0.50 s, 24 at 0.63-1.11 s; median ended 0.70-0.82 s.
+
+## 0.18.6 (2026-10-26) dual block holds through the swing
+- Fix from run 39 above. Untested in game.

@@ -183,6 +183,14 @@ namespace CombatAI
 
         // Gather state and evaluate the decision matrix (the heavy per-actor work)
         ActorStateData state = m_observer.GatherState(a_actor, elapsed);
+        // A held dual block ends with the swing it guards against: the blow landed (recovery) or the swing stopped
+        if (Intents::WantsDualBlock(a_actor) && (!state.target.isAttacking || state.target.isInAttackRecovery)) {
+            Intents::EndDualBlockHold(a_actor);
+            if (debugEnabled) {
+                LOG_DEBUG("DualBlock 0x{:08X}: swing over ({}), ending the hold", static_cast<std::uint32_t>(formID),
+                          state.target.isInAttackRecovery ? "hit landed" : "target stopped attacking");
+            }
+        }
         MaybeSwitchTarget(a_actor, formID, state);
         DecisionResult decision = m_decisionMatrix.Evaluate(a_actor, state);
 

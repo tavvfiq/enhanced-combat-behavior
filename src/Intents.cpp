@@ -184,6 +184,14 @@ namespace CombatAI::Intents
         Debug(a_actor, "post dual block (ms)", static_cast<int>(a_seconds * 1000.0f));
     }
 
+    void EndDualBlockHold(RE::Actor *a_actor)
+    {
+        if (a_actor) {
+            const auto now = Clock::now();
+            g_board.Modify(a_actor->GetFormID(), [&](Entry &e) { e.dualBlockUntil = (std::min)(e.dualBlockUntil, now); });
+        }
+    }
+
     bool WantsDualBlock(RE::Actor *a_actor)
     {
         if (!a_actor) {
