@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.9.7 (2026-10-25)
+
+- **Cornered NPCs fight.** A low-health (or losing-the-race) retreat ends after 8 s in total without the NPC's health rising; then it fights instead of running. In run 25 a bandit at 24% retreated for 60 s, up to 1820 units away, while you healed from 92% to 100%. Healing 5% from its lowest point (a potion, a spell) resets the count. The debug Race line shows `Retreated=`.
+- Run 25 confirms 0.9.6: no back-to-back bash re-posts.
+
 ## CombatAITree 0.9.6 (2026-10-25)
 
 - **Bash waits 0.3 s after the NPC's last action, like attacks.** In run 24 a bash was re-posted every tick (0.11 s) while the NPC's own bash was still winding up, up to 5 times in a row for one blocked hit. Each re-post reset the action timer, which kept the next attack waiting.

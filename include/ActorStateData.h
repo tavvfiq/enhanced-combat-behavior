@@ -209,6 +209,8 @@ namespace CombatAI
         // target on it, over the whole fight (0 = not measured yet; needs two hits)
         float ourAverageHit = 0.0f;
         float theirAverageHit = 0.0f;
+        // Seconds spent retreating without its health rising
+        float retreatTime = 0.0f;
     };
 
     struct TargetTemporalState

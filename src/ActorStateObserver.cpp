@@ -946,6 +946,17 @@ namespace CombatAI
             actorTemporal.timeSinceLastBash += a_deltaTime;
             actorTemporal.timeSinceLastFeint += a_deltaTime;
 
+            // Retreat time counts until its health rises (a potion or heal makes retreating worth it again)
+            const float health = a_state.self.healthPercent;
+            if (actorTemporal.retreatTime == 0.0f || health > actorTemporal.retreatHealth + 0.05f) {
+                actorTemporal.retreatTime = 0.0f;
+                actorTemporal.retreatHealth = health;
+            }
+            actorTemporal.retreatHealth = (std::min)(actorTemporal.retreatHealth, health); // rise counts from its lowest
+            if (actorTemporal.retreating) {
+                actorTemporal.retreatTime += a_deltaTime;
+            }
+
             // Track duration of current states
             bool isBlocking = ActorUtils::SafeIsBlocking(a_actor);
             bool isAttacking = ActorUtils::SafeIsAttacking(a_actor);
@@ -1011,6 +1022,7 @@ namespace CombatAI
             temporal.self.timeSinceLastSprintAttack = actorTemporal.timeSinceLastSprintAttack;
             temporal.self.timeSinceLastBash = actorTemporal.timeSinceLastBash;
             temporal.self.timeSinceLastFeint = actorTemporal.timeSinceLastFeint;
+            temporal.self.retreatTime = actorTemporal.retreatTime;
 
             // Copy parry feedback
             temporal.self.lastParrySuccess = actorTemporal.lastParrySuccess;
@@ -1307,6 +1319,7 @@ namespace CombatAI
         // Reset timers based on action type, atomically under the map's lock. If the
         // actor has no temporal entry yet, there is nothing to reset.
         m_actorTemporalData.Modify(formID, [&](ActorTemporalData &temporal) {
+            temporal.retreating = a_action == ActionType::Retreat;
             // The anti-spam gate (no attack within 0.3 s of the last action) counts deliberate
             // actions only. Locomotion is re-issued every decision while it runs, so counting it
             // kept the timer at ~0 and offense was never evaluated (0 Attack candidates in 1398).

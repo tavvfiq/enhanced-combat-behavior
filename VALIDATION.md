@@ -261,3 +261,8 @@
 ## 0.9.6 (2026-10-25) bash anti-spam
 - Run 24: 0x8E1A1 posted Bash at 20:03:54.399/.509/.619 with own AttackState=1 each tick, tree took each; one probe hit (blocked=true) at .813; LastBash reset to 0.11 s each time. Bursts of 3-5 at 49.6, 54.4, 55.2, 00.2.
 - Fix: EvaluateInterrupt returns None while timeSinceLastAction < 0.3 s. Untested in game.
+- Run 25 (0.9.6): Executed Retreat 396, Advancing 337, Flanking 122, Strafe 110, Attack 37, Backoff 34, Feint 16, Bash 12, PowerAttack 1. "Last action too recent" 46. LastAction resets: Atk 29, Bash 17 (no consecutive-tick bash bursts).
+
+## 0.9.7 (2026-10-25) cornered retreat
+- Run 25: 0x8E0ED at 24% HP executed Retreat 389 times from 20:12:06 to 20:13:06; distance up to 1820; player health 92% to 100%; NPC health stayed 24% until it dropped to 4%.
+- Fix: per-actor retreatTime accumulates while the last executed action is Retreat, reset when health rises 5% above its lowest; health and race retreats are skipped at >= 8 s. Untested in game.

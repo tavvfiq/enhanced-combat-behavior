@@ -107,6 +107,10 @@ namespace CombatAI
             float timeSinceLastSprintAttack = 999.0f;
             float timeSinceLastBash = 999.0f;
             float timeSinceLastFeint = 999.0f;
+            // Time spent retreating since its health last rose, and its lowest health since (cornered rule)
+            bool retreating = false;
+            float retreatTime = 0.0f;
+            float retreatHealth = 0.0f;
 
             // Parry feedback data
             bool lastParrySuccess = false;            // Whether last parry attempt was successful

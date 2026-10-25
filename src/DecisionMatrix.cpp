@@ -1099,9 +1099,14 @@ namespace CombatAI
         // Check if NPC is outnumbering the target (we have more allies than enemies)
         bool outnumberingTarget = (a_state.combatContext.allyCount > a_state.combatContext.enemyCount);
 
+        // Cornered: 8 s of retreating without healing gained it nothing (run 25: 60 s at 24% while the
+        // target healed to full), so it stops running and fights
+        constexpr float kRetreatGiveUpSeconds = 8.0f;
+        const bool cornered = a_state.temporal.self.retreatTime >= kRetreatGiveUpSeconds;
+
         // Health-based retreat (survival), unless it is winning the damage race: then it presses on
         const DamageRace race = Race(a_state);
-        if (a_state.self.healthPercent <= healthThreshold && !race.winning) {
+        if (a_state.self.healthPercent <= healthThreshold && !race.winning && !cornered) {
             shouldRetreat = true;
             retreatPriority = 2.0f; // Survival is highest priority
 
@@ -1122,7 +1127,7 @@ namespace CombatAI
 
         // Losing the damage race: a few more of the target's hits would kill it, so it gets out even above the
         // health threshold (up to RaceRetreatMaxHealth)
-        if (!shouldRetreat && race.losing) {
+        if (!shouldRetreat && race.losing && !cornered) {
             shouldRetreat = true;
             retreatPriority = 2.0f;
         }
@@ -2866,9 +2871,9 @@ namespace CombatAI
         LOG_DEBUG("Momentum: RecentDamageFrac={:.3f} HasData={}", a_state.temporal.self.recentDamageFraction,
                   a_state.temporal.self.hasMomentumData);
         const DamageRace race = Race(a_state);
-        LOG_DEBUG("Race: OurHit={:.3f} TheirHit={:.3f} ToKill={:.1f} ToDie={:.1f} Winning={} Losing={}",
+        LOG_DEBUG("Race: OurHit={:.3f} TheirHit={:.3f} ToKill={:.1f} ToDie={:.1f} Winning={} Losing={} Retreated={:.1f}s",
                   a_state.temporal.self.ourAverageHit, a_state.temporal.self.theirAverageHit, race.toKill, race.toDie,
-                  race.winning, race.losing);
+                  race.winning, race.losing, a_state.temporal.self.retreatTime);
         LOG_DEBUG("AtkDefFeedback: TimeSince: LastParriedAtk={:.2f}s "
                   "LastTBlockedAtk={:.2f}s LastHitAtk={:.2f}s LastMissedAtk={:.2f}s",
                   a_state.temporal.self.timeSinceLastParriedAttack,
