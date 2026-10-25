@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.20.0 (2026-10-26)
+
+- **Counter attacks without a mod.** When an NPC blocks one of your melee blows (shield, weapon or dual block), a 0.6 s counter window opens while you recover. In it the brain strongly prefers a power attack, or a normal attack when it lacks the power-attack stamina. Before, the counter only existed with EldenCounter (its graph variable still counts too), and its bonus was being thrown away anyway (fixed in 0.19.0). Debug log: `Counter 0x..: blocked a hit, counter window open 0.6 s`.
+
 ## CombatAITree 0.19.1 (2026-10-26)
 
 The three audit choices from 0.19.0:

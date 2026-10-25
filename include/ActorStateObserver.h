@@ -38,6 +38,8 @@ namespace CombatAI
         void NotifyActionExecuted(RE::Actor *a_actor, ActionType a_action);
         // A melee hit landed (blocked or not): learn the attacker's swing-start-to-hit time from the victim's view
         void OnHitLanded(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power);
+        // The NPC blocked a melee hit: open its counter window (read as isGuardCounterActive)
+        void OnHitBlocked(RE::Actor *a_victim);
         // Starts the anti-spam action timer when an attack/bash actually starts (any thread)
         void NotifySwingStarted(RE::Actor *a_actor);
 
@@ -219,6 +221,8 @@ namespace CombatAI
             std::array<float, 9> samples[2]{};
         };
         ThreadSafeMap<RE::FormID, HitDelay> m_hitDelays;
+        // Counter window end per NPC (our own guard counter; EldenCounter's graph variable also counts)
+        ThreadSafeMap<RE::FormID, std::chrono::steady_clock::time_point> m_counterUntil;
         ThreadSafeMap<RE::FormID, TargetTemporalData> m_targetTemporalData; // Keyed by target FormID, but we'll use
                                                                             // actor-target pair
 

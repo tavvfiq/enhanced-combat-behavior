@@ -143,10 +143,12 @@ namespace CombatAI
         // Blocking state - use safe wrapper
         state.isBlocking = ActorUtils::SafeIsBlocking(a_actor);
 
-        // Guard counter state (from EldenCounter mod)
+        // Guard counter: our window after a blocked hit (no mod needed), or EldenCounter's graph variable
         bool guardCounterActive = false;
         ActorUtils::SafeGetGraphVariableBool(a_actor, "Val_GuardCounter", guardCounterActive);
-        state.isGuardCounterActive = guardCounterActive;
+        const auto counterUntil = m_counterUntil.Find(a_actor->GetFormID());
+        state.isGuardCounterActive =
+            guardCounterActive || (counterUntil && std::chrono::steady_clock::now() < *counterUntil);
 
         // Movement state - sprinting/walking - use safe wrappers
         state.isSprinting = ActorUtils::SafeIsSprinting(a_actor);
@@ -1355,6 +1357,20 @@ namespace CombatAI
             LOG_DEBUG("HitTiming 0x{:08X} -> 0x{:08X}: swing start to {} hit {:.2f}s (median {:.2f}s over {})",
                       a_attacker->GetFormID(), a_victim->GetFormID(), a_power ? "power" : "light", sample, average,
                       count);
+        }
+    }
+
+    void ActorStateObserver::OnHitBlocked(RE::Actor *a_victim)
+    {
+        if (!a_victim) {
+            return;
+        }
+        // 0.6 s: the attacker is in its recovery right after the blocked blow, the opening a counter takes
+        constexpr auto kCounterWindow = std::chrono::milliseconds(600);
+        const auto until = std::chrono::steady_clock::now() + kCounterWindow;
+        m_counterUntil.ModifyOrCreate(a_victim->GetFormID(), [&](auto &t) { t = until; });
+        if (Config::GetInstance().IsDebugTarget(a_victim->GetFormID())) {
+            LOG_DEBUG("Counter 0x{:08X}: blocked a hit, counter window open 0.6 s", a_victim->GetFormID());
         }
     }
 

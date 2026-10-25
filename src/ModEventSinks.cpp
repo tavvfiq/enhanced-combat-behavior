@@ -102,6 +102,10 @@ namespace CombatAI
         if (a_event->projectile == 0) { // melee only: a shot's timing has nothing to do with a swing
             CombatDirector::GetInstance().OnHitLanded(attacker, target,
                                                       a_event->flags.any(RE::TESHitEvent::Flag::kPowerAttack));
+            // Blocked a melee blow: the counter window opens (a strong attack while the attacker recovers)
+            if (a_event->flags.any(RE::TESHitEvent::Flag::kHitBlocked) && !ActorUtils::SafeIsPlayerRef(target)) {
+                CombatDirector::GetInstance().OnHitBlocked(target);
+            }
             // The blow a dual block guards against has landed (blocked or not): the hold is done
             if (Intents::WantsDualBlock(target)) {
                 Intents::EndDualBlockHold(target);

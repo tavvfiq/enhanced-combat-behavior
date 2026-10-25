@@ -2073,9 +2073,8 @@ namespace CombatAI
             bool shouldPowerAttack = false;
             float powerAttackBonus = 0.0f;
 
-            // Guard Counter: If guard counter window is active, strongly prioritize
-            // power attack Guard counter is activated by EldenCounter mod when NPC
-            // successfully blocks
+            // Guard Counter: the window after this NPC blocked a hit (0.20.0, no mod needed) or EldenCounter's;
+            // strongly prefer a power attack (a normal one when stamina is short, below)
             if (a_state.self.isGuardCounterActive) {
                 // Guard counter window is active - this is a perfect opportunity for
                 // power attack

@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.19.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.20.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -97,6 +97,7 @@ Open (run 41): 53 player hits on a sword+spell Bandit Chief, blocked 2; 37 lande
 - 0.19.0 (audit fixes, build-validated only): targetJustFinished (not attacking, idle < 0.4 s) replaces timeSinceLastAttack 0.1-0.5 s in EvaluateOffense; powerAttackBonus "= 0.3" -> "+= 0.3"; power attack only with a positive total bonus; Advancing and SprintAttack gates use TargetAimedAtUs; outnumbered keeps the fleeing pursuit boost; AttackCoordinator rest 1.5 s after a slot expires while others are held.
 Open (audit, choices for the user): EvaluateFlanking validates closestAllyPosition by its world magnitude (|pos|^2 > 1e7 returns), so it never runs outdoors; flanking seen in logs is the pacing hold (EvaluateHeldBack). Feint's targetIsDefensive includes "facing us and not attacking". Attack scoring gives +0.3 for a blocking target.
 - 0.19.1: all three done (flanking uses closestAllyDistance <= 3000; feint needs a blocking or frequently blocking target; +0.3 blocking bonus removed from normal and sprint attack). Build-validated only.
+- 0.20.0: our guard counter: TESHitEvent kHitBlocked on an NPC opens a 0.6 s window (ActorStateObserver::m_counterUntil), OR-ed into isGuardCounterActive with EldenCounter Val_GuardCounter. Build-validated only.
 Next (if accepted): custom block leaf (TREE_DESIGN 6, Idle clone) in the Melee tree for dual wield, then the Magic tree (needs its builder hook, SE/AE RE).
 Finding (#4, RE notes COMBAT_AI_RE.md ActionEquipmentSelector): the Block tree (bash, block, parry, timed block) is linked only for equipment type 3 Shield. NPCs without a shield never run it, so their bash/block/parry/timed-block intents can't be taken (0x8E1A4 with a dagger, archers). DefendUnavailable (0.11.1) stops the requests after 3. Whether two-handed or one-handed weapon blocking goes through another path is unknown.
 Open (run 29): selected-NPC attacks fired 44 of 74 taken; 12 refused before vanilla checks, mostly within 0-3 s of the previous attack (per-attack cooldown suspected, not probed); range/path FAIL 16.

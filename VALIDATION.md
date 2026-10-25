@@ -380,3 +380,6 @@
 
 ## 0.19.1 (2026-10-26)
 - Audit choices A/B/C applied as described in CHANGELOG 0.19.1. Untested in game. Expect: Flanking chosen by EvaluateFlanking (not only the pacing hold) in exterior group fights; far fewer Feint executions against a non-blocking player.
+
+## 0.20.0 (2026-10-26) counter attack
+- Code: isGuardCounterActive drove only EldenCounter's Val_GuardCounter; EvaluateOffense gives +2.0 and prefers a power attack while it is set (bonus now kept, 0.19.0). New: kHitBlocked melee hit on a non-player opens 0.6 s. Untested in game. Pass: `Counter 0x..` line, then an Attack/PowerAttack executed within 0.6 s and an attackStart*/attackPowerStart* AnimEvent.

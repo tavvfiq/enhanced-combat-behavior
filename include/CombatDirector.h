@@ -55,6 +55,7 @@ namespace CombatAI
         {
             m_observer.OnHitLanded(a_attacker, a_victim, a_power);
         }
+        void OnHitBlocked(RE::Actor *a_victim) { m_observer.OnHitBlocked(a_victim); }
 
       private:
         CombatDirector() = default;
