@@ -96,6 +96,9 @@ namespace CombatAI
             float closeDodgeChance = 0.3f;        // Chance to dodge each melee swing aimed at it from within reach
             float defendOnSwingChance = 0.5f;     // Chance to parry / timed block each swing aimed at it (in window)
             bool allowDaggerBlock = true;         // Let daggers block and bash (patches vanilla; applies at game start)
+            bool enableRangedPositioning = true;  // Archers and mages keep their distance from melee attackers
+            float rangedKeepAwayDistance = 450.0f; // Fall back when a melee attacker is closer than this
+            float rangedMaxDistance = 2000.0f;     // Close in when the target is farther than this (or out of sight)
             bool staminaAffectsRetreat = false;  // Off: retreat/backoff depend on health only (light attacks cost no stamina)
             float powerAttackMinStamina = 0.7f;  // Power/sprint attacks and power bashes need this stamina fraction
             float healthThreshold = 0.3f;

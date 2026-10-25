@@ -1,5 +1,15 @@
 # Changelog
 
+## CombatAITree 0.21.0 (2026-10-26)
+
+- **Archers and mages take the brain's moves.** Vanilla runs a different movement tree for NPCs whose max range is over 1024 (bows, crossbows, staffs, most spells): RangedMovement, not CloseMovement. Our movement branches were only in CloseMovement, so every move the brain picked for them did nothing. The RangedMovement builder's SetRoot is now hooked too (SE 48476+0x495, AE 49468+0x957), with the same Advance/Circle/Fallback/Backoff branches in front of vanilla's.
+- **Ranged positioning.** For an NPC fighting with a bow, crossbow, staff or spell in the right hand, the melee rules (advance to reach, attack, flank, feint, bash) are off. Instead:
+  - a melee attacker closer than `RangedKeepAwayDistance` (450): it falls back, more urgently while that attacker swings at it;
+  - target farther than `RangedMaxDistance` (2000) or out of sight: it closes in;
+  - in between: vanilla shoots, casts, strafes and keeps its own optimal range.
+  Survival retreats, dodges and back-off still apply. `EnableRangedPositioning` turns it off. INI and menu. Debug log: `Ranged 0x..: melee target at X -> fall back` / `-> close in to Y`.
+- **Fix: staffs read as crossbows.** The weapon-type table had staff (8) and crossbow (9) swapped. Inherited from combat-ai-ng.
+
 ## CombatAITree 0.20.2 (2026-10-26)
 
 Run 43 (0.20.1, group fight) was still passive: 32 attacks in 1232 executed actions. In reach, 106 ticks were pacing holds, and on 157 no attack was considered (38 "not facing the target" while circling, 26 trade roll lost, 14 too soon after the last action). Counters were posted but vanilla refused them during the block-hit reaction (hit cone or range check), and only 1 of 11 swung.

@@ -1235,9 +1235,12 @@ namespace CombatAI
         // Our CloseMovement tree runs the vanilla Advance node (CPR below only shapes it if present). It stops
         // a little inside the brain's attack range, not at the engine's longer melee range (run 16: a reach-82
         // bandit parked at 125-175 units, outside its own range, and the brain never attacked).
-        const float stopDistance = 0.9f * StateHelpers::EffectiveAttackRange(a_state.weaponReach, a_state.target.boundRadius,
-                                                                             matrix.offenseReachMultiplier,
-                                                                             matrix.offenseReachSafetyMargin);
+        // A ranged fighter's advance gives its own stop distance (EvaluateRangedPositioning)
+        const float stopDistance =
+            a_decision.holdDistance > 0.0f
+                ? a_decision.holdDistance
+                : 0.9f * StateHelpers::EffectiveAttackRange(a_state.weaponReach, a_state.target.boundRadius,
+                                                            matrix.offenseReachMultiplier, matrix.offenseReachSafetyMargin);
         Intents::PostMove(a_actor, Intents::Move::Advance, stopDistance);
 
         // Sprint-charge: CPR (like ProjectGapClose) only shapes movement while the actor

@@ -60,6 +60,8 @@ namespace CombatAI
 
         // Feinting & Baiting (fake attacks to bait enemy response)
         DecisionResult EvaluateFeinting(RE::Actor *a_actor, const ActorStateData &a_state);
+        // Archers and mages: keep away from melee attackers, close in when too far or out of sight
+        DecisionResult EvaluateRangedPositioning(RE::Actor *a_actor, const ActorStateData &a_state);
 
         // Parry (timed bash for parrying incoming attacks)
         DecisionResult EvaluateParry(RE::Actor *a_actor, const ActorStateData &a_state);

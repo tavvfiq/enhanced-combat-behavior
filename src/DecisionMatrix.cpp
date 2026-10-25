@@ -127,9 +127,64 @@ namespace CombatAI
         return won;
     }
 
+    // Fights from range: bow, crossbow, staff or a spell in the right hand. Vanilla runs its RangedMovement tree for
+    // them, and the melee rules (advance to reach, attack, flank, feint, bash) don't apply.
+    static bool IsRangedFighter(const ActorStateData &a_state)
+    {
+        const auto w = a_state.self.weaponType;
+        return a_state.self.isRanged || w == WeaponType::Staff || w == WeaponType::Spell;
+    }
+
+    DecisionResult DecisionMatrix::EvaluateRangedPositioning(RE::Actor *a_actor, const ActorStateData &a_state)
+    {
+        DecisionResult result;
+        const auto &dm = Config::GetInstance().GetDecisionMatrix();
+        if (!a_state.target.isValid || (a_state.target.isPlayer && !a_state.target.isDetected)) {
+            return result;
+        }
+        const float dist = a_state.target.distance;
+        const bool debug = a_actor && Config::GetInstance().IsDebugTarget(a_actor->GetFormID());
+        RE::NiPoint3 away = a_state.self.position - a_state.target.position;
+        away.z = 0.0f;
+        away.Unitize();
+
+        // A melee attacker inside the keep-away distance: fall back (kite). More urgent when it is swinging at us.
+        if (!a_state.target.isRanged && dist < dm.rangedKeepAwayDistance) {
+            const bool swinging = (a_state.target.isAttacking || a_state.target.isPowerAttacking) &&
+                                  TargetAimedAtUs(a_actor, a_state);
+            result.action = ActionType::Retreat;
+            result.priority = swinging ? 2.2f : 1.9f;
+            result.direction = away;
+            result.intensity = 1.0f;
+            if (debug) {
+                LOG_DEBUG("Ranged 0x{:08X}: melee target at {:.0f} (keep away {:.0f}) -> fall back", a_actor->GetFormID(),
+                          dist, dm.rangedKeepAwayDistance);
+            }
+            return result;
+        }
+
+        // Too far, or no line of sight: close in to a little inside the max distance
+        const bool noSight = a_state.env.losChecked && !a_state.env.losToTarget;
+        if (dist > dm.rangedMaxDistance || noSight) {
+            result.action = ActionType::Advancing;
+            result.priority = 1.0f;
+            result.holdDistance = noSight ? (std::max)(dm.rangedKeepAwayDistance, dist * 0.6f) : dm.rangedMaxDistance * 0.8f;
+            result.direction = -away;
+            result.intensity = 0.8f;
+            if (debug) {
+                LOG_DEBUG("Ranged 0x{:08X}: target at {:.0f}{} -> close in to {:.0f}", a_actor->GetFormID(), dist,
+                          noSight ? " out of sight" : "", result.holdDistance);
+            }
+        }
+        // Otherwise in its band: vanilla shoots, casts, strafes and keeps its own optimal range
+        return result;
+    }
+
     DecisionResult DecisionMatrix::Evaluate(RE::Actor *a_actor, const ActorStateData &a_state)
     {
         std::vector<DecisionResult> possibleDecisions;
+        const bool ranged =
+            IsRangedFighter(a_state) && Config::GetInstance().GetDecisionMatrix().enableRangedPositioning;
 
         // Evaluate all potential actions
         DecisionResult survivalResult = EvaluateSurvival(a_actor, a_state);
@@ -137,7 +192,7 @@ namespace CombatAI
             possibleDecisions.push_back(survivalResult);
         }
 
-        DecisionResult interruptResult = EvaluateInterrupt(a_actor, a_state);
+        DecisionResult interruptResult = ranged ? DecisionResult() : EvaluateInterrupt(a_actor, a_state);
         if (interruptResult.action != ActionType::None) {
             possibleDecisions.push_back(interruptResult);
         }
@@ -157,17 +212,17 @@ namespace CombatAI
             possibleDecisions.push_back(backoffResult);
         }
 
-        DecisionResult flankingResult = EvaluateFlanking(a_actor, a_state);
+        DecisionResult flankingResult = ranged ? EvaluateRangedPositioning(a_actor, a_state) : EvaluateFlanking(a_actor, a_state);
         if (flankingResult.action != ActionType::None) {
             possibleDecisions.push_back(flankingResult);
         }
 
-        DecisionResult feintingResult = EvaluateFeinting(a_actor, a_state);
+        DecisionResult feintingResult = ranged ? DecisionResult() : EvaluateFeinting(a_actor, a_state);
         if (feintingResult.action != ActionType::None) {
             possibleDecisions.push_back(feintingResult);
         }
 
-        DecisionResult offenseResult = EvaluateOffense(a_actor, a_state);
+        DecisionResult offenseResult = ranged ? DecisionResult() : EvaluateOffense(a_actor, a_state);
         // SCAR-patched movesets pick their own normal/power attacks (sprint attack stays ours)
         if ((offenseResult.action == ActionType::Attack || offenseResult.action == ActionType::PowerAttack) &&
             SCARIntegration::GetInstance().OwnsAttacks(a_actor->GetFormID())) {

@@ -161,6 +161,9 @@ namespace CombatAI
         D("DecisionMatrix", "CloseDodgeChance", m_decisionMatrix.closeDodgeChance);
         D("DecisionMatrix", "DefendOnSwingChance", m_decisionMatrix.defendOnSwingChance);
         B("DecisionMatrix", "AllowDaggerBlock", m_decisionMatrix.allowDaggerBlock);
+        B("DecisionMatrix", "EnableRangedPositioning", m_decisionMatrix.enableRangedPositioning);
+        D("DecisionMatrix", "RangedKeepAwayDistance", m_decisionMatrix.rangedKeepAwayDistance);
+        D("DecisionMatrix", "RangedMaxDistance", m_decisionMatrix.rangedMaxDistance);
         D("DecisionMatrix", "PowerAttackMinStamina", m_decisionMatrix.powerAttackMinStamina);
         D("DecisionMatrix", "HealthThreshold", m_decisionMatrix.healthThreshold);
         B("DecisionMatrix", "EnableSurvivalRetreat", m_decisionMatrix.enableSurvivalRetreat);
@@ -480,6 +483,14 @@ namespace CombatAI
             0.0f, 1.0f);
         m_decisionMatrix.allowDaggerBlock =
             a_ini.GetBoolValue("DecisionMatrix", "AllowDaggerBlock", m_decisionMatrix.allowDaggerBlock);
+        m_decisionMatrix.enableRangedPositioning =
+            a_ini.GetBoolValue("DecisionMatrix", "EnableRangedPositioning", m_decisionMatrix.enableRangedPositioning);
+        m_decisionMatrix.rangedKeepAwayDistance = std::clamp(
+            static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "RangedKeepAwayDistance", m_decisionMatrix.rangedKeepAwayDistance)),
+            100.0f, 2000.0f);
+        m_decisionMatrix.rangedMaxDistance = std::clamp(
+            static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "RangedMaxDistance", m_decisionMatrix.rangedMaxDistance)),
+            m_decisionMatrix.rangedKeepAwayDistance + 200.0f, 8000.0f);
         m_decisionMatrix.defendOnSwingChance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "DefendOnSwingChance", m_decisionMatrix.defendOnSwingChance)),
             0.0f, 1.0f);

@@ -30,6 +30,12 @@ namespace CombatAI::Trees
         constexpr std::size_t kCircleAngleCallSE = 0x299;
         constexpr std::size_t kCircleAngleCallAE = 0x22B;
         constexpr REL::RelocationID kCircleAngle{49721, 50648};
+        // RangedMovement (archers and mages: the Movement selector picks it when the NPC's max range > 1024) is kept;
+        // its SetRoot call is hooked to add our movement branches like CloseMovement's (SE 48476+0x495,
+        // AE 49468+0x957 in 1.6.1170 and 1.7.104, RE 2026-10-26)
+        constexpr REL::RelocationID kRangedMovementTree{48476, 49468};
+        constexpr std::size_t kRangedMovementSetRootSE = 0x495;
+        constexpr std::size_t kRangedMovementSetRootAE = 0x957;
         // The vanilla Magic builder is kept; its SetRoot call is hooked to add the DualBlock branch (SE 48065+0x4AC,
         // AE 49112+0x7AC in 1.6.1170 and 1.7.104, RE 2026-10-25).
         constexpr REL::RelocationID kMagicTree{48065, 49112};
@@ -250,7 +256,7 @@ namespace CombatAI::Trees
         float WantFallback(RE::Actor *a_me, RE::Actor *) { return Intents::WantsMove(a_me, Intents::Move::Fallback) ? 1.0f : 0.0f; }
         float WantBackoff(RE::Actor *a_me, RE::Actor *) { return Intents::WantsMove(a_me, Intents::Move::Backoff) ? 1.0f : 0.0f; }
 
-        std::atomic<std::uint32_t> g_closeBuilt{0};
+        std::atomic<std::uint32_t> g_closeBuilt{0}, g_rangedBuilt{0};
 
         // Circle start audit (selected NPC): what each of the Circle start's checks (46720/47916) answered.
         // 1 = passed, 0 = refused, -1 = not reached; the first 0, or the stage after the last 1, is why it failed.
@@ -295,7 +301,7 @@ namespace CombatAI::Trees
         // with a bare Ascend (slot 5 = Ascend on the current thread; checked on SE, 1.6.1170 and
         // 1.7.104). So stopping one early is that same Ascend from its slot 4: the engine then frees
         // the node's frame, and our selector re-reads the intents on the next tick.
-        std::array<std::atomic<Node *>, 4> g_moveSelectors{}; // our "Intent Movement Selector" instances
+        std::array<std::atomic<Node *>, 8> g_moveSelectors{}; // our "Intent Movement Selector" instances (close + ranged)
         constexpr auto kMinRun = std::chrono::milliseconds(300); // brain flip-flops must not stutter the feet
 
         // Our selector above a_node, or nullptr when the node is in some other tree. Direct child of one
@@ -833,37 +839,58 @@ namespace CombatAI::Trees
         // Ours:    Context > Repeat > NextSelector{ brain Advance, Circle, Fallback, Backoff, <vanilla Movement Selector> }.
         // The brain's branches only run while it keeps asking (WantsMove); otherwise vanilla runs as before.
         // A running movement node is stopped early when the brain changes its mind (MoveUpdate above).
+        // Context > Repeat > <vanilla selector> becomes Context > Repeat > NextSelector{ our moves, <vanilla> }.
+        // False (tree left vanilla) if the shape differs.
+        bool SpliceMovement(Node *a_root)
+        {
+            Node *repeat = a_root && a_root->childCount == 1 ? a_root->children[0] : nullptr;
+            Node *vanilla = repeat && repeat->childCount == 1 ? repeat->children[0] : nullptr;
+            if (!Is(repeat, Id::vtRepeat) || !vanilla) {
+                return false;
+            }
+            vanilla->parent = nullptr; // detach, or SetChildren would add the whole tree's root
+                auto *selector = Checked(Named(NextSelector(), "Intent Movement Selector"), "Intent Movement Selector");
+            SetChildren(selector,
+                        {Checked(RandomNode(Named(Advance(), "Advance"), WantAdvance, "Intent - Advance"), "intent advance"),
+                         Checked(RandomNode(Named(Circle(), "Circle"), WantCircle, "Intent - Circle"), "intent circle"),
+                         Checked(RandomNode(Named(Fallback(), "Fallback"), WantFallback, "Intent - Fallback"), "intent fallback"),
+                         Checked(RandomNode(Named(Backoff(), "Backoff"), WantBackoff, "Intent - Backoff"), "intent backoff"),
+                         vanilla}); // re-parents the vanilla selector under ours
+            repeat->children[0] = selector; // Repeat keeps its one-slot child array
+            selector->parent = repeat;
+            for (auto &s : g_moveSelectors) {
+                Node *expected = nullptr;
+                if (s.compare_exchange_strong(expected, selector)) {
+                    break; // a 9th tree build would just not be preempted
+                }
+            }
+            return true;
+        }
+
         struct CloseMovementSetRoot
         {
             static void thunk(void *a_tree, Node *a_root)
             {
-                Node *repeat = a_root && a_root->childCount == 1 ? a_root->children[0] : nullptr;
-                Node *vanilla = repeat && repeat->childCount == 1 ? repeat->children[0] : nullptr;
-                if (!Is(a_root, Id::vtContextCloseMovement) || !Is(repeat, Id::vtRepeat) || !vanilla) {
+                if (!Is(a_root, Id::vtContextCloseMovement) || !SpliceMovement(a_root)) {
                     LOG_ERROR("Tree: CloseMovement tree has an unexpected shape - left vanilla");
-                    func(a_tree, a_root);
-                    return;
-                }
-                vanilla->parent = nullptr; // detach, or SetChildren would add the whole tree's root
-                auto *selector = Checked(Named(NextSelector(), "Intent Movement Selector"), "Intent Movement Selector");
-                SetChildren(selector,
-                            {Checked(RandomNode(Named(Advance(), "Advance"), WantAdvance, "Intent - Advance"), "intent advance"),
-                             Checked(RandomNode(Named(Circle(), "Circle"), WantCircle, "Intent - Circle"), "intent circle"),
-                             Checked(RandomNode(Named(Fallback(), "Fallback"), WantFallback, "Intent - Fallback"), "intent fallback"),
-                             Checked(RandomNode(Named(Backoff(), "Backoff"), WantBackoff, "Intent - Backoff"), "intent backoff"),
-                             vanilla}); // re-parents the vanilla selector under ours
-                repeat->children[0] = selector; // Repeat keeps its one-slot child array
-                selector->parent = repeat;
-                for (auto &s : g_moveSelectors) {
-                    Node *expected = nullptr;
-                    if (s.compare_exchange_strong(expected, selector)) {
-                        break; // a 5th tree build would just not be preempted
-                    }
-                }
-                func(a_tree, a_root);
-                if (g_closeBuilt.fetch_add(1) == 0) {
+                } else if (g_closeBuilt.fetch_add(1) == 0) {
                     LOG_INFO("Tree: CloseMovement tree extended (intent Advance/Circle/Fallback/Backoff over vanilla)");
                 }
+                func(a_tree, a_root);
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
+        struct RangedMovementSetRoot
+        {
+            static void thunk(void *a_tree, Node *a_root)
+            {
+                if (!SpliceMovement(a_root)) {
+                    LOG_ERROR("Tree: RangedMovement tree has an unexpected shape - left vanilla");
+                } else if (g_rangedBuilt.fetch_add(1) == 0) {
+                    LOG_INFO("Tree: RangedMovement tree extended (archers and mages take the brain's moves)");
+                }
+                func(a_tree, a_root);
             }
             static inline REL::Relocation<decltype(thunk)> func;
         };
@@ -921,6 +948,15 @@ namespace CombatAI::Trees
             }
         } else {
             LOG_ERROR("Tree: CloseMovement SetRoot site does not match (byte {:02X}) - movement intents disabled", bytes[0]);
+        }
+
+        const auto rangedSite =
+            kRangedMovementTree.address() + (REL::Module::IsAE() ? kRangedMovementSetRootAE : kRangedMovementSetRootSE);
+        if (CallsTarget(rangedSite, Id::initNodes.address())) {
+            RangedMovementSetRoot::func = trampoline.write_call<5>(rangedSite, RangedMovementSetRoot::thunk);
+            LOG_INFO("Tree: RangedMovement SetRoot hooked");
+        } else {
+            LOG_ERROR("Tree: RangedMovement SetRoot site does not match - archers and mages keep vanilla movement");
         }
 
         const auto magicSite = kMagicTree.address() + (REL::Module::IsAE() ? kMagicSetRootAE : kMagicSetRootSE);

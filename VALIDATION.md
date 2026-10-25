@@ -392,3 +392,8 @@
 ## 0.20.2 (2026-10-26)
 - Fixes and tuning from run 43 above. Untested in game.
 - Run 44 (0.20.2, group of 4 selected in turn): Executed Flanking 424, Advancing 248, Strafe 43, Backoff 35, Attack 30, TimedBlock 6. In-reach ticks 309: no attack candidate and no Offense skip 225, of which own attackState 1-6 on 218 (already swinging); Offense skips: target is attacking 17, not facing 8 (run 43: 26 / 38), last action too recent 0 (run 43: 14). Attack candidate scores 1.85-5.91, median 3.55 (run 43: 2.62). Pacing granted 11, waiting 9, retaliating 3. Selected-NPC swings 26, hits on the player 25 (run 43: 19 / 17). Counter windows 8: two led into an attack state at once (vanilla block-attack), one lost 5 ticks to a failed skill roll (offense rolls hold 1 s), then attacked at 3.11.
+
+## 0.21.0 (2026-10-26) ranged positioning
+- RE: Movement selector option 8 RangedMovement (CombatInventory::QRawMaxRange 48463 > 1024) per COMBAT_AI_RE.md; builder found by vtables CreateContextNode<ContextRangedMovement> (SE 266932 / AE 214000) and NodeObject<MaintainOptimalRange> (SE 266933 / AE 214013): AE 1.6.1170 and 1.7.104 id 49468 calls initNodes 47518 at +0x957; SE factories 48480/48484/48485 are called from 48476, which calls initNodes 46263 at +0x495. Shape checked at runtime (Context > Repeat > child).
+- WEAPON_TYPE: CommonLib TESObjectWEAP.h kStaff = 8, kCrossbow = 9; IdentifyWeaponType mapped 8 -> Crossbow (IsCrossbow() runs first, so real crossbows were right; staffs were wrong).
+- Untested in game. Pass: `Tree: RangedMovement tree extended`, Ranged lines for an archer/mage, MoveNode lines for its Fallback/Advance.

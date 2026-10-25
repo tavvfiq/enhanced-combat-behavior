@@ -160,6 +160,9 @@ namespace CombatAI
         liveFloat("Trade blows with a swing (chance)", &config.m_decisionMatrix.tradeBlowsChance, 0.0f, 1.0f);
         liveFloat("Dodge a close swing (chance)", &config.m_decisionMatrix.closeDodgeChance, 0.0f, 1.0f);
         liveFloat("Parry / timed block a swing (chance)", &config.m_decisionMatrix.defendOnSwingChance, 0.0f, 1.0f);
+        ImGuiMCP::Checkbox("Archers and mages keep their distance", &config.m_decisionMatrix.enableRangedPositioning);
+        liveFloat("Ranged: fall back from melee closer than", &config.m_decisionMatrix.rangedKeepAwayDistance, 100.0f, 2000.0f, "%.0f");
+        liveFloat("Ranged: close in beyond", &config.m_decisionMatrix.rangedMaxDistance, 600.0f, 8000.0f, "%.0f");
         liveFloat("Power attack min stamina", &config.m_decisionMatrix.powerAttackMinStamina, 0.0f, 1.0f);
                 liveFloat("Health threshold", &config.m_decisionMatrix.healthThreshold, 0.0f, 1.0f);
                 ImGuiMCP::Checkbox("Power attack stamina check",

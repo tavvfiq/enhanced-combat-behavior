@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.20.2 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.21.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -101,6 +101,7 @@ Open (audit, choices for the user): EvaluateFlanking validates closestAllyPositi
 - 0.20.1: EvaluateFlanking returns when already in flank position (dot < 0.3), maintain rules removed, capped at 1.4 in attack range; counter window skips the trade-blows gate. Runtime-evidenced (run 43): still passive.
 - 0.20.2: TimedBlock/Parry no longer reset timeSinceLastAction; counter window 0.2-1.0 s after the block; facing gate 75 deg; flanking cap 1.4 within 1.5x reach; MaxSimultaneousAttackers 3. Runtime-evidenced (run 44).
 SCAR research (subagent, source e62b63a, MIT): data = clip annotations `SCAR_ActionData{json}` read from active hkbClipGenerators; first attack hooks SE 48147+0x164 (replaces StartAttack, never calls the original); combos via VTABLE_Character[2] slot 1 on SCAR_ComboStart, needs a running node named "attack" (ours is); no API. Option c (parse annotations ourselves, 1-2 days, SCAR.dll removed) deferred.
+- 0.21.0: RangedMovement SetRoot hook (SE 48476+0x495, AE 49468+0x957) with the shared SpliceMovement; g_moveSelectors 8; IsRangedFighter (bow/crossbow/staff/spell) skips Interrupt/Offense/Flanking/Feint and runs EvaluateRangedPositioning (Retreat below RangedKeepAwayDistance 450 vs a melee target, Advancing with holdDistance beyond RangedMaxDistance 2000 or no LOS); ExecuteAdvancing uses holdDistance as stop distance when set; WEAPON_TYPE 8/9 (staff/crossbow) swap fixed. Build-validated only. Not done: switching to a melee weapon when cornered (vanilla inventory decides). Note: kiting Retreats count toward the 8 s cornered timer.
 Next (if accepted): custom block leaf (TREE_DESIGN 6, Idle clone) in the Melee tree for dual wield, then the Magic tree (needs its builder hook, SE/AE RE).
 Finding (#4, RE notes COMBAT_AI_RE.md ActionEquipmentSelector): the Block tree (bash, block, parry, timed block) is linked only for equipment type 3 Shield. NPCs without a shield never run it, so their bash/block/parry/timed-block intents can't be taken (0x8E1A4 with a dagger, archers). DefendUnavailable (0.11.1) stops the requests after 3. Whether two-handed or one-handed weapon blocking goes through another path is unknown.
 Open (run 29): selected-NPC attacks fired 44 of 74 taken; 12 refused before vanilla checks, mostly within 0-3 s of the previous attack (per-attack cooldown suspected, not probed); range/path FAIL 16.

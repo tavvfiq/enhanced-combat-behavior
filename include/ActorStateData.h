@@ -340,9 +340,10 @@ namespace CombatAI
             // RE::WEAPON_TYPE is an enumeration wrapper, need to get underlying value
             auto weaponTypeValue = a_weapon->weaponData.animationType.underlying();
 
-            // RE::WEAPON_TYPE enum values:
+            // RE::WEAPON_TYPE enum values (CommonLib TESObjectWEAP.h):
             // kHandToHand = 0, kOneHandSword = 1, kOneHandDagger = 2, kOneHandAxe = 3,
-            // kOneHandMace = 4, kTwoHandSword = 5, kTwoHandAxe = 6, kBow = 7, kCrossbow = 8, kStaff = 9
+            // kOneHandMace = 4, kTwoHandSword = 5, kTwoHandAxe = 6, kBow = 7, kStaff = 8, kCrossbow = 9.
+            // Before 0.21.0 8 and 9 were swapped here, so every staff read as a crossbow.
             switch (weaponTypeValue) {
             case 0: // kHandToHand
                 return WeaponType::Unarmed;
@@ -360,10 +361,10 @@ namespace CombatAI
                 return WeaponType::TwoHandedAxe;
             case 7: // kBow
                 return WeaponType::Bow;
-            case 8: // kCrossbow
-                return WeaponType::Crossbow;
-            case 9: // kStaff
+            case 8: // kStaff
                 return WeaponType::Staff;
+            case 9: // kCrossbow
+                return WeaponType::Crossbow;
             default:
                 return WeaponType::None;
             }
