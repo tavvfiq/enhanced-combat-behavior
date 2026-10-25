@@ -192,8 +192,8 @@ namespace CombatAI
             break;
 
         case ActionType::ForwardDodge:
-            // A dodge that can't go (path, stamina, already dodging) still closes in: run 30 stood still on 17 ticks
-            success = ExecuteForwardDodge(a_actor, a_decision, a_state) || ExecuteAdvancing(a_actor, a_decision, a_state);
+            // A dodge that can't go fails here; CombatDirector then re-runs it as Advancing (and records Advancing)
+            success = ExecuteForwardDodge(a_actor, a_decision, a_state);
             break;
 
         case ActionType::Backoff:

@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.14.1 (2026-10-25)
+
+- **Fix (0.13.1 regression): a forward dodge that can't go is an advance again, not a dodge.** CombatDirector already turned a failed forward dodge into an Advance and recorded it as one. 0.13.1 added a second fallback inside the executor that reported the advance as a successful forward dodge. In run 31, 43 of 47 "forward dodges" were really advances, and each reset the dodge and evasion timers. Removed; the 0.13.1 note that run 30's NPC "stood still" was wrong, CombatDirector's fallback was already advancing it.
+- Run 31 (0.13.2) confirms the dodge fixes: 10 of 12 dodges moved the way their event said. The other 2 were followed straight away by more movement inside the measuring window. The path check worked twice in real use: `TKDodgeLeft blocked (obstacle)` then dodged right; `TKDodgeForward blocked (actor at shoulder)` then dodged back.
+
 ## CombatAITree 0.14.0 (2026-10-25)
 
 In a fight against several NPCs, everyone treated your swing as aimed at them. Three more reactions now need the attack aimed at this NPC, using the same check the dodge has used since 0.11.0:

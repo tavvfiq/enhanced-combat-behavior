@@ -311,3 +311,7 @@
 ## 0.14.0 (2026-10-25) aimed-at-us gates
 - Same TargetAimedAtUs (IsAimedAt with body radius + 75, or the player's crosshair actor) as the 0.11.0 dodge. Close up it passes for any forward facing (at 100 units the aim limit ~100 covers dot > 0); at 300 units it needs about 20 degrees. Untested in game.
 - #4 finding from the RE notes (ActionEquipmentSelector case table, marked confirmed): Block Link only under case 3 Shield; Melee Link (attack tree) under case 1 Melee. Consistent with run 29: 0x8E1A4 (dagger) 11 bash posts, 0 taken; archers 0 of 23 in run 21.
+- Run 31 (0.13.2): no warnings. dodgecheck.py: 12 accepted dodges, 10 match (Right 5, Left 2, Forward 2, Back 1); mismatches at 35.171 (Forward event, measured Left 198) and 49.554 (Right, measured Back 132), both followed by advancing in the 0.4-0.8 s window. Blocks: `TKDodgeLeft blocked (obstacle)` -> Right 189 units; `TKDodgeForward blocked (actor at shoulder)` -> Back 139. Close swing ticks: dodge 20, no dodge (roll) 69, no dodge (stamina) 21; Executed Dodge 7. Executed ForwardDodge 47 vs 4 TKDodgeForward events: 0.13.1's executor fallback reported advances as forward dodges (CombatDirector.cpp already relabels a failed ForwardDodge as Advancing).
+
+## 0.14.1 (2026-10-25)
+- Executor ForwardDodge fallback removed. Untested in game.

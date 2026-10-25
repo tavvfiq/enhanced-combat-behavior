@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.14.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.14.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -77,6 +77,7 @@ Open (run 28): bash fired 1/12 taken, 10 of 11 refusals at stamina <= 8% (bash s
 - 0.13.1: won close dodge priority 10; ExecuteDodge ignore ref (forward dodge target); ForwardDodge falls back to Advancing; close-dodge log after the stamina check. Build-validated only.
 - 0.13.2: DodgeSystem::Blocked casts centre + two rays at +-22 units (shoulders). Build-validated only.
 - 0.14.0: TargetAimedAtUs also gates the evasion strafe on a target swing, EvaluateBackoff's cast/draw and swing triggers, and the offense "target is attacking" skip. Build-validated only.
+- 0.14.1: removed the 0.13.1 executor fallback ForwardDodge -> Advancing (CombatDirector already relabels a failed ForwardDodge as Advancing). Build-validated only.
 Finding (#4, RE notes COMBAT_AI_RE.md ActionEquipmentSelector): the Block tree (bash, block, parry, timed block) is linked only for equipment type 3 Shield. NPCs without a shield never run it, so their bash/block/parry/timed-block intents can't be taken (0x8E1A4 with a dagger, archers). DefendUnavailable (0.11.1) stops the requests after 3. Whether two-handed or one-handed weapon blocking goes through another path is unknown.
 Open (run 29): selected-NPC attacks fired 44 of 74 taken; 12 refused before vanilla checks, mostly within 0-3 s of the previous attack (per-attack cooldown suspected, not probed); range/path FAIL 16.
 Open (actuator, run 25): taken attack intents started a swing within 1 s 14/33, bash 6/25 (0/4 at 0 stamina); dodge events all rejected (TK Dodge not installed, expected); feint/dodge/jump still on the old executor; block intents never posted; feedback channel (roadmap 0.3.0) not built.
