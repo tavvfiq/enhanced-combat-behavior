@@ -401,3 +401,7 @@
 
 ## 0.21.1 (2026-10-26)
 - Contact cutoff from run 45 above. Untested in game.
+- Run 46 (0.21.1): 0x8E19E Bandit Sorcerer: with the spell (WeaponType 11) Retreat 71, Strafe 40, Backoff 7; our Fallback ran 4 (moved 48-81); later dagger (3): melee rules. 0x8E1A4 archer (bow throughout): Retreat 54, Strafe 40, Backoff 16; our Fallback failed 9 of 9 (moved 0), own attackState at the failure 8/9/12 on 7, 0 on 2. Ranged "left to vanilla" (contact) 198, "fall back" 136. bowAttackStart 10, attackRelease 8. Player hits: sorcerer 15, archer 12.
+
+## 0.21.2 (2026-10-26)
+- No fall-back request mid-draw/cast. Untested in game.

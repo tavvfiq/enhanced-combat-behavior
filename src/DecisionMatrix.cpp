@@ -159,6 +159,15 @@ namespace CombatAI
         }
 
         // A melee attacker inside the keep-away distance: fall back (kite). More urgent when it is swinging at us.
+        // Not mid-draw or mid-cast: the Fallback node refuses to start then (run 46: an archer's 9 fallbacks all
+        // failed at once, 7 of them in bow states 8-12). It lets the shot go and falls back after.
+        if (!a_state.target.isRanged && dist < dm.rangedKeepAwayDistance &&
+            a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone) {
+            if (debug) {
+                LOG_DEBUG("Ranged 0x{:08X}: melee target at {:.0f}, finishing its shot first", a_actor->GetFormID(), dist);
+            }
+            return result;
+        }
         if (!a_state.target.isRanged && dist < dm.rangedKeepAwayDistance) {
             const bool swinging = (a_state.target.isAttacking || a_state.target.isPowerAttacking) &&
                                   TargetAimedAtUs(a_actor, a_state);

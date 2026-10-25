@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.21.2 (2026-10-26)
+
+Run 46 (0.21.1): a Bandit Sorcerer (spell in hand) fell back from you and actually moved (76-81 units per fallback), then switched to its dagger. The contact cutoff worked ("left to vanilla" 198 times). But the archer's fallbacks all failed at once: 7 of 9 came while its bow was drawn.
+
+- **Archers finish the shot, then fall back.** No fall-back request while the NPC is drawing, aiming or casting (any attack state): vanilla's Fallback node won't start then. Debug log: `Ranged 0x..: melee target at X, finishing its shot first`.
+
 ## CombatAITree 0.21.1 (2026-10-26)
 
 Run 45 (0.21.0): ranged positioning works. Bow-drawn archers fell back from you (Retreat was their top action), closed in from beyond 2000 units or out of sight, and kept shooting (25 draws). But a walking archer can't outrun a running player: it backed off 30-54 units while you closed from 133 to 88.
