@@ -371,3 +371,4 @@
 
 ## 0.18.7 (2026-10-26)
 - Fix from run 40 above. Untested in game.
+- Run 41 (0.18.7): 0xFF00084A (Bandit Chief). Player hits 53, blocked 2. Executed TimedBlock 6: blockStart 4 (cast stopped first 3), `the blow landed, ending the hold` 5, releases accepted 4; 59.534 block up 0.57 s, the blow blocked=true. Of the unblocked hits: NPC own attackState 1-4 on 37, defend roll lost 8, no defend check 5 (predicted hit never in window 4, no tick saw the swing 1). Defend window ticks won 6, lost 29. HitTiming median 0.42-0.54 s.
