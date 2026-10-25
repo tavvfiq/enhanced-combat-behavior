@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.22.1 (2026-10-26)
+
+Run 47 (0.22.0): archers shot about three times as often (31 draws vs 10), the redirect ran without problems, and a raised guard cut the shot chance on 41 ticks. But the x2 "opening" fired on 266 ticks, mostly because you faced another bandit.
+
+- **"Looking away" is no longer an opening for archers.** The x2 shot chance now needs you recovering from a swing, casting or drawing, staggered, or fleeing.
+
 ## CombatAITree 0.22.0 (2026-10-26)
 
 - **Archers time their shots.** Vanilla decides when to draw with a random roll; the brain now scales that roll each moment (the Ranged tree's chance pointer is redirected, SE 32398+0xA3 / AE 33149+0x111):

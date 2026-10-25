@@ -169,9 +169,10 @@ namespace CombatAI
         if (t.isBlocking && t.orientationDot > 0.5f) {
             return 0.3f;
         }
-        // An opening: recovering, casting or drawing, staggered, fleeing, or looking away
+        // An opening: recovering, casting or drawing, staggered or fleeing. Not "looking away": in a group fight the
+        // target faces someone else most of the time (run 47: x2 on 266 ticks, mostly that)
         if (t.isInAttackRecovery || t.isCasting || t.isDrawingBow || t.isFleeing ||
-            t.knockState != RE::KNOCK_STATE_ENUM::kNormal || t.orientationDot < 0.2f) {
+            t.knockState != RE::KNOCK_STATE_ENUM::kNormal) {
             return 2.0f;
         }
         return 1.0f;

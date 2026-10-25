@@ -409,3 +409,7 @@
 ## 0.22.0 (2026-10-26) archer shot timing, line of fire
 - RE: SE Ranged builder 32398 (refs CreateContextNode1<ContextRanged> 256696, NodeObject<RangedAttack> 256699): `lea rax, [rip+0x34b5c6]` (48 8D 05) at +0xA3 = 49772, next to the "Ranged Attack" name, SetRoot at +0x1BC. AE 1.7.104 and 1.6.1170 builder 33149: `lea rax` (48 8D 05) at +0x111 = 50700 (same prologue as SE 49772: push rbx / movaps / mov rbx, rcx / call), SetRoot at +0x3C1. Install checks the 48 8D 05 bytes; the stub is a 14-byte jmp [rip] in the SKSE trampoline. The function is called with the actor in rcx; the thunk forwards rcx and rdx unchanged.
 - Untested in game. Pass: load line `Tree: Ranged attack chance redirected`, `shot chance x0.3` while the player blocks facing the archer and fewer bowAttackStart then, x2 lines on openings.
+- Run 47 (0.22.0): `Tree: Ranged attack chance redirected`, no warnings. 0x8E1A4: bowAttackStart 31 / attackRelease 31 (run 46: 10 / 8); shot factor x2 225, x0.3 8, x0 8; Ranged: finishing its shot first 68, contact 90, close in 37, fall back 5. 0x8FFA4: draws 12, x2 41, x0.3 33, close in 35. No "step aside" (x0 ticks were inside earlier branches: contact / close in / mid-draw).
+
+## 0.22.1 (2026-10-26)
+- Opening without "looking away". Untested in game.

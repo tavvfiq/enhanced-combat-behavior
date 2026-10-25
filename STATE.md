@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.22.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.22.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -104,7 +104,8 @@ SCAR research (subagent, source e62b63a, MIT): data = clip annotations `SCAR_Act
 - 0.21.0: RangedMovement SetRoot hook (SE 48476+0x495, AE 49468+0x957) with the shared SpliceMovement; g_moveSelectors 8; IsRangedFighter (bow/crossbow/staff/spell) skips Interrupt/Offense/Flanking/Feint and runs EvaluateRangedPositioning (Retreat below RangedKeepAwayDistance 450 vs a melee target, Advancing with holdDistance beyond RangedMaxDistance 2000 or no LOS); ExecuteAdvancing uses holdDistance as stop distance when set; WEAPON_TYPE 8/9 (staff/crossbow) swap fixed. Build-validated only. Not done: switching to a melee weapon when cornered (vanilla inventory decides). Note: kiting Retreats count toward the 8 s cornered timer. Runtime-evidenced (run 45).
 - 0.21.1: EvaluateRangedPositioning returns None below 150 units from a melee target (contact). Build-validated only. Open: Fallback in RangedMovement failed at start 23 of 29 (moved 0; Circle failures there were path checks); no right-hand spell/staff caster tested yet.
 - 0.21.2: no ranged fall-back while self attackState != kNone (bow draw / cast). Build-validated only. Run 46: spell caster tested (WeaponType 11), fallbacks moved 76-81.
-- 0.22.0: Ranged tree chance lea (SE 32398+0xA3 -> 49772, AE 33149+0x111 -> 50700) redirected through a trampoline stub to RangedShotChance = vanilla x Intents::RangedShotFactor (CombatDirector posts DecisionMatrix::RangedShotFactor each tick for bow/crossbow: 0 ally in line, 0.3 guard facing, 2 opening); EvaluateRangedPositioning strafes aside when AllyInLineOfFire (closest ally within 55 units of the line). Build-validated only. Not done: mage cast timing (SE 48065 has one lea of 48048 only; AE two of 49095).
+- 0.22.0: Ranged tree chance lea (SE 32398+0xA3 -> 49772, AE 33149+0x111 -> 50700) redirected through a trampoline stub to RangedShotChance = vanilla x Intents::RangedShotFactor (CombatDirector posts DecisionMatrix::RangedShotFactor each tick for bow/crossbow: 0 ally in line, 0.3 guard facing, 2 opening); EvaluateRangedPositioning strafes aside when AllyInLineOfFire (closest ally within 55 units of the line). Build-validated only. Not done: mage cast timing (SE 48065 has one lea of 48048 only; AE two of 49095). Runtime-evidenced (run 47).
+- 0.22.1: RangedShotFactor opening no longer includes target orientationDot < 0.2. Build-validated only.
 Next (if accepted): custom block leaf (TREE_DESIGN 6, Idle clone) in the Melee tree for dual wield, then the Magic tree (needs its builder hook, SE/AE RE).
 Finding (#4, RE notes COMBAT_AI_RE.md ActionEquipmentSelector): the Block tree (bash, block, parry, timed block) is linked only for equipment type 3 Shield. NPCs without a shield never run it, so their bash/block/parry/timed-block intents can't be taken (0x8E1A4 with a dagger, archers). DefendUnavailable (0.11.1) stops the requests after 3. Whether two-handed or one-handed weapon blocking goes through another path is unknown.
 Open (run 29): selected-NPC attacks fired 44 of 74 taken; 12 refused before vanilla checks, mostly within 0-3 s of the previous attack (per-attack cooldown suspected, not probed); range/path FAIL 16.
