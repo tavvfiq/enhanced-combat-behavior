@@ -307,3 +307,7 @@
 
 ## 0.13.2 (2026-10-25) shoulder rays
 - Path check: 3 kLOS rays (centre, +-22 units perpendicular), 35-220 units out at +60 height; up to 3 rays per direction, 9 per attack dodge with all fallbacks. Wall blocking not yet seen in a log. Untested in game.
+
+## 0.14.0 (2026-10-25) aimed-at-us gates
+- Same TargetAimedAtUs (IsAimedAt with body radius + 75, or the player's crosshair actor) as the 0.11.0 dodge. Close up it passes for any forward facing (at 100 units the aim limit ~100 covers dot > 0); at 300 units it needs about 20 degrees. Untested in game.
+- #4 finding from the RE notes (ActionEquipmentSelector case table, marked confirmed): Block Link only under case 3 Shield; Melee Link (attack tree) under case 1 Melee. Consistent with run 29: 0x8E1A4 (dagger) 11 bash posts, 0 taken; archers 0 of 23 in run 21.

@@ -1053,8 +1053,9 @@ namespace CombatAI
             bool shouldStrafe = false;
             float strafePriority = 1.3f;
 
-            // Strong reasons to strafe
-            if (a_state.target.isAttacking || a_state.target.isPowerAttacking) {
+            // Strong reasons to strafe. A swing at someone else is no reason (1 vs many: you swing at one bandit,
+            // the one beside it sidestepped)
+            if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && TargetAimedAtUs(a_actor, a_state)) {
                 shouldStrafe = true;
                 strafePriority = 1.6f; // Higher priority when target is attacking (evasion)
             } else if (a_state.target.isBlocking && !a_state.target.isAttacking) {
@@ -1608,8 +1609,9 @@ namespace CombatAI
             // (kFollowThrough), we can attack during their recovery window
             // A bow or crossbow being drawn also reads as "attacking"; up close that is the opening, not a threat.
             const DamageRace race = Race(a_state);
+            // A swing aimed at someone else is an opening, not a threat (1 vs many)
             if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && !a_state.target.isInAttackRecovery &&
-                !a_state.target.isRanged) {
+                !a_state.target.isRanged && TargetAimedAtUs(a_actor, a_state)) {
                 // Trading blows: one roll per normal swing of the target, twice the chance while winning the race
                 const float trade =
                     (std::min)(1.0f, config.GetDecisionMatrix().tradeBlowsChance * (race.winning ? 2.0f : 1.0f));
@@ -2222,9 +2224,12 @@ namespace CombatAI
         bool shouldBackoff = false;
         float urgencyModifier = 0.0f;
 
+        // Only a threat aimed at this NPC: a cast, shot or swing at someone else is no reason to back off
+        const bool aimedAtUs = TargetAimedAtUs(a_actor, a_state);
+
         // Primary triggers: Target casting or drawing bow (vulnerable to ranged
         // attacks)
-        if (a_state.target.isCasting || a_state.target.isDrawingBow) {
+        if ((a_state.target.isCasting || a_state.target.isDrawingBow) && aimedAtUs) {
             shouldBackoff = true;
             urgencyModifier = 0.3f; // High urgency for ranged threats
         }
@@ -2233,7 +2238,7 @@ namespace CombatAI
         // attacks) Only backoff if we're in close range and target is being very
         // aggressive
         // Not once the blow has landed: the target's recovery is the opening, not the threat
-        const bool swingThreat = !a_state.target.isInAttackRecovery;
+        const bool swingThreat = !a_state.target.isInAttackRecovery && aimedAtUs;
         if (swingThreat && a_state.target.isPowerAttacking) {
             shouldBackoff = true;
             urgencyModifier = (std::max)(urgencyModifier,

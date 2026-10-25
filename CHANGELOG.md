@@ -1,5 +1,13 @@
 # Changelog
 
+## CombatAITree 0.14.0 (2026-10-25)
+
+In a fight against several NPCs, everyone treated your swing as aimed at them. Three more reactions now need the attack aimed at this NPC, using the same check the dodge has used since 0.11.0:
+
+- **Strafe:** a swing at someone else no longer makes the NPC beside it sidestep.
+- **Back off:** a swing, cast or bow draw aimed at someone else is no reason to back off.
+- **Attack:** a swing aimed at someone else no longer stops this NPC attacking ("target is attacking"). It is an opening, so NPCs flanking you should press harder while you fight their friend.
+
 ## CombatAITree 0.13.2 (2026-10-25)
 
 - **Dodge path check is body-wide.** Two more rays run 22 units left and right of the centre line, so a pillar, tree or door frame that would clip a shoulder blocks that direction too. The debug line says `blocked (obstacle at shoulder)` or `(actor at shoulder)` for those. Still at waist height, so very low rocks and logs are not seen.
