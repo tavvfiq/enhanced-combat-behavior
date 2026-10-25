@@ -52,7 +52,7 @@ namespace CombatAI
         ~CombatDirector() = default;
 
         // Check if actor should be processed
-        bool ShouldProcessActor(RE::Actor *a_actor, RE::FormID a_formID, float a_deltaTime);
+        bool ShouldProcessActor(RE::Actor *a_actor, RE::FormID a_formID, float a_deltaTime, float &a_elapsed);
         void MaybeSwitchTarget(RE::Actor *a_actor, RE::FormID a_formID, const ActorStateData &a_state);
         DecisionResult ApplyCombatPacing(RE::Actor *a_actor, RE::FormID a_formID, const ActorStateData &a_state,
                                          DecisionResult a_decision);

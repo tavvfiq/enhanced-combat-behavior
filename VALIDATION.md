@@ -250,3 +250,9 @@
 - Run 22 misses: 17 timeouts, 15 inside reach; 5 matched a blocked=true probe hit within 1 s.
 - Checked, no change: isIdle (= kNone, blocking separate), range category vs offense formula, hit/attempt matching, target reset on switch.
 - Not checked at runtime: timeUntilAttackHits accuracy (60%-of-duration guess); kHit being post-impact is inferred from state order (hit -> next attack).
+- Run 23 (0.9.4): target InAtkRecov true 168/1014 ticks. Executed: Advancing 312, Strafe 175, Retreat 125, Backoff 57, Feint 52, Flanking 45, Attack 17, Bash 7, PowerAttack 2.
+
+## 0.9.5 (2026-10-25) timer speed
+- Run 23: wall clock 0.11 s between evaluations of the selected NPC; TemporalSelf timers grew ~0.012 s per evaluation, equal to logged DeltaTime (one frame). Cause: Hooks.cpp passes GetSecondsSinceLastFrame per actor update; ShouldProcessActor throttles to processingInterval, but GatherState got the frame delta.
+- Run 23: "last action too recent" blocked 185 in-reach offense evaluations; on target-recovery ticks execution was Strafe 133, Attack 4.
+- Fix: ShouldProcessActor returns the accumulated throttle time; GatherState uses it. Untested in game.

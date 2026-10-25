@@ -138,7 +138,9 @@ namespace CombatAI
             ApplyConfig();
         }
 
-        if (!ShouldProcessActor(a_actor, formID, a_deltaTime)) {
+        // Time since this actor was last processed: the temporal timers advance by it, not by one frame
+        float elapsed = a_deltaTime;
+        if (!ShouldProcessActor(a_actor, formID, a_deltaTime, elapsed)) {
             return;
         }
 
@@ -175,7 +177,7 @@ namespace CombatAI
         }
 
         // Gather state and evaluate the decision matrix (the heavy per-actor work)
-        ActorStateData state = m_observer.GatherState(a_actor, a_deltaTime);
+        ActorStateData state = m_observer.GatherState(a_actor, elapsed);
         MaybeSwitchTarget(a_actor, formID, state);
         DecisionResult decision = m_decisionMatrix.Evaluate(a_actor, state);
 
@@ -667,7 +669,7 @@ namespace CombatAI
         m_observer.EvictActor(a_formID);
     }
 
-    bool CombatDirector::ShouldProcessActor(RE::Actor *a_actor, RE::FormID a_formID, float a_deltaTime)
+    bool CombatDirector::ShouldProcessActor(RE::Actor *a_actor, RE::FormID a_formID, float a_deltaTime, float &a_elapsed)
     {
         if (!a_actor || a_formID == RE::FormID(0)) {
             return false;
@@ -780,6 +782,7 @@ namespace CombatAI
         bool existed = m_actorProcessTimers.Modify(a_formID, [&](float &timer) {
             timer += a_deltaTime;
             if (timer >= targetInterval) {
+                a_elapsed = timer;
                 timer = 0.0f; // Reset timer for next interval
                 shouldProcess = true;
             }

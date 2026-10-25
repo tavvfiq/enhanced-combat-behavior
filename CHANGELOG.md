@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.9.5 (2026-10-25)
+
+- **NPC timers run at real speed.** Each NPC is evaluated about every 0.1 s, but its timers advanced by one frame's time (~0.012 s) per evaluation, so they ran about 9x slow. The 0.3 s "last action too recent" gate really lasted ~2.7 s: it blocked 185 in-reach attacks in run 23, and during your recovery NPCs strafed (133 ticks) instead of hitting. Every cooldown, duration and the swing-elapsed time behind parry/block timing was off by the same factor. The timers now advance by the time since that NPC was last evaluated.
+- Run 23 confirms the 0.9.4 recovery fix: target recovery seen on 168 of 1014 ticks (was 1 of 1066).
+
 ## CombatAITree 0.9.4 (2026-10-24)
 
 Data audit: fixes to what the brain sees, each found in code and checked against run 22.
