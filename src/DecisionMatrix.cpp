@@ -228,6 +228,11 @@ namespace CombatAI
             return result; // Return None - ranged weapons can't bash
         }
 
+        // Same anti-spam gate as attacks: without it the bash was re-posted every tick mid-bash
+        if (a_state.temporal.self.timeSinceLastAction < 0.3f) {
+            return result;
+        }
+
         // Get interrupt distance - use actual weapon reach from state
         // Fallback to config value if weapon reach not available
         auto &config = Config::GetInstance();

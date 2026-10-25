@@ -256,3 +256,8 @@
 - Run 23: wall clock 0.11 s between evaluations of the selected NPC; TemporalSelf timers grew ~0.012 s per evaluation, equal to logged DeltaTime (one frame). Cause: Hooks.cpp passes GetSecondsSinceLastFrame per actor update; ShouldProcessActor throttles to processingInterval, but GatherState got the frame delta.
 - Run 23: "last action too recent" blocked 185 in-reach offense evaluations; on target-recovery ticks execution was Strafe 133, Attack 4.
 - Fix: ShouldProcessActor returns the accumulated throttle time; GatherState uses it. Untested in game.
+- Run 24 (0.9.5): DeltaTime 0.109 s per evaluation vs 0.11 s wall clock. Executed: Advancing 290, Retreat 139 (128 by one NPC at <10% HP), Strafe 100, Flanking 96, Backoff 92, Attack 43, Bash 25, Feint 14, PowerAttack 1. "Last action too recent" 49 (run 23: 185). Target recovery ticks: Strafe 37, Retreat 11, None 10, Attack 9.
+
+## 0.9.6 (2026-10-25) bash anti-spam
+- Run 24: 0x8E1A1 posted Bash at 20:03:54.399/.509/.619 with own AttackState=1 each tick, tree took each; one probe hit (blocked=true) at .813; LastBash reset to 0.11 s each time. Bursts of 3-5 at 49.6, 54.4, 55.2, 00.2.
+- Fix: EvaluateInterrupt returns None while timeSinceLastAction < 0.3 s. Untested in game.

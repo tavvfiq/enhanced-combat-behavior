@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.9.6 (2026-10-25)
+
+- **Bash waits 0.3 s after the NPC's last action, like attacks.** In run 24 a bash was re-posted every tick (0.11 s) while the NPC's own bash was still winding up, up to 5 times in a row for one blocked hit. Each re-post reset the action timer, which kept the next attack waiting.
+- Run 24 confirms 0.9.5: timers advance 0.109 s per evaluation (wall clock 0.11 s). In-reach attacks blocked by "last action too recent" fell from 185 to 49; attacks rose from 17 to 43 and bashes from 7 to 25 in a similar fight.
+
 ## CombatAITree 0.9.5 (2026-10-25)
 
 - **NPC timers run at real speed.** Each NPC is evaluated about every 0.1 s, but its timers advanced by one frame's time (~0.012 s) per evaluation, so they ran about 9x slow. The 0.3 s "last action too recent" gate really lasted ~2.7 s: it blocked 185 in-reach attacks in run 23, and during your recovery NPCs strafed (133 ticks) instead of hitting. Every cooldown, duration and the swing-elapsed time behind parry/block timing was off by the same factor. The timers now advance by the time since that NPC was last evaluated.
