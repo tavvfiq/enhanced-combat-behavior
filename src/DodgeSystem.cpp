@@ -17,6 +17,9 @@ namespace CombatAI
         constexpr float kPathStart = 35.0f;
         constexpr float kPathLength = 220.0f;
         constexpr float kPathHeight = 60.0f;
+        // Side rays this far left and right of the centre line catch a pillar or door frame that would clip a
+        // shoulder (NPC body radius is ~24)
+        constexpr float kShoulderOffset = 22.0f;
     } // namespace
 
     const char *DodgeSystem::Blocked(RE::Actor *a_actor, const RE::NiPoint3 &a_dir, const RE::TESObjectREFR *a_ignore)
@@ -30,15 +33,25 @@ namespace CombatAI
         if (!pos) {
             return nullptr; // fail open, like the ledge probe
         }
-        RE::NiPoint3 from = *pos + a_dir * kPathStart;
-        RE::NiPoint3 to = *pos + a_dir * kPathLength;
-        from.z += kPathHeight;
-        to.z += kPathHeight;
-        const auto hit = EnvSensor::CastRay(a_actor, from, to);
-        if (!hit.hit || (a_ignore && hit.ref == a_ignore)) {
-            return nullptr; // nothing in the way, or only the target the dodge closes on (run 30: 17 forward dodges)
+        // Centre line, then both shoulders; the target the dodge closes on doesn't count (run 30: 17 forward
+        // dodges blocked by it)
+        const RE::NiPoint3 side(-a_dir.y, a_dir.x, 0.0f);
+        for (const float offset : {0.0f, kShoulderOffset, -kShoulderOffset}) {
+            RE::NiPoint3 from = *pos + a_dir * kPathStart + side * offset;
+            RE::NiPoint3 to = *pos + a_dir * kPathLength + side * offset;
+            from.z += kPathHeight;
+            to.z += kPathHeight;
+            const auto hit = EnvSensor::CastRay(a_actor, from, to);
+            if (!hit.hit || (a_ignore && hit.ref == a_ignore)) {
+                continue;
+            }
+            const bool actor = hit.ref && hit.ref->As<RE::Actor>();
+            if (offset == 0.0f) {
+                return actor ? "actor" : "obstacle";
+            }
+            return actor ? "actor at shoulder" : "obstacle at shoulder";
         }
-        return hit.ref && hit.ref->As<RE::Actor>() ? "actor" : "obstacle";
+        return nullptr;
     }
 
     bool DodgeSystem::CanDodge(RE::Actor *a_actor)

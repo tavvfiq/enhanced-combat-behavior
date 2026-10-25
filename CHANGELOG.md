@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.13.2 (2026-10-25)
+
+- **Dodge path check is body-wide.** Two more rays run 22 units left and right of the centre line, so a pillar, tree or door frame that would clip a shoulder blocks that direction too. The debug line says `blocked (obstacle at shoulder)` or `(actor at shoulder)` for those. Still at waist height, so very low rocks and logs are not seen.
+
 ## CombatAITree 0.13.1 (2026-10-25)
 
 Run 30 confirmed the 0.13.0 left/right fix: all 5 accepted dodges moved the way their event said (right 2, back 1, forward 2).

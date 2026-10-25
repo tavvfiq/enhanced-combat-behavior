@@ -304,3 +304,6 @@
 
 ## 0.13.1 (2026-10-25)
 - Fixes from run 30 above. Untested in game.
+
+## 0.13.2 (2026-10-25) shoulder rays
+- Path check: 3 kLOS rays (centre, +-22 units perpendicular), 35-220 units out at +60 height; up to 3 rays per direction, 9 per attack dodge with all fallbacks. Wall blocking not yet seen in a log. Untested in game.
