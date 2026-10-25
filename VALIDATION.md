@@ -358,3 +358,4 @@
 
 ## 0.18.4 (2026-10-26)
 - SE equivalents by RTTI name: ValueNodeT<CastingType> 266709, NodeObject<CastImmediateSpell> 266705, NodeObject<CastConcentrationSpell> 266707 (Exit 48104/48103 -> 48040 -> 33630, same as the dual-cast vtables 266704/266706). AE 1.6.1170 same ids as 1.7.104. Untested in game.
+- Run 38 (0.18.4): `Tree: Magic tree extended (dual block in 2 casting types)`, no warnings. 0xFF00082B (Bandit Chief, sword + spell): dual block posts 7, blockStart accepted 7, `immediate cast stopped for the block` 5 (before blockStart on 4, same ms after on 1). Player hits landing during a hold: blocked=true 2 (blockHitStart), blocked=false 1 (00:..:20.748, block already gone: blockStop rejected at release). Releases: blockStop accepted 4, rejected 3. All 57 player hits on it: blocked 2; NPC own attackState 1-4 on 29; no Defend line since the last hit on 20; defend roll lost 4; won but not blocked 2. Defend window ticks: won 7, lost 18.
