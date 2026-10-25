@@ -196,7 +196,7 @@ namespace CombatAI
         struct CombatPacingSettings
         {
             bool enableCombatPacing = true;      // Master toggle
-            int maxSimultaneousAttackers = 2;    // How many may attack a target at once
+            int maxSimultaneousAttackers = 3;    // How many may attack a target at once
             float slotWindowMinSeconds = 2.0f;   // Min time a slot is held before rotating
             float slotWindowMaxSeconds = 4.0f;   // Max time a slot is held before rotating
             bool paceTargetPlayerOnly = true;    // Only pace attacks against the player

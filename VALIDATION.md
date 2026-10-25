@@ -387,3 +387,7 @@
 
 ## 0.20.1 (2026-10-26)
 - Fixes from run 42 above. Untested in game.
+- Run 43 (0.20.1): Executed Flanking 593, Advancing 243, Strafe 161, Backoff 114, Retreat 72, Attack 32, TimedBlock 8, ForwardDodge 5, Dodge 4. In-reach ticks (inrange5.py): held with an attack candidate -> Backoff 60; free, no attack candidate 157 (Flanking 56, Strafe 47, None 46, Backoff 8); attack candidate lost to Flanking 19 / Backoff 18; Attack 30. Offense skips: not facing 38, target attacking 26, last action too recent 14. Attack candidate scores 0.55-4.78 (median 2.62). Counter windows 11, swung 1; attempts show blockStop, attack posted and taken, then `hit cone FAIL (-26 deg)` / `range/path check FAIL` (99 units). Pacing: granted 17, waiting 25, retaliating 6.
+
+## 0.20.2 (2026-10-26)
+- Fixes and tuning from run 43 above. Untested in game.

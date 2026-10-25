@@ -146,9 +146,10 @@ namespace CombatAI
         // Guard counter: our window after a blocked hit (no mod needed), or EldenCounter's graph variable
         bool guardCounterActive = false;
         ActorUtils::SafeGetGraphVariableBool(a_actor, "Val_GuardCounter", guardCounterActive);
-        const auto counterUntil = m_counterUntil.Find(a_actor->GetFormID());
-        state.isGuardCounterActive =
-            guardCounterActive || (counterUntil && std::chrono::steady_clock::now() < *counterUntil);
+        const auto blockedAt = m_counterUntil.Find(a_actor->GetFormID());
+        const auto sinceBlock = blockedAt ? std::chrono::steady_clock::now() - *blockedAt : std::chrono::hours(1);
+        state.isGuardCounterActive = guardCounterActive || (sinceBlock >= std::chrono::milliseconds(200) &&
+                                                            sinceBlock <= std::chrono::milliseconds(1000));
 
         // Movement state - sprinting/walking - use safe wrappers
         state.isSprinting = ActorUtils::SafeIsSprinting(a_actor);
@@ -1365,12 +1366,12 @@ namespace CombatAI
         if (!a_victim) {
             return;
         }
-        // 0.6 s: the attacker is in its recovery right after the blocked blow, the opening a counter takes
-        constexpr auto kCounterWindow = std::chrono::milliseconds(600);
-        const auto until = std::chrono::steady_clock::now() + kCounterWindow;
-        m_counterUntil.ModifyOrCreate(a_victim->GetFormID(), [&](auto &t) { t = until; });
+        // The counter window is 0.2-1.0 s after the blocked blow (the time is stored; GatherSelfState checks it).
+        // Run 43: attacks posted right away were refused by vanilla's checks during the block-hit reaction.
+        const auto blocked = std::chrono::steady_clock::now();
+        m_counterUntil.ModifyOrCreate(a_victim->GetFormID(), [&](auto &t) { t = blocked; });
         if (Config::GetInstance().IsDebugTarget(a_victim->GetFormID())) {
-            LOG_DEBUG("Counter 0x{:08X}: blocked a hit, counter window open 0.6 s", a_victim->GetFormID());
+            LOG_DEBUG("Counter 0x{:08X}: blocked a hit, counter window 0.2-1.0 s", a_victim->GetFormID());
         }
     }
 
@@ -1410,6 +1411,8 @@ namespace CombatAI
             case ActionType::PowerAttack:
             case ActionType::SprintAttack:
             case ActionType::Bash:
+            case ActionType::Parry:      // a bash: its bashStart event starts the timer
+            case ActionType::TimedBlock: // a block is not a swing; it delayed counters (run 43)
             case ActionType::Feint:
             case ActionType::Advancing:
             case ActionType::Strafe:

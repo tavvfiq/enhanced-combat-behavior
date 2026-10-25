@@ -221,7 +221,7 @@ namespace CombatAI
             std::array<float, 9> samples[2]{};
         };
         ThreadSafeMap<RE::FormID, HitDelay> m_hitDelays;
-        // Counter window end per NPC (our own guard counter; EldenCounter's graph variable also counts)
+        // When each NPC last blocked a melee hit (our guard counter window is 0.2-1.0 s after it)
         ThreadSafeMap<RE::FormID, std::chrono::steady_clock::time_point> m_counterUntil;
         ThreadSafeMap<RE::FormID, TargetTemporalData> m_targetTemporalData; // Keyed by target FormID, but we'll use
                                                                             // actor-target pair

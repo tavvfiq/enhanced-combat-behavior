@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.20.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.20.2 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -98,7 +98,8 @@ Open (run 41): 53 player hits on a sword+spell Bandit Chief, blocked 2; 37 lande
 Open (audit, choices for the user): EvaluateFlanking validates closestAllyPosition by its world magnitude (|pos|^2 > 1e7 returns), so it never runs outdoors; flanking seen in logs is the pacing hold (EvaluateHeldBack). Feint's targetIsDefensive includes "facing us and not attacking". Attack scoring gives +0.3 for a blocking target.
 - 0.19.1: all three done (flanking uses closestAllyDistance <= 3000; feint needs a blocking or frequently blocking target; +0.3 blocking bonus removed from normal and sprint attack). Build-validated only.
 - 0.20.0: our guard counter: TESHitEvent kHitBlocked on an NPC opens a 0.6 s window (ActorStateObserver::m_counterUntil), OR-ed into isGuardCounterActive with EldenCounter Val_GuardCounter. Runtime-evidenced (run 42: 9 windows, counters at 5.3-6.7).
-- 0.20.1: EvaluateFlanking returns when already in flank position (dot < 0.3), maintain rules removed, capped at 1.4 in attack range; counter window skips the trade-blows gate. Build-validated only.
+- 0.20.1: EvaluateFlanking returns when already in flank position (dot < 0.3), maintain rules removed, capped at 1.4 in attack range; counter window skips the trade-blows gate. Runtime-evidenced (run 43): still passive.
+- 0.20.2: TimedBlock/Parry no longer reset timeSinceLastAction; counter window 0.2-1.0 s after the block; facing gate 75 deg; flanking cap 1.4 within 1.5x reach; MaxSimultaneousAttackers 3. Build-validated only.
 Next (if accepted): custom block leaf (TREE_DESIGN 6, Idle clone) in the Melee tree for dual wield, then the Magic tree (needs its builder hook, SE/AE RE).
 Finding (#4, RE notes COMBAT_AI_RE.md ActionEquipmentSelector): the Block tree (bash, block, parry, timed block) is linked only for equipment type 3 Shield. NPCs without a shield never run it, so their bash/block/parry/timed-block intents can't be taken (0x8E1A4 with a dagger, archers). DefendUnavailable (0.11.1) stops the requests after 3. Whether two-handed or one-handed weapon blocking goes through another path is unknown.
 Open (run 29): selected-NPC attacks fired 44 of 74 taken; 12 refused before vanilla checks, mostly within 0-3 s of the previous attack (per-attack cooldown suspected, not probed); range/path FAIL 16.

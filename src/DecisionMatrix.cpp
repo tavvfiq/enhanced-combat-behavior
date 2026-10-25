@@ -1612,12 +1612,14 @@ namespace CombatAI
                 return skip("weapon just switched, s", a_state.temporal.self.timeSinceWeaponSwitch);
             }
 
-            // Vanilla's hit cone refuses a target well off to the side (run 27: 3 at 57-100 deg); let it turn first
+            // Vanilla's hit cone refuses a target well off to the side; let it turn first. 75 deg: the cone passed attacks
+            // up to 82 deg off and failed some at 5-36 (runs 27-28), and at 50 deg this gate blocked 38 in-reach attacks
+            // of NPCs circling the target (run 43)
             RE::NiPoint3 toTarget = a_state.target.position - a_state.self.position;
             RE::NiPoint3 forward = a_state.self.forwardVector;
             toTarget.z = forward.z = 0.0f;
             if (toTarget.Unitize() > 1.0f && forward.Unitize() > 0.01f) {
-                constexpr float kMaxAttackAngleCos = 0.643f; // cos 50 deg
+                constexpr float kMaxAttackAngleCos = 0.259f; // cos 75 deg
                 const float facing = forward.Dot(toTarget);
                 if (facing < kMaxAttackAngleCos) {
                     return skip("not facing the target, dot", facing);
@@ -2547,9 +2549,12 @@ namespace CombatAI
         if (shouldFlank) {
             result.action = ActionType::Flanking;
             result.priority = basePriority + outnumberBonus + situationBonus; // Add all bonuses
-            // In reach a real attack outranks it (attacks with an opening score ~1.5-3, run 42 flanked at 1.65 in
-            // reach); flanking then only wins when the attack has nothing going for it
-            if (a_state.combatContext.isInAttackRange) {
+            // In or near reach a real attack outranks it (attacks with an opening score ~1.5-3; run 42 flanked at 1.65
+            // in reach, run 43 at up to 2.05 just outside it); flanking then only wins when the attack has nothing
+            const auto &dm = Config::GetInstance().GetDecisionMatrix();
+            const float reach = EffectiveAttackRange(a_state, a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f,
+                                                     dm.offenseReachMultiplier, dm.offenseReachSafetyMargin);
+            if (a_state.combatContext.isInAttackRange || a_state.target.distance <= reach * 1.5f) {
                 result.priority = (std::min)(result.priority, 1.4f);
             }
 

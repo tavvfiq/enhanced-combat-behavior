@@ -1,5 +1,15 @@
 # Changelog
 
+## CombatAITree 0.20.2 (2026-10-26)
+
+Run 43 (0.20.1, group fight) was still passive: 32 attacks in 1232 executed actions. In reach, 106 ticks were pacing holds, and on 157 no attack was considered (38 "not facing the target" while circling, 26 trade roll lost, 14 too soon after the last action). Counters were posted but vanilla refused them during the block-hit reaction (hit cone or range check), and only 1 of 11 swung.
+
+- **A timed block doesn't delay the next attack.** It reset the 0.3 s "last action" wait like a swing does.
+- **Counter window 0.2-1.0 s after the blocked blow** (was 0-0.6 s), past the block-hit reaction.
+- **Attacks allowed up to 75 degrees off the facing** (was 50). Vanilla's own cone passed attacks at up to 82 degrees, and the tighter limit kept circling NPCs from ever attacking.
+- **Flanking capped at 1.4 within 1.5x attack range**, not only inside it, so NPCs close in instead of circling just out of reach.
+- **Three attackers at once** (`MaxSimultaneousAttackers = 3`, was 2). If your INI was saved from the menu, change it there.
+
 ## CombatAITree 0.20.1 (2026-10-26)
 
 Run 42 (0.20.0, group fight): flanking, now running outdoors, took over. 1662 of ~1960 executed actions were Flanking and only 48 were attacks, Flanking even winning inside attack range (292 vs 46). The counter worked when it got the chance (counters scored 5.3-6.7 and swung) but often lost to flanking or to your next swing.
