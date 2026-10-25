@@ -716,6 +716,28 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
+        // A running cast node stops (Ascend instead of Update, like the movement preemption) when the brain wants a
+        // dual block: the engine then runs the node's Exit, which interrupts the cast, and the Magic tree's loop
+        // re-reads our DualBlock branch. Otherwise the block would wait for the cast to end.
+        template <int K>
+        struct CastUpdate
+        {
+            static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
+            {
+                auto *actor = RE::CombatBehaviorController::GetCurrentAttacker();
+                if (actor && a_thread && Intents::WantsDualBlock(actor)) {
+                    if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
+                        LOG_DEBUG("DualBlock 0x{:08X}: {} cast stopped for the block", actor->GetFormID(),
+                                  K == 0 ? "immediate" : "concentration");
+                    }
+                    a_thread->Ascend();
+                    return;
+                }
+                func(a_node, a_thread);
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
         // Vanilla Magic has no Repeat under its root: the builder (SE 48065) makes two, deeper down, one per casting
         // branch (two Repeat factory calls). Run 35 logged "unexpected shape" for a Context > Repeat check. Each
         // single-child Repeat gets Repeat > NextSelector{ DualBlock, <its vanilla child> }, so the branch is re-read
@@ -904,7 +926,10 @@ namespace CombatAI::Trees
         const auto magicSite = kMagicTree.address() + (REL::Module::IsAE() ? kMagicSetRootAE : kMagicSetRootSE);
         if (CallsTarget(magicSite, Id::initNodes.address())) {
             MagicSetRoot::func = trampoline.write_call<5>(magicSite, MagicSetRoot::thunk);
-            LOG_INFO("Tree: Magic SetRoot hooked (dual block for a weapon with a spell)");
+            REL::Relocation<std::uintptr_t> immediate{Id::vtCastImmediate}, concentration{Id::vtCastConcentration};
+            CastUpdate<0>::func = immediate.write_vfunc(4, CastUpdate<0>::thunk);
+            CastUpdate<1>::func = concentration.write_vfunc(4, CastUpdate<1>::thunk);
+            LOG_INFO("Tree: Magic SetRoot hooked (dual block for a weapon with a spell; a running cast stops for it)");
         } else {
             LOG_ERROR("Tree: Magic SetRoot site does not match - no dual block for spell hands");
         }

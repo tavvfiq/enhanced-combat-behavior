@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.18.2 (2026-10-26)
+
+- **A cast stops for the block.** When the brain wants a dual block while the NPC's spell hand is casting, the running cast node stops the way our movement preemption stops a movement node. Vanilla then runs that node's own exit, which interrupts the cast (MagicCaster::InterruptCast, checked in SE 1.5.97, AE 1.6.1170 and 1.7.104), and the Magic tree's loop picks up the block. Before, the block waited for the cast to finish and could expire first. Debug log: `DualBlock 0x..: immediate|concentration cast stopped for the block`. Only NPCs the brain asks to dual block are affected.
+
 ## CombatAITree 0.18.1 (2026-10-26)
 
 Run 35 (0.18.0): the dual block works through the Melee tree. A dual-wielding Bandit Chief blocked 3 times; the first caught your hit (`blocked=true`), and you didn't land one during the other two.

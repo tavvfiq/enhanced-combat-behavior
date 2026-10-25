@@ -347,3 +347,6 @@
 
 ## 0.18.1 (2026-10-26)
 - Fixes from run 35 above. Untested in game.
+
+## 0.18.2 (2026-10-26) cast stops for the block
+- Disassembly: NodeObject1<CastImmediateSpell,bool> vtable SE id 266704 / AE 213718 (Exit 48104 / 49141, Update 48127 / 49159); <CastConcentrationSpell,bool> SE 266706 / AE 213733 (Exit 48103 / 49140, Update 48126 / 49158). Both Exits call SE 48040 / AE 49087, which calls SE 33630 / AE 34408 = MagicCaster::InterruptCast (CommonLib RELOCATION_ID(33630, 34408)). Same in AE 1.6.1170 and 1.7.104. Untested in game.

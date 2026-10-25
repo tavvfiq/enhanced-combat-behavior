@@ -42,6 +42,10 @@ namespace CombatAI::TreeNodes
         inline constexpr REL::RelocationID vtCircle{266102, 212772};
         inline constexpr REL::RelocationID vtFallback{266101, 212759};
         inline constexpr REL::RelocationID vtBackoff{266103, 212785};
+        // NodeObject1<CombatBehaviorCast{Immediate,Concentration}Spell, bool>; their Exit (SE 48104/48103, AE
+        // 49141/49140) calls SE 48040 / AE 49087, which calls MagicCaster::InterruptCast (SE 33630 / AE 34408)
+        inline constexpr REL::RelocationID vtCastImmediate{266704, 213718};
+        inline constexpr REL::RelocationID vtCastConcentration{266706, 213733};
     } // namespace Id
 
     // Base engine node (size 0x28).
