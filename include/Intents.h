@@ -61,6 +61,10 @@ namespace CombatAI::Intents
     // Distance the brain wants the running Advance to stop at (0 = vanilla's own).
     float AdvanceDistance(RE::Actor *a_actor);
 
+    // Its last 3 block/bash requests expired untaken, the latest under 10 s ago: its Block tree isn't running
+    // (run 29: a dagger bandit's 11 bash posts, 0 taken, while it feinted 75 times). The brain stops asking.
+    bool DefendUnavailable(RE::Actor *a_actor);
+
     // Pending (not consumed) attack/defend intents exist - keeps vanilla branches out of the way.
     bool HasPending(RE::Actor *a_actor);
 

@@ -1,6 +1,7 @@
 #include "DecisionMatrix.h"
 #include "ActorUtils.h"
 #include "Config.h"
+#include "Intents.h"
 #include "Logger.h"
 #include "ProjectileAwareness.h"
 #include "SCARIntegration.h"
@@ -252,6 +253,9 @@ namespace CombatAI
         // Can't bash with a bow or crossbow - use weapon type from state
         if (a_state.self.isRanged) {
             return result; // Return None - ranged weapons can't bash
+        }
+        if (Intents::DefendUnavailable(a_actor)) {
+            return result;
         }
 
         // Same anti-spam gate as attacks: without it the bash was re-posted every tick mid-bash
@@ -2554,7 +2558,8 @@ namespace CombatAI
         }
 
         // A feint is a bash, and our Block tree never bashes with a bow or crossbow (run 21: 0 of 23 taken)
-        if (a_state.self.isRanged) {
+        if (a_state.self.isRanged || Intents::DefendUnavailable(a_actor) ||
+            a_state.self.currentStamina < BashStaminaCost()) {
             return result;
         }
 

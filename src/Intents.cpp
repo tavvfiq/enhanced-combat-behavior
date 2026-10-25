@@ -49,6 +49,16 @@ namespace CombatAI::Intents
         ThreadSafeMap<RE::FormID, Move> g_moveRun;
         ThreadSafeMap<RE::FormID, std::uint32_t> g_defendExpired; // per actor, since the last summary
 
+        // Block/bash requests in a row the tree never took, and when the latest expired (DefendUnavailable)
+        struct Refusals
+        {
+            std::uint32_t streak = 0;
+            Clock::time_point last{};
+        };
+        ThreadSafeMap<RE::FormID, Refusals> g_defendRefusals;
+        constexpr std::uint32_t kRefusalStreak = 3;
+        constexpr Seconds kRefusalHold{10.0f};
+
         void Debug(RE::Actor *a_actor, const char *a_what, int a_kind)
         {
             if (Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
@@ -92,6 +102,10 @@ namespace CombatAI::Intents
             }
             if (e.defend != Defend::None) {
                 g_defendExpired.ModifyOrCreate(a_actor->GetFormID(), [](std::uint32_t &n) { ++n; }); // never taken
+                g_defendRefusals.ModifyOrCreate(a_actor->GetFormID(), [&](Refusals &r) {
+                    ++r.streak;
+                    r.last = now;
+                });
             }
             e.defend = a_kind;
             e.defendUntil = now + std::chrono::duration_cast<Clock::duration>(kDefendTTL);
@@ -141,10 +155,21 @@ namespace CombatAI::Intents
             }
         });
         if (taken) {
+            g_defendRefusals.Erase(a_actor->GetFormID());
             g_count.defendTaken[static_cast<int>(a_kind)].fetch_add(1, std::memory_order_relaxed);
             Debug(a_actor, "tree took defend", static_cast<int>(a_kind));
         }
         return taken;
+    }
+
+    bool DefendUnavailable(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return false;
+        }
+        const auto r = g_defendRefusals.Find(a_actor->GetFormID());
+        return r && r->streak >= kRefusalStreak &&
+               Clock::now() - r->last < std::chrono::duration_cast<Clock::duration>(kRefusalHold);
     }
 
     bool PostMove(RE::Actor *a_actor, Move a_kind, float a_param)
@@ -302,5 +327,6 @@ namespace CombatAI::Intents
         g_board.Erase(a_formID);
         g_moveRun.Erase(a_formID);
         g_defendExpired.Erase(a_formID);
+        g_defendRefusals.Erase(a_formID);
     }
 } // namespace CombatAI::Intents

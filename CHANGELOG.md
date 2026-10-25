@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.11.1 (2026-10-25)
+
+- **No more feint spam when bash can't run.** In run 29 the bow/dagger bandit, holding its dagger, feinted 75 times. A feint is a bash, and its 11 bash requests were never taken (its Block tree wasn't running). Once 3 block/bash requests in a row expire untaken, the NPC stops asking for bash or feint for 10 s; a request the tree takes clears it. Feint also needs the bash stamina cost now (35 in this setup).
+- Run 29 confirms 0.11.0: no projectile sidesteps from allies (no projectile lines at all), no attack dodges (you made no shots or power attacks at range), bash fired 5 of 6 taken (was 1 of 12) with `Bash stamina cost 35.0`.
+
 ## CombatAITree 0.11.0 (2026-10-25)
 
 - **NPCs dodge only what is aimed at them.** In run 28, 7 of 9 dodges were sidesteps from an allied bandit archer's arrows aimed at you, because the NPC stood on the arrow's line. Projectile sidesteps now count only shots from someone hostile to that NPC. The other 2 dodges came while you swung 254-340 units away, probably at someone else. The attack dodge now needs the target's attack aimed at this NPC (the same aim line the jump uses, plus your bow crosshair). It also needs an attack that can reach that far: a shot, a power attack or a sprint attack. The old "dodge when the target is blocking" trigger is gone.

@@ -287,3 +287,7 @@
 - Evasion code before the change: dodge when target orientationDot > 0.7 and (attacking at 250-400 units, or blocking at 250-375); no aim or reach check.
 - GMST name fStaminaBashBase taken from the disassembly annotation of the stamina gate 25863 (COMBAT_AI_RE.md); its value is read at runtime and logged.
 - Expect: no `Projectile ... from <ally>` sidestep lines; `Bash stamina cost` line at the first bash evaluation; Offense skips `weapon just switched`. Untested in game.
+- Run 29 (0.11.0): no warnings. `Bash stamina cost 35.0 (fStaminaBashBase)`. Executed Dodge 0, ForwardDodge 1 (351 units, target facing away); Projectile lines 0. Taken attack intents fired: 0x8E1A1 21/36, 0x8E0ED 16/23, 0x8E1A4 7/15; no-check cases had lastAtk 0-3 s on 12 of 15. Bash fired 5/6. Offense skips: weapon just switched 3, not facing 19, priority too low 22 (all 0x8E1A4 at 0.34). 0x8E1A4 with dagger (WeaponType 3): Feint 75, Attack 13; bash posted 11, taken 0 in its minute.
+
+## 0.11.1 (2026-10-25) defend refusals
+- Fix from run 29 above. Untested in game.
