@@ -393,7 +393,10 @@ namespace CombatAI
         const bool attacking = a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone;
         const bool commit = a_decision.action == ActionType::Attack || a_decision.action == ActionType::PowerAttack ||
                             a_decision.action == ActionType::SprintAttack || a_decision.action == ActionType::Bash;
-        if (!attacking && !commit && a_state.target.distance > reach + pacing.engageMargin) {
+        // Archers and mages at range never take a slot: a bow draw counts as attacking (run 49: an archer at 1400+
+        // was held back and granted a slot 11 times). Pacing is about crowding the target inside melee reach.
+        const bool engaging = a_state.target.distance <= reach + pacing.engageMargin;
+        if (!engaging && (DecisionMatrix::IsRangedFighter(a_state) || (!attacking && !commit))) {
             coordinator.Release(target, a_formID);
             coordinator.ClearHeld(a_formID);
             return a_decision;

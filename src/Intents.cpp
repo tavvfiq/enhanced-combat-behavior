@@ -211,7 +211,8 @@ namespace CombatAI::Intents
                 }
             }
             e.shotFactor = out;
-            e.shotUntil = now + std::chrono::milliseconds(400);
+            // 1 s: run 49's archer drew in a 0.62 s gap between brain ticks, after a 0.4 s factor had lapsed
+            e.shotUntil = now + std::chrono::seconds(1);
         });
         return out;
     }

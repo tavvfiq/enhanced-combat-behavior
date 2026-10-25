@@ -82,7 +82,7 @@ namespace CombatAI::Intents
     bool DualBlockOverdue(RE::Actor *a_actor);
 
     // Archers: how much more (or less) likely vanilla's ranged attack roll should be this moment (0 = hold the shot,
-    // 1 = vanilla, 2 = take it). Refreshed every brain tick, falls back to 1 after 0.4 s. A hold (0) lasts 3 s at
+    // 1 = vanilla, 2 = take it). Refreshed every brain tick, falls back to 1 after 1 s. A hold (0) lasts 3 s at
     // most, then 1.5 s of vanilla shots before the next one; returns the factor actually posted.
     float PostRangedShot(RE::Actor *a_actor, float a_factor);
     float RangedShotFactor(RE::Actor *a_actor);

@@ -129,7 +129,7 @@ namespace CombatAI
 
     // Fights from range: bow, crossbow, staff or a spell in the right hand. Vanilla runs its RangedMovement tree for
     // them, and the melee rules (advance to reach, attack, flank, feint, bash) don't apply.
-    static bool IsRangedFighter(const ActorStateData &a_state)
+    bool DecisionMatrix::IsRangedFighter(const ActorStateData &a_state)
     {
         const auto w = a_state.self.weaponType;
         return a_state.self.isRanged || w == WeaponType::Staff || w == WeaponType::Spell;

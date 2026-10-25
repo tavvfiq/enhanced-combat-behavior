@@ -428,3 +428,7 @@
 ## 0.23.1 (2026-10-26) capped hold, step-aside other side
 - No new engine sites. Untested in game. Pass: no hold over ~3.1 s in a row (`shot chance x0.0` runs), `held 3 s, shooting anyway` and `other side: the last one failed` lines, the sorcerer steps aside rather than "out of sight -> close in" with an ally in line.
 - Run 49 (0.23.1, 4 min, camp bandits incl. archer 0x8E1A4 and Conqueror Sorcerer 0xFF0008FD): loads, no warnings. Hold cap works: archer 12 holds, five exactly 3.0 s, 30 `held 3 s, shooting anyway`; sorcerer 3 holds, longest 2.1 s. Side flip works (40 `other side` lines, Circle side alternates), but the archer's Circle failed on both sides at the start's path check (`path 0` 32x, 32507/33256), so it rarely moved out of the line. 23 bow draws: 15 free, 5 right after a capped hold, 3 during a hold (two 1.1 s after a release: vanilla's chained shot, not re-rolled through the chance).
+
+## 0.23.2 (2026-10-26) ranged out of pacing, shot hold TTL
+- Run 49 recheck: of the 3 draws "during a hold", one fell in a 0.62 s gap between brain posts after the 0.4 s factor lapsed (18.58 -> 19.20, draw 18.99); the other two came after the hold ended (the 0.45 s classifier window was too wide). The Ranged tree re-rolls 49772 per shot (Repeat > Fallback{rand > RangedAttack, Idle}).
+- Untested in game. Pass: no `Pacing 0x..` lines for an archer or mage beyond reach + 150, no bow draw while `shot chance x0.0` lines run.

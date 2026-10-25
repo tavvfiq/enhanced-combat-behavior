@@ -34,6 +34,8 @@ namespace CombatAI
         static float RangedShotFactor(const ActorStateData &a_state);
         // An ally stands in the line from this NPC to its target; a_where gets its position
         static bool AllyInLineOfFire(const ActorStateData &a_state, RE::NiPoint3 *a_where = nullptr);
+        // Bow, crossbow, staff or a spell in the right hand
+        static bool IsRangedFighter(const ActorStateData &a_state);
 
         // Held-back action for combat pacing: when an actor is denied an attack slot it
         // should stay engaged (circle/flank the target) instead of committing. Returns a

@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.23.2 (2026-10-26)
+
+- **Archers and mages at range are left out of attack pacing.** A bow draw counted as attacking, so a ranged NPC took one of the 3 attack slots on you (or was held back waiting for one) from across the camp (run 49: an archer at 1400+ units 11 times). Now only NPCs within melee reach + 150 units take part, whatever their weapon.
+- **A shot hold no longer slips.** The hold factor now lasts 1 s instead of 0.4 s between brain ticks; run 49's archer drew once in a 0.62 s gap between ticks. Vanilla does re-roll its ranged chance before every shot, so there is no chained shot to stop.
+
 ## CombatAITree 0.23.1 (2026-10-26)
 
 - **Casters and archers no longer hold fire for long behind an ally.** A hold lasts 3 s at most, then the NPC shoots or casts as vanilla would for 1.5 s before the next hold (run 48: a sorcerer held 15 s). Debug: `shot chance x1.0 (held 3 s, shooting anyway)`.
