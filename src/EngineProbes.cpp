@@ -67,6 +67,26 @@ namespace CombatAI::EngineProbes
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
+        // StartAttack's per-candidate gates before the weight (49748/50675): a per-attack cooldown compare (inline, no
+        // call), then the stamina cost (SE 25863 at +0x29B / AE 26429 at +0x27A; cost returned in xmm0, refused when
+        // above the actor's stamina). A candidate that never reaches this call was refused by its cooldown.
+        struct AttackStaminaCost
+        {
+            static float thunk(RE::Actor *a_actor, RE::BGSAttackData *a_data)
+            {
+                const float cost = func(a_actor, a_data);
+                auto *self = RE::CombatBehaviorController::GetCurrentAttacker();
+                if (self && Config::GetInstance().IsDebugTarget(self->GetFormID())) {
+                    const float stamina = self->AsActorValueOwner()->GetActorValue(RE::ActorValue::kStamina);
+                    LOG_DEBUG("AttackCheck 0x{:08X}: candidate {} past its cooldown, stamina cost {:.0f} (has {:.0f}){}",
+                              self->GetFormID(), a_data ? a_data->event.c_str() : "?", cost, stamina,
+                              cost > stamina ? " - REFUSED" : "");
+                }
+                return cost;
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
         struct CheckAttack
         {
             static bool thunk(void *a_context, void *a_entry)
@@ -80,6 +100,15 @@ namespace CombatAI::EngineProbes
 
             static inline REL::Relocation<decltype(thunk)> func;
         };
+    } // namespace
+
+    namespace
+    {
+        bool CallTargetIs(std::uintptr_t a_site, const REL::RelocationID &a_id)
+        {
+            const auto *b = reinterpret_cast<const std::uint8_t *>(a_site);
+            return b[0] == 0xE8 && a_site + 5 + *reinterpret_cast<const std::int32_t *>(a_site + 1) == a_id.address();
+        }
     } // namespace
 
     void Install()
@@ -100,6 +129,12 @@ namespace CombatAI::EngineProbes
             return;
         }
         HitCone::func = trampoline.write_call<5>(cone, HitCone::thunk);
+        const auto staminaSite = start.address() + REL::Relocate(0x29B, 0x27A);
+        if (CallTargetIs(staminaSite, RELOCATION_ID(25863, 26429))) {
+            AttackStaminaCost::func = trampoline.write_call<5>(staminaSite, AttackStaminaCost::thunk);
+        } else {
+            LOG_WARN("Probe: StartAttack stamina site does not match - no cooldown/stamina probe");
+        }
         CheckAttack::func = trampoline.write_call<5>(check, CheckAttack::thunk);
         LOG_INFO("Probe: vanilla attack start checks hooked (hit cone, range/path; debug log, selected NPC)");
     }

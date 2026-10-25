@@ -135,25 +135,35 @@ namespace CombatAI
         return a_state.self.isRanged || w == WeaponType::Staff || w == WeaponType::Spell;
     }
 
-    bool DecisionMatrix::AllyInLineOfFire(const ActorStateData &a_state)
+    bool DecisionMatrix::AllyInLineOfFire(const ActorStateData &a_state, RE::NiPoint3 *a_where)
     {
-        // Shortcut: only the closest ally is known; with several allies one off the line may still block it
+        // Every ally the combat scan saw (up to 8; the scan is cached for a moment, so positions can lag a little)
         const auto &cc = a_state.combatContext;
-        if (!a_state.target.isValid || !cc.hasNearbyAlly || cc.closestAllyDistance <= 0.0f ||
-            cc.closestAllyDistance >= a_state.target.distance) {
+        if (!a_state.target.isValid || cc.allyPositionCount <= 0) {
             return false;
         }
         RE::NiPoint3 line = a_state.target.position - a_state.self.position;
-        RE::NiPoint3 toAlly = cc.closestAllyPosition - a_state.self.position;
-        line.z = toAlly.z = 0.0f;
+        line.z = 0.0f;
         const float length = line.Unitize();
-        const float along = toAlly.Dot(line);
-        if (length < 1.0f || along <= 30.0f || along >= length - 30.0f) {
-            return false; // beside us or past the target
+        if (length < 1.0f) {
+            return false;
         }
-        const RE::NiPoint3 offLine = toAlly - line * along;
         constexpr float kClearance = 55.0f; // ally body ~30 plus the arrow's or spell's width
-        return offLine.Length() < kClearance;
+        for (int i = 0; i < cc.allyPositionCount; ++i) {
+            RE::NiPoint3 toAlly = cc.allyPositions[i] - a_state.self.position;
+            toAlly.z = 0.0f;
+            const float along = toAlly.Dot(line);
+            if (along <= 30.0f || along >= length - 30.0f) {
+                continue; // beside us or past the target
+            }
+            if ((toAlly - line * along).Length() < kClearance) {
+                if (a_where) {
+                    *a_where = cc.allyPositions[i];
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     float DecisionMatrix::RangedShotFactor(const ActorStateData &a_state)
@@ -239,8 +249,9 @@ namespace CombatAI
             }
         }
         // An ally between us and the target: step sideways to clear the line of fire
-        if (result.action == ActionType::None && AllyInLineOfFire(a_state)) {
-            RE::NiPoint3 toAlly = a_state.combatContext.closestAllyPosition - a_state.self.position;
+        RE::NiPoint3 blocker;
+        if (result.action == ActionType::None && AllyInLineOfFire(a_state, &blocker)) {
+            RE::NiPoint3 toAlly = blocker - a_state.self.position;
             toAlly.z = 0.0f;
             RE::NiPoint3 side(-away.y, away.x, 0.0f);
             if (side.Dot(toAlly) > 0.0f) {

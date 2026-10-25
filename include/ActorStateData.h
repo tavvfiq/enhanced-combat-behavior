@@ -121,6 +121,9 @@ namespace CombatAI
 
         // Flanking support: track closest ally position relative to target
         RE::NiPoint3 closestAllyPosition = RE::NiPoint3(0.0f, 0.0f, 0.0f);
+        // Up to 8 allies' positions (line-of-fire check)
+        std::array<RE::NiPoint3, 8> allyPositions{};
+        int allyPositionCount = 0;
         float closestAllyDistance = 0.0f;
         bool hasNearbyAlly = false; // True if ally is within flanking range
 

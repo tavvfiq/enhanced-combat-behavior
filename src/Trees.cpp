@@ -307,6 +307,15 @@ namespace CombatAI::Trees
         };
         thread_local bool t_circleAudit = false;
         thread_local CircleChecks t_circle;
+        // Fallback start (46712/47908): after the facing / leaving checks (passed for ours) it refuses when the move is
+        // animation-driven, then when the fallback spot is too close (a compare, no call), then on CheckStraightPath.
+        // animation-driven 1 and straight path -1 = the distance compare refused (run 45: 23 of 29 failed at start).
+        struct FallbackChecks
+        {
+            std::int8_t animDriven = -1, straightPath = -1;
+        };
+        thread_local bool t_fallbackAudit = false;
+        thread_local FallbackChecks t_fallback;
 
         bool NoteCheck(std::int8_t &a_slot, bool a_passed)
         {
@@ -541,6 +550,45 @@ namespace CombatAI::Trees
         constexpr std::size_t kBackoffClosingAE = 0x17A; // same on 1.7.104
         constexpr REL::RelocationID kAnimDriven{36487, 37486};
         constexpr REL::RelocationID kStraightPath{32513, 33262};
+
+        struct FallbackAnimDriven
+        {
+            static bool thunk(RE::Actor *a_actor)
+            {
+                const bool driven = func(a_actor);
+                if (t_fallbackAudit) {
+                    t_fallback.animDriven = driven ? 0 : 1;
+                }
+                return driven;
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+        struct FallbackStraightPath
+        {
+            static bool thunk(void *a_controller, const RE::NiPoint3 *a_pos, float a_speed, float a_tolerance)
+            {
+                const bool ok = func(a_controller, a_pos, a_speed, a_tolerance);
+                if (t_fallbackAudit) {
+                    t_fallback.straightPath = ok ? 1 : 0;
+                }
+                return ok;
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+        // SE 46712 +0x15F / +0x27B, AE 47908 +0x12B / +0x239 (1.6.1170 and 1.7.104; RE 2026-10-26)
+        void InstallFallbackAudit(SKSE::Trampoline &a_trampoline)
+        {
+            const auto f = REL::RelocationID(46712, 47908).address();
+            const auto anim = f + (REL::Module::IsAE() ? 0x12B : 0x15F);
+            const auto path = f + (REL::Module::IsAE() ? 0x239 : 0x27B);
+            if (!CallsTarget(anim, kAnimDriven.address()) || !CallsTarget(path, kStraightPath.address())) {
+                LOG_ERROR("Tree: Fallback start sites do not match - no Fallback start-check audit");
+                return;
+            }
+            FallbackAnimDriven::func = a_trampoline.write_call<5>(anim, FallbackAnimDriven::thunk);
+            FallbackStraightPath::func = a_trampoline.write_call<5>(path, FallbackStraightPath::thunk);
+            LOG_INFO("Tree: Fallback start checks audited (MoveNode lines show which one refused)");
+        }
         constexpr REL::RelocationID kCirclePathCheck{32507, 33256};
         struct CircleSites
         {
@@ -709,6 +757,10 @@ namespace CombatAI::Trees
                     t_circleAudit = audited != nullptr;
                     t_circle = {};
                 }
+                if constexpr (K == Intents::Move::Fallback) {
+                    t_fallbackAudit = audited != nullptr;
+                    t_fallback = {};
+                }
                 func(a_node, a_thread); // may fail at once: SetFailed + Ascend inside (e.g. Backoff out of range)
                 t_ourStart = false;
                 if constexpr (K == Intents::Move::Circle) {
@@ -722,6 +774,18 @@ namespace CombatAI::Trees
                         }
                     }
                     t_circleAudit = false;
+                }
+                if constexpr (K == Intents::Move::Fallback) {
+                    if (t_fallbackAudit) {
+                        const auto &c = t_fallback;
+                        std::scoped_lock guard(g_auditLock);
+                        if (auto it = g_audit.find(a_thread); it != g_audit.end()) {
+                            it->second.checks = std::format(" [start checks: not animation-driven {}, far enough {}, straight path {}]",
+                                                            c.animDriven, c.animDriven == 1 ? (c.straightPath >= 0 ? 1 : 0) : -1,
+                                                            c.straightPath);
+                        }
+                    }
+                    t_fallbackAudit = false;
                 }
             }
             static inline REL::Relocation<decltype(thunk)> func;
@@ -979,6 +1043,7 @@ namespace CombatAI::Trees
             HookMoveUpdate<Intents::Move::Backoff>(Id::vtBackoff);
             LOG_INFO("Tree: movement node Enter/Update/Exit hooked (preemption + MoveNode audit for the selected NPC)");
             InstallCircleAudit(trampoline);
+            InstallFallbackAudit(trampoline);
             if (Config::GetInstance().GetDecisionMatrix().brainAdvanceDistance) {
                 InstallAdvanceRing(trampoline);
             }

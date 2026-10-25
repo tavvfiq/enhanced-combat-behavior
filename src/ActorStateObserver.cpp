@@ -882,6 +882,9 @@ namespace CombatAI
             } else {
                 // Found an ally (non-hostile actor in combat)
                 allies++;
+                if (a_context.allyPositionCount < static_cast<int>(a_context.allyPositions.size())) {
+                    a_context.allyPositions[a_context.allyPositionCount++] = actorPos;
+                }
 
                 sawPlayer = sawPlayer || nearbyActor->IsPlayerRef();
 
@@ -903,6 +906,9 @@ namespace CombatAI
                 if (distance <= scanRange) {
                     if (!sawPlayer) {
                         allies++;
+                        if (a_context.allyPositionCount < static_cast<int>(a_context.allyPositions.size())) {
+                            a_context.allyPositions[a_context.allyPositionCount++] = playerPos;
+                        }
                     }
                     trackAlly(playerPos, distance);
                     a_context.allyIsPlayer = true;

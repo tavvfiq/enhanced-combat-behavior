@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.22.2 (2026-10-26)
+
+- **Line of fire checks every ally**, up to 8 the combat scan sees (was the closest one only). The archer steps away from whichever ally is in the way.
+- **Debug: Fallback start audit.** Fallback moves often failed to start (run 45: 23 of 29). For the selected NPC the MoveNode line now says which start check refused: `[start checks: not animation-driven X, far enough Y, straight path Z]` (1 passed, 0 refused, -1 not reached).
+- **Debug: attack cooldown / stamina probe.** About one in nine attacks the tree took never reached vanilla's attack checks. For each candidate attack that gets past its per-attack cooldown, the selected NPC logs `AttackCheck 0x..: candidate <event> past its cooldown, stamina cost X (has Y)`, with `REFUSED` when the stamina is short. A refused attack with no such line was stopped by the cooldown.
+
 ## CombatAITree 0.22.1 (2026-10-26)
 
 Run 47 (0.22.0): archers shot about three times as often (31 draws vs 10), the redirect ran without problems, and a raised guard cut the shot chance on 41 ticks. But the x2 "opening" fired on 266 ticks, mostly because you faced another bandit.

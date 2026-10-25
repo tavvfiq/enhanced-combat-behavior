@@ -413,3 +413,8 @@
 
 ## 0.22.1 (2026-10-26)
 - Opening without "looking away". Untested in game.
+
+## 0.22.2 (2026-10-26) line of fire, Fallback audit, cooldown probe
+- RE, SE 46712 (Fallback start) fail jumps to +0x2CA: WithinHeadingAngle +0x13B (je), target-leaving 46062 +0x14F (jne), IsMovementAnimationDriven 36487 +0x15F (jne), WithinHeadingAngle +0x17B (je), comiss xmm3,xmm1 +0x1FE (jbe, after FallbackDistance 49718 at +0x1EB), CheckStraightPath 32513 +0x27B (je). AE 1.6.1170 / 1.7.104 47908: 37486 at +0x12B, 33262 at +0x239 (same call order). Facing/leaving pass for ours since 0.8.0.
+- StartAttack per candidate (SE 48139): cooldown compare at +0x279..+0x28A (no call), stamina cost call 25863 at +0x29B (`comiss xmm0, xmm7; ja skip`), weight 49748 at +0x2AE; AE 49170: 26429 at +0x27A, 50675 at +0x28D.
+- Untested in game.
