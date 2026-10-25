@@ -805,6 +805,14 @@ namespace CombatAI::Trees
         {
             static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
             {
+                if constexpr (K == Intents::Move::Circle) {
+                    // Our Circle failed on the brain's side (path or view cone, run 48): the brain tries the other
+                    bool ours = false;
+                    if (a_thread && a_thread->failState.any(RE::CombatBehaviorThread::FailState::kFailed) &&
+                        MoveSelectorOf(a_node, ours) && ours) {
+                        Intents::NoteCircleRefused(RE::CombatBehaviorController::GetCurrentAttacker());
+                    }
+                }
                 if (auto *actor = AuditedActor(a_thread)) {
                     std::optional<MoveRun> run;
                     {

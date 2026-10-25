@@ -235,9 +235,13 @@ namespace CombatAI
             return result;
         }
 
-        // Too far, or no line of sight: close in to a little inside the max distance
+        // Too far, or no line of sight: close in to a little inside the max distance. An ally in the line of fire
+        // can be what blocks the sight, so inside the max distance stepping aside comes first (run 48: a sorcerer
+        // closed in "out of sight" behind an ally and held fire 15 s).
         const bool noSight = a_state.env.losChecked && !a_state.env.losToTarget;
-        if (dist > dm.rangedMaxDistance || noSight) {
+        RE::NiPoint3 blocker;
+        const bool allyInLine = dist <= dm.rangedMaxDistance && AllyInLineOfFire(a_state, &blocker);
+        if (dist > dm.rangedMaxDistance || (noSight && !allyInLine)) {
             result.action = ActionType::Advancing;
             result.priority = 1.0f;
             result.holdDistance = noSight ? (std::max)(dm.rangedKeepAwayDistance, dist * 0.6f) : dm.rangedMaxDistance * 0.8f;
@@ -249,20 +253,26 @@ namespace CombatAI
             }
         }
         // An ally between us and the target: step sideways to clear the line of fire
-        RE::NiPoint3 blocker;
-        if (result.action == ActionType::None && AllyInLineOfFire(a_state, &blocker)) {
+        if (result.action == ActionType::None && allyInLine) {
             RE::NiPoint3 toAlly = blocker - a_state.self.position;
             toAlly.z = 0.0f;
             RE::NiPoint3 side(-away.y, away.x, 0.0f);
             if (side.Dot(toAlly) > 0.0f) {
                 side = -side; // step to the side away from the ally
             }
+            // That side's Circle just failed (no path, run 48): the other side (sign as ActionExecutor::CircleSide)
+            const float cross = -away.x * side.y + away.y * side.x;
+            const bool flipped = Intents::CircleRefused(a_actor, cross > 0.0f ? 1.0f : -1.0f);
+            if (flipped) {
+                side = -side;
+            }
             result.action = ActionType::Strafe;
             result.priority = 1.5f;
             result.direction = side;
             result.intensity = 0.7f;
             if (debug) {
-                LOG_DEBUG("Ranged 0x{:08X}: ally in the line of fire -> step aside", a_actor->GetFormID());
+                LOG_DEBUG("Ranged 0x{:08X}: ally in the line of fire -> step aside{}", a_actor->GetFormID(),
+                          flipped ? " (other side: the last one failed)" : "");
             }
         }
         // Otherwise in its band: vanilla shoots, casts, strafes and keeps its own optimal range

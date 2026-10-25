@@ -34,6 +34,9 @@ namespace CombatAI::Intents
             Clock::time_point dualBlockUntil{};
             float shotFactor = 1.0f;
             Clock::time_point shotUntil{};
+            Clock::time_point holdSince{}; // start of the current shot hold (epoch = not holding)
+            float refusedSide = 0.0f;      // Circle side that last failed, and when
+            Clock::time_point refusedAt{};
             bool dualBlockStarted = false;
         };
 
@@ -186,16 +189,31 @@ namespace CombatAI::Intents
         Debug(a_actor, "post dual block (ms)", static_cast<int>(a_seconds * 1000.0f));
     }
 
-    void PostRangedShot(RE::Actor *a_actor, float a_factor)
+    float PostRangedShot(RE::Actor *a_actor, float a_factor)
     {
         if (!a_actor) {
-            return;
+            return a_factor;
         }
-        const auto until = Clock::now() + std::chrono::milliseconds(400);
+        // Capped hold: run 48's sorcerer held fire 15 s behind an ally it couldn't step around
+        constexpr auto kMaxHold = std::chrono::seconds(3);
+        constexpr auto kRelease = std::chrono::milliseconds(1500);
+        const auto now = Clock::now();
+        float out = a_factor;
         g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
-            e.shotFactor = a_factor;
-            e.shotUntil = until;
+            if (a_factor > 0.0f) {
+                e.holdSince = {};
+            } else {
+                if (e.holdSince == Clock::time_point{} || now >= e.shotUntil || now - e.holdSince >= kMaxHold + kRelease) {
+                    e.holdSince = now; // a new hold (the last post lapsed, or the release window is over)
+                }
+                if (now - e.holdSince >= kMaxHold) {
+                    out = 1.0f;
+                }
+            }
+            e.shotFactor = out;
+            e.shotUntil = now + std::chrono::milliseconds(400);
         });
+        return out;
     }
 
     float RangedShotFactor(RE::Actor *a_actor)
@@ -332,6 +350,29 @@ namespace CombatAI::Intents
         }
         const auto e = g_board.Find(a_actor->GetFormID());
         return e && e->move == Move::Circle && Clock::now() < e->moveUntil ? e->param : 0.0f;
+    }
+
+    void NoteCircleRefused(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return;
+        }
+        const auto now = Clock::now();
+        g_board.Modify(a_actor->GetFormID(), [&](Entry &e) {
+            if (e.move == Move::Circle && e.param != 0.0f) {
+                e.refusedSide = e.param;
+                e.refusedAt = now;
+            }
+        });
+    }
+
+    bool CircleRefused(RE::Actor *a_actor, float a_side)
+    {
+        if (!a_actor || a_side == 0.0f) {
+            return false;
+        }
+        const auto e = g_board.Find(a_actor->GetFormID());
+        return e && e->refusedSide == a_side && Clock::now() - e->refusedAt < std::chrono::seconds(2);
     }
 
     float AdvanceDistance(RE::Actor *a_actor)

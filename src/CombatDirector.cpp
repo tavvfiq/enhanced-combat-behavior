@@ -207,9 +207,10 @@ namespace CombatAI
         if (config.GetDecisionMatrix().enableRangedPositioning && state.target.isValid) {
             const float shot = state.self.isRanged ? DecisionMatrix::RangedShotFactor(state)
                                                    : (DecisionMatrix::AllyInLineOfFire(state) ? 0.0f : 1.0f);
-            Intents::PostRangedShot(a_actor, shot);
-            if (debugEnabled && shot != 1.0f) {
-                LOG_DEBUG("Ranged 0x{:08X}: shot chance x{:.1f}", static_cast<std::uint32_t>(formID), shot);
+            const float posted = Intents::PostRangedShot(a_actor, shot);
+            if (debugEnabled && (shot != 1.0f || posted != 1.0f)) {
+                LOG_DEBUG("Ranged 0x{:08X}: shot chance x{:.1f}{}", static_cast<std::uint32_t>(formID), posted,
+                          posted != shot ? " (held 3 s, shooting anyway)" : "");
             }
         }
 

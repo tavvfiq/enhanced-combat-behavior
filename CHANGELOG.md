@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.23.1 (2026-10-26)
+
+- **Casters and archers no longer hold fire for long behind an ally.** A hold lasts 3 s at most, then the NPC shoots or casts as vanilla would for 1.5 s before the next hold (run 48: a sorcerer held 15 s). Debug: `shot chance x1.0 (held 3 s, shooting anyway)`.
+- **Stepping aside works more often.** When the step-aside fails on one side (no path, or outside the view cone), the next one goes the other way (`step aside (other side: the last one failed)`). An ally in the line of fire inside the max distance now comes before "out of sight, close in", because the ally's body can be what blocks the sight.
+
 ## CombatAITree 0.23.0 (2026-10-26)
 
 - **Casters hold fire with an ally in the way.** A "Hold Cast" branch now sits in front of vanilla's cast selector in the Magic tree (after the dual block): while an ally stands in the line to the target, the NPC doesn't start a cast, and a running stream (concentration) spell stops. This covers mages and hybrids with a spell in either hand. Single casts already charging are left alone. Debug log: `Ranged 0x..: concentration cast stopped`.

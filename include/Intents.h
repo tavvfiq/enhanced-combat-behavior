@@ -58,6 +58,10 @@ namespace CombatAI::Intents
     void NotePreempted(bool a_vanillaNode);
     // Side the brain wants the running Circle node to take (+1 left, -1 right, 0 vanilla's choice).
     float CircleSide(RE::Actor *a_actor);
+    // Tree side: our Circle node failed (start or run) while the brain wanted a side. Brain side: that side
+    // (+1/-1) failed under 2 s ago, so try the other one.
+    void NoteCircleRefused(RE::Actor *a_actor);
+    bool CircleRefused(RE::Actor *a_actor, float a_side);
     // Distance the brain wants the running Advance to stop at (0 = vanilla's own).
     float AdvanceDistance(RE::Actor *a_actor);
 
@@ -78,8 +82,9 @@ namespace CombatAI::Intents
     bool DualBlockOverdue(RE::Actor *a_actor);
 
     // Archers: how much more (or less) likely vanilla's ranged attack roll should be this moment (0 = hold the shot,
-    // 1 = vanilla, 2 = take it). Refreshed every brain tick, falls back to 1 after 0.4 s.
-    void PostRangedShot(RE::Actor *a_actor, float a_factor);
+    // 1 = vanilla, 2 = take it). Refreshed every brain tick, falls back to 1 after 0.4 s. A hold (0) lasts 3 s at
+    // most, then 1.5 s of vanilla shots before the next one; returns the factor actually posted.
+    float PostRangedShot(RE::Actor *a_actor, float a_factor);
     float RangedShotFactor(RE::Actor *a_actor);
 
     // Pending (not consumed) attack/defend intents exist - keeps vanilla branches out of the way.
