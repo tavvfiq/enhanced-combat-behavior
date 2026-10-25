@@ -12,8 +12,9 @@ namespace CombatAI::EngineProbes
     // Call once per frame (CombatDirector::Update)
     void Update(float a_deltaTime);
 
-    // Log-only probe of the attack, bash and block animation events sent to the console-selected NPC and
-    // whether its graph accepted them: shows where an attack intent the tree took gets lost.
+    // Probe of the attack, bash and block animation events sent to the console-selected NPC and whether its
+    // graph accepted them (log only). For every NPC, an accepted attack/bash start event also starts the
+    // brain's anti-spam action timer (CombatDirector::NotifySwingStarted).
     // Hooks Character's NotifyAnimationGraph (IAnimationGraphManagerHolder, VTABLE_Character[3] slot 1).
     // Also logs the hit-cone and range/path checks vanilla StartAttack runs before it fires an attack or bash.
     void Install();

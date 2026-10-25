@@ -47,6 +47,9 @@ namespace CombatAI
         // Record a hit for target switching (called from the TESHitEvent sink)
         void OnActorHit(RE::Actor *a_victim, RE::Actor *a_attacker);
 
+        // An attack or bash animation event was accepted by the actor's graph: the swing really started
+        void NotifySwingStarted(RE::Actor *a_actor) { m_observer.NotifySwingStarted(a_actor); }
+
       private:
         CombatDirector() = default;
         ~CombatDirector() = default;

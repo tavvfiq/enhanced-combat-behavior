@@ -1304,6 +1304,13 @@ namespace CombatAI
         return temporal;
     }
 
+    void ActorStateObserver::NotifySwingStarted(RE::Actor *a_actor)
+    {
+        // Existing entries only: an actor we don't track has no timer to start
+        m_actorTemporalData.Modify(a_actor->GetFormID(),
+                                   [](ActorTemporalData &temporal) { temporal.timeSinceLastAction = 0.0f; });
+    }
+
     void ActorStateObserver::NotifyActionExecuted(RE::Actor *a_actor, ActionType a_action)
     {
         if (!a_actor) {
@@ -1326,6 +1333,13 @@ namespace CombatAI
             // Feint is re-issued the same way (126 of 146 blocked in-range ticks in run 4); its
             // own timer (timeSinceLastFeint) still runs.
             switch (a_action) {
+            // Attacks and bashes start the timer when their animation event is accepted
+            // (NotifySwingStarted): run 27 lost 22 of 53 taken attacks inside vanilla StartAttack, and
+            // each failed post still blocked the retry for 0.3 s.
+            case ActionType::Attack:
+            case ActionType::PowerAttack:
+            case ActionType::SprintAttack:
+            case ActionType::Bash:
             case ActionType::Feint:
             case ActionType::Advancing:
             case ActionType::Strafe:

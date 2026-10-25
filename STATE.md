@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.9.9 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.10.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -68,6 +68,7 @@ version so any step can be rolled back.
 - 0.9.8: debug probe on Character NotifyAnimationGraph (VTABLE_Character[3] slot 1): `AnimEvent` lines for attack/bash/block events of the selected NPC. Log-only. Runtime-evidenced (run 26).
 - 0.9.9: debug probe on the hit-cone (SE 48139+0x493 -> 46033, AE 49170+0x3F1 -> 47297) and CheckAttack (SE +0x4A6 -> 48140, AE +0x404 -> 49171) calls in StartAttack: `AttackCheck` lines. Log-only. Runtime-evidenced (run 27).
 Open (actuator, run 27): of 53 taken attack intents 31 fired; 11 turned down before the checks (4 while sprinting), 8 failed range/path at 56-99 units, 3 failed the hit cone at 57-100 deg. Bash fired 3 of 15 (12 before the checks). The 0.3 s gate counts from the post, so each failed attempt also delays the retry.
+- 0.10.0: timeSinceLastAction resets on an accepted attackStart*/attackPowerStart*/bashStart/bashPowerStart graph event (NotifyGraph hook, all NPCs), not on Attack/PowerAttack/SprintAttack/Bash posts; EvaluateOffense skips while sprinting and when facing dot < 0.643 (50 deg). Build-validated only.
 Open (actuator, run 25): taken attack intents started a swing within 1 s 14/33, bash 6/25 (0/4 at 0 stamina); dodge events all rejected (TK Dodge not installed, expected); feint/dodge/jump still on the old executor; block intents never posted; feedback channel (roadmap 0.3.0) not built.
   Run 20 (0.9.1): stable 8.8 min; failed rolls -> None 128/132. Healthy in-range NPC: Attack candidate 74 ticks, 54 lost to failed skill rolls (skill 62-69%, 1 s reroll window). Retreat 443 = all at 10-29% HP (health rule).
   Open: in range the gate `target is attacking` blocks Attack on 147 ticks, `last action too recent` 131 (after own attack/bash).

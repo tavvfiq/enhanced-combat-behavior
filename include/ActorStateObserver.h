@@ -36,6 +36,8 @@ namespace CombatAI
 
         // Notify that an action was executed (for temporal tracking)
         void NotifyActionExecuted(RE::Actor *a_actor, ActionType a_action);
+        // Starts the anti-spam action timer when an attack/bash actually starts (any thread)
+        void NotifySwingStarted(RE::Actor *a_actor);
 
       private:
         // Gather self state

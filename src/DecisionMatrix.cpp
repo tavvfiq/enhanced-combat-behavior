@@ -1528,6 +1528,24 @@ namespace CombatAI
                 return skip("line of sight blocked");
             }
 
+            // Vanilla starts no plain attack from a sprint (run 27: 4 of 11 attacks turned down before its
+            // checks came at sprint speed); the sprint attack is evaluated separately
+            if (a_state.self.isSprinting) {
+                return skip("sprinting");
+            }
+
+            // Vanilla's hit cone refuses a target well off to the side (run 27: 3 at 57-100 deg); let it turn first
+            RE::NiPoint3 toTarget = a_state.target.position - a_state.self.position;
+            RE::NiPoint3 forward = a_state.self.forwardVector;
+            toTarget.z = forward.z = 0.0f;
+            if (toTarget.Unitize() > 1.0f && forward.Unitize() > 0.01f) {
+                constexpr float kMaxAttackAngleCos = 0.643f; // cos 50 deg
+                const float facing = forward.Dot(toTarget);
+                if (facing < kMaxAttackAngleCos) {
+                    return skip("not facing the target, dot", facing);
+                }
+            }
+
             // TACTICAL CONSIDERATIONS: Don't attack blindly - need good opening
 
             // Don't attack if target is actively attacking (too risky - prefer

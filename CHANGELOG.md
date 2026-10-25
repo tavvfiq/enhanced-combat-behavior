@@ -1,5 +1,13 @@
 # Changelog
 
+## CombatAITree 0.10.0 (2026-10-25)
+
+Run 27's probe showed where the lost attacks go: of 53 attack intents the tree took, 31 fired; 11 were turned down before vanilla's checks, 8 failed its range/path check and 3 its hit cone.
+
+- **A failed attack no longer costs 0.3 s.** The "last action too recent" gate now starts when the NPC's attack or bash animation actually starts (its graph accepts `attackStart*`, `attackPowerStart*`, `bashStart` or `bashPowerStart`), not when the brain asks. A request that vanilla turns down leaves the gate open, so the brain asks again on its next evaluation (about 0.1 s). This also covers vanilla's own attacks and feint bashes.
+- **No plain attack while sprinting.** 4 of the 11 early refusals came at sprint speed. The sprint attack is unchanged.
+- **Faces the target before attacking.** No attack request with the target more than 50 degrees off its facing (vanilla's hit cone failed 3 at 57-100 degrees); it turns first.
+
 ## CombatAITree 0.9.9 (2026-10-25)
 
 - **Debug probe: vanilla attack start checks.** Run 26 (0.9.8) showed that every attack event sent was accepted; the lost attacks never sent one. Of 65 taken attack intents, 12 picked an attack and then sent nothing, and 8 never got as far as picking one. Vanilla's StartAttack fires only after a hit-cone check and a range/path check, and now each is logged for the selected NPC: `AttackCheck 0x..: hit cone pass|FAIL (target at X deg, dist Y, arg Z)` and `AttackCheck 0x..: range/path check pass|FAIL`. A taken intent with no AttackCheck line was turned down before either check (per-attack cooldown, stamina cost or no candidates). No behavior change.

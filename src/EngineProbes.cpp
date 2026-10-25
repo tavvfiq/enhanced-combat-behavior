@@ -1,4 +1,5 @@
 #include "EngineProbes.h"
+#include "CombatDirector.h"
 #include "Config.h"
 #include "Logger.h"
 #include "pch.h"
@@ -21,7 +22,15 @@ namespace CombatAI::EngineProbes
             {
                 const bool accepted = func(a_this, a_event);
                 // This vtable belongs to Character, so a_this is always a Character's holder subobject
-                const auto *actor = static_cast<RE::Character *>(a_this);
+                auto *actor = static_cast<RE::Character *>(a_this);
+                // Melee/bash start events (attackStart*, attackPowerStart*, bashStart, bashPowerStart): the swing began
+                if (accepted) {
+                    const std::string_view name = a_event.c_str();
+                    if (name.starts_with("attackStart") || name.starts_with("attackPowerStart") ||
+                        name.starts_with("bashStart") || name.starts_with("bashPowerStart")) {
+                        CombatDirector::GetInstance().NotifySwingStarted(actor);
+                    }
+                }
                 if (Config::GetInstance().IsDebugTarget(actor->GetFormID()) && IsCombatEvent(a_event.c_str())) {
                     LOG_DEBUG("AnimEvent 0x{:08X}: {} {}", actor->GetFormID(), a_event.c_str(),
                               accepted ? "accepted" : "rejected");
