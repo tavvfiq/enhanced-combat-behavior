@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.17.1 (2026-10-25)
+
+- **Debug probe: direct block for dual-wielders and spell users.** For the NPC selected in the console, when your swing aimed at it enters the timed-block window and its equipment can't run the Block tree (a spell, torch or second weapon in the left hand), the plugin tries Simple Dual Wield Block's method: set the "wants to block" flag, send `blockStart`, hold 0.6 s, then clear it and send `blockStop`. The log shows `DualBlock 0x..: left <hand>, right <hand> -> blockStart accepted|rejected`, then whether the NPC reads as blocking after 0.2 s. It decides whether a custom block node for these NPCs can work. Only the selected NPC, only with the debug log on.
+
 ## CombatAITree 0.17.0 (2026-10-25)
 
 - **Daggers can block and bash** (`AllowDaggerBlock = true`, `[DecisionMatrix]`, applies at game start). Vanilla's weapon-block check refuses daggers and fists with one bit mask; the plugin changes that mask so only fists are refused. Dagger users then run the block/bash behavior like other one-handed weapons: vanilla blocks and bashes, plus our bash, parry and timed block. This changes vanilla for every dagger user. Patched in SE 1.5.97, AE 1.6.1170 and 1.7.104 after checking the original byte; if another mod already changed it, nothing is written and the log says so. The load log shows `Dagger block: NPCs with a dagger can block and bash`.

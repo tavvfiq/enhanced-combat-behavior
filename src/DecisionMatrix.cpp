@@ -1,6 +1,7 @@
 #include "DecisionMatrix.h"
 #include "ActorUtils.h"
 #include "Config.h"
+#include "EngineProbes.h"
 #include "Hooks.h"
 #include "Intents.h"
 #include "Logger.h"
@@ -677,9 +678,7 @@ namespace CombatAI
         }
 
         // Run 33 posted 3 untaken blocks for a dagger bandit: only some equipment runs the Block tree
-        if (!CanRunBlockTree(a_actor)) {
-            return result;
-        }
+        const bool blockTree = CanRunBlockTree(a_actor);
 
         // Check distance
         if (a_state.target.distance < timedBlockConfig.timedBlockMinDistance ||
@@ -692,6 +691,13 @@ namespace CombatAI
         if (timeUntilHit > timedBlockConfig.timedBlockWindowEnd ||
             timeUntilHit < timedBlockConfig.timedBlockWindowStart) {
             return result; // Outside timed block window
+        }
+        if (!blockTree) {
+            // Probe: does this NPC's graph take a direct block (Simple Dual Wield Block's method)?
+            if (config.IsDebugTarget(a_actor->GetFormID())) {
+                EngineProbes::DualWieldBlockProbe(a_actor);
+            }
+            return result;
         }
         if (!DefendRoll(a_actor, a_state, "timed block", timeUntilHit)) {
             return result;

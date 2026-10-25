@@ -1,5 +1,6 @@
 #include "EngineProbes.h"
 #include "CombatDirector.h"
+#include "ActorUtils.h"
 #include "Config.h"
 #include "Logger.h"
 #include "pch.h"
@@ -81,6 +82,86 @@ namespace CombatAI::EngineProbes
         };
     } // namespace
 
+    namespace
+    {
+        // One probe at a time; started from an actor update, advanced from the per-frame Update
+        std::mutex g_probeLock;
+        RE::ActorHandle g_probeActor;
+        float g_probeTime = -1.0f;
+        bool g_probeSampled = false;
+
+        std::string HandName(RE::TESForm *a_form)
+        {
+            if (!a_form) {
+                return "empty";
+            }
+            if (const auto *weapon = a_form->As<RE::TESObjectWEAP>()) {
+                return std::format("weapon type {}", static_cast<int>(weapon->GetWeaponType()));
+            }
+            if (a_form->Is(RE::FormType::Spell)) {
+                return "spell";
+            }
+            if (a_form->Is(RE::FormType::Light)) {
+                return "torch";
+            }
+            return a_form->IsArmor() ? "shield" : std::format("form type {}", static_cast<int>(a_form->GetFormType()));
+        }
+
+        void SetWantBlocking(RE::Actor *a_actor, bool a_on)
+        {
+            if (auto *state = ActorUtils::SafeAsActorState(a_actor)) {
+                state->actorState2.wantBlocking = a_on ? 1 : 0;
+            }
+        }
+
+        void UpdateDualWieldBlockProbe(float a_deltaTime)
+        {
+            std::lock_guard guard(g_probeLock);
+            if (g_probeTime < 0.0f) {
+                return;
+            }
+            g_probeTime += a_deltaTime;
+            auto actorPtr = g_probeActor.get();
+            auto *actor = actorPtr.get();
+            if (!actor) {
+                g_probeTime = -1.0f;
+                return;
+            }
+            if (!g_probeSampled && g_probeTime >= 0.2f) {
+                g_probeSampled = true;
+                LOG_DEBUG("DualBlock 0x{:08X}: after 0.2 s blocking={} attackState={}", actor->GetFormID(),
+                          ActorUtils::SafeIsBlocking(actor), static_cast<int>(ActorUtils::SafeGetAttackState(actor)));
+            }
+            if (g_probeTime >= 0.6f) {
+                SetWantBlocking(actor, false);
+                const bool stopped = actor->NotifyAnimationGraph("blockStop");
+                LOG_DEBUG("DualBlock 0x{:08X}: released, blockStop {}", actor->GetFormID(),
+                          stopped ? "accepted" : "rejected");
+                g_probeTime = -1.0f;
+            }
+        }
+    } // namespace
+
+    void DualWieldBlockProbe(RE::Actor *a_actor)
+    {
+        std::lock_guard guard(g_probeLock);
+        if (!a_actor || g_probeTime >= 0.0f) {
+            return; // one at a time
+        }
+        SetWantBlocking(a_actor, true);
+        const bool started = a_actor->NotifyAnimationGraph("blockStart");
+        LOG_DEBUG("DualBlock 0x{:08X}: left {}, right {} -> blockStart {}", a_actor->GetFormID(),
+                  HandName(ActorUtils::SafeGetEquippedObject(a_actor, true)),
+                  HandName(ActorUtils::SafeGetEquippedObject(a_actor, false)), started ? "accepted" : "rejected");
+        if (!started) {
+            SetWantBlocking(a_actor, false);
+            return;
+        }
+        g_probeActor = a_actor->GetHandle();
+        g_probeTime = 0.0f;
+        g_probeSampled = false;
+    }
+
     void Install()
     {
         REL::Relocation<std::uintptr_t> holderVTable{RE::Character::VTABLE[3]};
@@ -105,6 +186,7 @@ namespace CombatAI::EngineProbes
 
     void Update(float a_deltaTime)
     {
+        UpdateDualWieldBlockProbe(a_deltaTime);
         static float timer = 0.0f;
         if (!Config::GetInstance().GetGeneral().enableDebugLog || (timer += a_deltaTime) < 0.5f) {
             return;

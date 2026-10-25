@@ -18,4 +18,9 @@ namespace CombatAI::EngineProbes
     // Hooks Character's NotifyAnimationGraph (IAnimationGraphManagerHolder, VTABLE_Character[3] slot 1).
     // Also logs the hit-cone and range/path checks vanilla StartAttack runs before it fires an attack or bash.
     void Install();
+
+    // Probe (debug log, selected NPC): Simple Dual Wield Block's method on an NPC whose equipment can't run the Block
+    // tree (spell, torch or second weapon in the left hand). Sets ActorState wantBlocking, sends blockStart, holds
+    // 0.6 s, then clears it and sends blockStop. Logs the graph's answer and whether the NPC reads as blocking.
+    void DualWieldBlockProbe(RE::Actor *a_actor);
 } // namespace CombatAI::EngineProbes

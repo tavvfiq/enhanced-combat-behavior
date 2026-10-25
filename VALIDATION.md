@@ -334,3 +334,7 @@
 ## 0.17.0 (2026-10-25) dagger block
 - Disassembly: SE 43837 `and cl, 0xfd` at +0x72 (bytes 80e1fd); AE 1.7.104 and 1.6.1170 id 45056 `test byte ptr [rax+0x19d], 0xfd` at +0x6b (bytes f6809d010000fd). Same control flow in all three (controller check, right-hand combat item GetType == 1, then the mask). Install checks the byte is 0xFD, writes 0xFF.
 - Unknown until tested: whether the humanoid behavior graph accepts blockStart / bashStart with a dagger drawn (AnimEvent lines will show accepted/rejected). Untested in game.
+
+## 0.17.1 (2026-10-25) dual-wield block probe
+- Source checked: WastelPlaster/SimpleDualWieldBlock src/main.cpp (GitHub, main): key down sets `actorState->actorState2.wantBlocking = 1` and NotifyAnimationGraph("blockStart"); key up clears it and sends "blockStop". No behavior files. CommonLib ActorState2::wantBlocking (bit 8 of ActorState+0x0C).
+- Probe built; untested in game. Pass: `blockStart accepted` and `blocking=true` after 0.2 s for a dual-wield or spell+weapon NPC.
