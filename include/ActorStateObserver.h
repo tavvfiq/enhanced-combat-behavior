@@ -211,11 +211,12 @@ namespace CombatAI
 
         // Thread-safe temporal state storage (keyed by FormID)
         ThreadSafeMap<RE::FormID, ActorTemporalData> m_actorTemporalData;
-        // Per attacker: average swing-start-to-hit time [light, power] and how many hits it is from
+        // Per attacker: swing-start-to-hit time [light, power] = median of its last 9 hits, and how many hits it is from
         struct HitDelay
         {
             float average[2] = {0.0f, 0.0f};
             std::uint32_t count[2] = {0, 0};
+            std::array<float, 9> samples[2]{};
         };
         ThreadSafeMap<RE::FormID, HitDelay> m_hitDelays;
         ThreadSafeMap<RE::FormID, TargetTemporalData> m_targetTemporalData; // Keyed by target FormID, but we'll use

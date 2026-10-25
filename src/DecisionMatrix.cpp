@@ -271,8 +271,16 @@ namespace CombatAI
         if (a_state.self.isRanged) {
             return result; // Return None - ranged weapons can't bash
         }
-        if (Intents::DefendUnavailable(a_actor) || Intents::WantsDualBlock(a_actor)) {
-            return result; // or holding a direct block already
+        if (Intents::WantsDualBlock(a_actor)) {
+            return result; // holding a direct block already
+        }
+        // Without the Block tree there is no bash or parry, only our direct timed block. Run 38: a sword+spell NPC
+        // posted 8 bashes that could never be taken, and the refusal guard below then shut its timed block off too.
+        if (!BlockRules::CanRunBlockTree(a_actor)) {
+            return a_state.temporal.self.timeSinceLastAction < 0.3f ? result : EvaluateTimedBlock(a_actor, a_state);
+        }
+        if (Intents::DefendUnavailable(a_actor)) {
+            return result;
         }
 
         // Same anti-spam gate as attacks: without it the bash was re-posted every tick mid-bash
@@ -2599,7 +2607,8 @@ namespace CombatAI
         }
 
         // A feint is a bash, and our Block tree never bashes with a bow or crossbow (run 21: 0 of 23 taken)
-        if (a_state.self.isRanged || Intents::DefendUnavailable(a_actor) || Intents::WantsDualBlock(a_actor) ||
+        if (a_state.self.isRanged || !BlockRules::CanRunBlockTree(a_actor) || Intents::DefendUnavailable(a_actor) ||
+            Intents::WantsDualBlock(a_actor) ||
             a_state.self.currentStamina < BashStaminaCost()) {
             return result;
         }

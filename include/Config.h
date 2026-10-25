@@ -171,7 +171,7 @@ namespace CombatAI
             bool enableParry = true;         // Enable parry mechanism (timed bash)
             float parryWindowStart = 0.05f;  // Start bash this many seconds before attack hits (minimum)
             float parryWindowEnd = 0.25f;    // Latest time to start bash before attack hits (maximum)
-            float parryMinDistance = 50.0f;  // Minimum distance for parry
+            float parryMinDistance = 0.0f;   // Minimum distance for parry (run 38: you hit from 42-47 units)
             float parryMaxDistance = 200.0f; // Maximum distance for parry
             float parryBasePriority = 1.5f;  // Base priority for parry opportunity
             float timingBonusMax = 0.3f;     // Maximum bonus for perfect timing
@@ -184,7 +184,7 @@ namespace CombatAI
             bool enableTimedBlock = true;          // Enable timed block mechanism
             float timedBlockWindowStart = 0.05f;   // Start block this many seconds before attack hits (minimum)
             float timedBlockWindowEnd = 0.33f;     // End of timing window (matches mod's 0.33s window)
-            float timedBlockMinDistance = 50.0f;   // Minimum distance for timed block
+            float timedBlockMinDistance = 0.0f;    // Minimum distance for timed block (run 38: hits from 42-47 units)
             float timedBlockMaxDistance = 200.0f;  // Maximum distance for timed block
             float timedBlockBasePriority = 1.5f;   // Base priority for timed block opportunity
             float timedBlockTimingBonusMax = 0.3f; // Maximum bonus for perfect timing

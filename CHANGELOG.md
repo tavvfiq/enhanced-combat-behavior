@@ -1,5 +1,13 @@
 # Changelog
 
+## CombatAITree 0.18.5 (2026-10-26)
+
+Run 38: of your 57 hits on the sword+spell Bandit Chief, 20 landed with no block check at all. Three causes, each fixed:
+
+- **Contact range counts.** Parry and timed block refused targets closer than 50 units, and you were hitting from 42-47 (8 of the 20). The minimum is now 0 (`ParryMinDistance`, `TimedBlockMinDistance`). If your INI was saved from the menu it may still say 50.
+- **Hit timing is the median of the last 9 hits.** The 0.16.1 outlier filter backfired: three early long samples (1.0-1.2 s, a combo swing whose start was missed) set the average to 0.94 s, and from then on the real 0.12-0.45 s hits were thrown out as outliers. The prediction stuck near 0.86 s and the block window was never reached (6 of the 20). A median shrugs off wrong samples either way.
+- **No bash or feint requests without the Block tree.** The chief posted 8 bashes that could never be taken, and the 0.11.1 guard against untaken requests then switched off all its defense checks for 10 s at a time, the dual block included (likely the other 6). NPCs without the Block tree now only get the direct timed block.
+
 ## CombatAITree 0.18.4 (2026-10-26)
 
 The 0.18.3 dump shows the vanilla Magic tree: Magic Context > "Casting Type Selector" > one case per casting type ("Cast Immediate Repeat", "Cast Concentration Repeat") > that type's spell selector (prepare dual cast, cast, idle). Those "Repeat" cases are value nodes, not loop nodes, which is why both earlier splices found nothing.

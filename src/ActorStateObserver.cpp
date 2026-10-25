@@ -1336,26 +1336,25 @@ namespace CombatAI
         if (sample < 0.05f || sample > 1.5f) {
             return; // no swing seen, or a hit from an earlier swing
         }
-        constexpr float kAlpha = 0.3f;
+        // Median of the last 9: wrong samples come both ways (a combo swing whose start was missed reads long, one
+        // seen late reads short). Run 38: an average with an outlier filter locked at 0.86 s on three early long
+        // samples and then threw out the real 0.12-0.45 s hits.
         float average = sample;
         std::uint32_t count = 0;
-        bool outlier = false;
         m_hitDelays.ModifyOrCreate(a_attacker->GetFormID(), [&](HitDelay &d) {
             const int k = a_power ? 1 : 0;
-            // From the 3rd hit, skip samples outside half to double the average: run 33 had 0.12 and 1.30 among
-            // ~0.45 s hits (a combo swing seen late, a hit from an earlier swing), and one 1.30 moved it to 0.68
-            outlier = d.count[k] >= 3 && (sample < d.average[k] * 0.5f || sample > d.average[k] * 2.0f);
-            if (!outlier) {
-                d.average[k] = d.count[k] ? d.average[k] + kAlpha * (sample - d.average[k]) : sample;
-                ++d.count[k];
-            }
-            average = d.average[k];
-            count = d.count[k];
+            auto &ring = d.samples[k];
+            ring[d.count[k] % ring.size()] = sample;
+            count = ++d.count[k];
+            std::array<float, 9> sorted = ring;
+            const auto n = (std::min)(static_cast<std::size_t>(count), ring.size());
+            std::sort(sorted.begin(), sorted.begin() + n);
+            d.average[k] = average = sorted[n / 2];
         });
         if (Config::GetInstance().IsDebugTarget(a_victim->GetFormID())) {
-            LOG_DEBUG("HitTiming 0x{:08X} -> 0x{:08X}: swing start to {} hit {:.2f}s{} (average {:.2f}s over {})",
-                      a_attacker->GetFormID(), a_victim->GetFormID(), a_power ? "power" : "light", sample,
-                      outlier ? " ignored" : "", average, count);
+            LOG_DEBUG("HitTiming 0x{:08X} -> 0x{:08X}: swing start to {} hit {:.2f}s (median {:.2f}s over {})",
+                      a_attacker->GetFormID(), a_victim->GetFormID(), a_power ? "power" : "light", sample, average,
+                      count);
         }
     }
 
