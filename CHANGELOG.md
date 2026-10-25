@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.9.8 (2026-10-25)
+
+- **Debug probe: animation events.** With the debug log on, every attack, bash and block animation event the game sends the selected NPC is logged as `AnimEvent 0x..: <event> accepted|rejected`. In run 25 the tree took every attack intent, but only 14 of 33 started a swing within 1 s (bashes 6 of 25), and the log had no signal past the hand-off. This shows whether the attack node sends its event and whether the graph takes it. No behavior change.
+
 ## CombatAITree 0.9.7 (2026-10-25)
 
 - **Cornered NPCs fight.** A low-health (or losing-the-race) retreat ends after 8 s in total without the NPC's health rising; then it fights instead of running. In run 25 a bandit at 24% retreated for 60 s, up to 1820 units away, while you healed from 92% to 100%. Healing 5% from its lowest point (a potion, a spell) resets the count. The debug Race line shows `Retreated=`.

@@ -5,6 +5,41 @@
 
 namespace CombatAI::EngineProbes
 {
+    namespace
+    {
+        // Attack, bash and block events only (dodge logs its own result in DodgeSystem)
+        bool IsCombatEvent(std::string_view a_name)
+        {
+            std::string lower(a_name);
+            std::ranges::transform(lower, lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            return lower.contains("attack") || lower.contains("bash") || lower.contains("block");
+        }
+
+        struct NotifyGraph
+        {
+            static bool thunk(RE::IAnimationGraphManagerHolder *a_this, const RE::BSFixedString &a_event)
+            {
+                const bool accepted = func(a_this, a_event);
+                // This vtable belongs to Character, so a_this is always a Character's holder subobject
+                const auto *actor = static_cast<RE::Character *>(a_this);
+                if (Config::GetInstance().IsDebugTarget(actor->GetFormID()) && IsCombatEvent(a_event.c_str())) {
+                    LOG_DEBUG("AnimEvent 0x{:08X}: {} {}", actor->GetFormID(), a_event.c_str(),
+                              accepted ? "accepted" : "rejected");
+                }
+                return accepted;
+            }
+
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+    } // namespace
+
+    void Install()
+    {
+        REL::Relocation<std::uintptr_t> holderVTable{RE::Character::VTABLE[3]};
+        NotifyGraph::func = holderVTable.write_vfunc(0x1, NotifyGraph::thunk);
+        LOG_INFO("Probe: NPC attack/bash/block animation events hooked (debug log, selected NPC)");
+    }
+
     void Update(float a_deltaTime)
     {
         static float timer = 0.0f;

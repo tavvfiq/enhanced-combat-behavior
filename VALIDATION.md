@@ -266,3 +266,7 @@
 ## 0.9.7 (2026-10-25) cornered retreat
 - Run 25: 0x8E0ED at 24% HP executed Retreat 389 times from 20:12:06 to 20:13:06; distance up to 1820; player health 92% to 100%; NPC health stayed 24% until it dropped to 4%.
 - Fix: per-actor retreatTime accumulates while the last executed action is Retreat, reset when health rises 5% above its lowest; health and race retreats are skipped at >= 8 s. Untested in game.
+
+## 0.9.8 (2026-10-25) animation event probe
+- Run 25 actuator audit: intents posted/taken light 58/58 (attack data 52), power 5/5 (5), bash 29/26. Taken attack with a later TotalAtks sample: swing started within 1 s 14/33; bash 6/25, 0/4 at stamina 0. Example 20:10:27.177: attack taken, attackStart chance 1.00, IdleDur 0.87 s at 27.494 (idle through the hand-off). Movement: changes advance 85, circle 96, backoff 27, fallback 8; preemption stops ours 137, vanilla 59.
+- Hook target from the CommonLib headers the build uses: TESObjectREFR bases TESForm 00, BSHandleRefObject 20, BSTEventSink<BSAnimationGraphEvent> 30, IAnimationGraphManagerHolder 38, so VTABLE_Character[3]; NotifyAnimationGraph is its slot 01. Built; untested in game. If no AnimEvent lines appear while NPCs swing, the attack node does not go through this vfunc.

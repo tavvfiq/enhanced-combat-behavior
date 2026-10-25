@@ -1,6 +1,7 @@
 #include "Hooks.h"
 #include "ActorUtils.h"
 #include "CombatDirector.h"
+#include "EngineProbes.h"
 #include "Logger.h"
 #include "VanillaAttackShaper.h"
 #include "pch.h"
@@ -82,6 +83,8 @@ namespace CombatAI
                     LOG_WARN("Vanilla attack chance site is not a call - shaping disabled");
                 }
             }
+
+            EngineProbes::Install();
 
             LOG_INFO("Hooks installed successfully");
         }
