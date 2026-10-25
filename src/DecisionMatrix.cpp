@@ -924,11 +924,10 @@ namespace CombatAI
                                     a_state.temporal.target.swingCount) ^ (1ull << 31);
                 closeDodge = RollOnce(swing, config.GetDecisionMatrix().closeDodgeChance);
                 conditionsMet = closeDodge;
-                if (config.IsDebugTarget(a_actor->GetFormID())) {
-                    LOG_DEBUG("Evasion 0x{:08X}: close swing at {:.0f} (reach {:.0f}) -> {}", a_actor->GetFormID(),
-                              a_state.target.distance, swingReach, closeDodge ? "dodge" : "no dodge (roll)");
-                }
             }
+            const bool closeSwing = closeDodge || (!conditionsMet && !a_state.target.isRanged &&
+                                                   !a_state.target.isInAttackRecovery &&
+                                                   a_state.target.distance <= swingReach);
 
             // Check stamina
             auto actorOwner = ActorUtils::SafeAsActorValueOwner(a_actor);
@@ -939,6 +938,12 @@ namespace CombatAI
                     conditionsMet = false;
                 }
             }
+            if (closeSwing && config.IsDebugTarget(a_actor->GetFormID())) {
+                LOG_DEBUG("Evasion 0x{:08X}: close swing at {:.0f} (reach {:.0f}) -> {}", a_actor->GetFormID(),
+                          a_state.target.distance, swingReach,
+                          !closeDodge ? "no dodge (roll)" : conditionsMet ? "dodge" : "no dodge (stamina)");
+            }
+            closeDodge = closeDodge && conditionsMet;
 
             if (conditionsMet) {
                 // Always dodge when conditions are met
@@ -1013,10 +1018,11 @@ namespace CombatAI
             // Apply weapon evasion modifier (one-handed can dodge faster, two-handed
             // slower)
             result.priority = baseDodgePriority + weaponEvasionModifier;
-            // A won close-dodge roll goes first: above back-off (up to 2.15 in run 29, plus style boosts), so its
-            // roll and the trade-blows roll only decide swings the dodge roll lost
+            // A won close-dodge roll goes first: run 30's trade-blows and punish attacks scored 3.05-4.70 and beat
+            // a 3.0 floor, so it now outranks every option; back-off and trade rolls decide only lost rolls
+            constexpr float kWonCloseDodgePriority = 10.0f;
             if (closeDodge) {
-                result.priority = (std::max)(result.priority, 3.0f);
+                result.priority = kWonCloseDodgePriority;
             }
 
             // Dodge intensity based on urgency (closer = more urgent)

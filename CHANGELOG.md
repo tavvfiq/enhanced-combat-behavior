@@ -1,5 +1,13 @@
 # Changelog
 
+## CombatAITree 0.13.1 (2026-10-25)
+
+Run 30 confirmed the 0.13.0 left/right fix: all 5 accepted dodges moved the way their event said (right 2, back 1, forward 2).
+
+- **A won close-dodge roll now always goes first.** Trade-blows and punish attacks scored 3.05-4.70 and beat the 3.0 it had, so 0.12.0's "the dodge roll comes first" didn't hold. A won roll now outranks every option; a lost roll leaves back-off and trade blows as before.
+- **Forward dodge no longer blocks on its own target.** The path ray hit the target the dodge was closing on, so 17 forward dodges failed with "blocked (actor)". The target is now ignored, other things in the way still count. A forward dodge that can't go now advances instead of leaving the NPC standing.
+- **Honest close-dodge log.** The `close swing ... -> dodge` line was written before the stamina check, so some "dodge" lines had no dodge behind them. It now says `dodge`, `no dodge (roll)` or `no dodge (stamina)`.
+
 ## CombatAITree 0.13.0 (2026-10-25)
 
 - **Dodge left and right were swapped.** Skyrim's heading turns clockwise but the angle maths counted counter-clockwise, so a dodge meant for the NPC's right sent `TKDodgeLeft`, and the reverse. An arrow sidestep went across the arrow's line instead of away from it, and the ledge check looked at the side the NPC didn't move to. Found in the code; the next log confirms it (see below).

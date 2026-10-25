@@ -192,7 +192,8 @@ namespace CombatAI
             break;
 
         case ActionType::ForwardDodge:
-            success = ExecuteForwardDodge(a_actor, a_decision, a_state);
+            // A dodge that can't go (path, stamina, already dodging) still closes in: run 30 stood still on 17 ticks
+            success = ExecuteForwardDodge(a_actor, a_decision, a_state) || ExecuteAdvancing(a_actor, a_decision, a_state);
             break;
 
         case ActionType::Backoff:
@@ -352,7 +353,8 @@ namespace CombatAI
         direction.Unitize();
 
         ConfigureDodgeSystem();
-        return m_dodgeSystem.ExecuteDodge(a_actor, {direction});
+        return m_dodgeSystem.ExecuteDodge(a_actor, {direction},
+                                          RE::TESForm::LookupByID<RE::TESObjectREFR>(a_state.target.targetFormID));
     }
 
     bool ActionExecutor::ExecuteDirectionalDodge(RE::Actor *a_actor, RE::NiPoint3 a_direction)

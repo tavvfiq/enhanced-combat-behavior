@@ -19,7 +19,7 @@ namespace CombatAI
         constexpr float kPathHeight = 60.0f;
     } // namespace
 
-    const char *DodgeSystem::Blocked(RE::Actor *a_actor, const RE::NiPoint3 &a_dir)
+    const char *DodgeSystem::Blocked(RE::Actor *a_actor, const RE::NiPoint3 &a_dir, const RE::TESObjectREFR *a_ignore)
     {
         const auto &envCfg = ::CombatAI::Config::GetInstance().GetEnvSensor();
         if (envCfg.enableCliffSafeDodge &&
@@ -35,8 +35,8 @@ namespace CombatAI
         from.z += kPathHeight;
         to.z += kPathHeight;
         const auto hit = EnvSensor::CastRay(a_actor, from, to);
-        if (!hit.hit) {
-            return nullptr;
+        if (!hit.hit || (a_ignore && hit.ref == a_ignore)) {
+            return nullptr; // nothing in the way, or only the target the dodge closes on (run 30: 17 forward dodges)
         }
         return hit.ref && hit.ref->As<RE::Actor>() ? "actor" : "obstacle";
     }
@@ -103,7 +103,8 @@ namespace CombatAI
         return true;
     }
 
-    bool DodgeSystem::ExecuteDodge(RE::Actor *a_actor, std::initializer_list<RE::NiPoint3> a_options)
+    bool DodgeSystem::ExecuteDodge(RE::Actor *a_actor, std::initializer_list<RE::NiPoint3> a_options,
+                                   const RE::TESObjectREFR *a_ignore)
     {
         if (!a_actor || !CanDodge(a_actor)) {
             return false;
@@ -119,7 +120,7 @@ namespace CombatAI
                 continue;
             }
             const std::string event = DetermineDodgeDirection(a_actor, dir);
-            if (const char *why = Blocked(a_actor, dir)) {
+            if (const char *why = Blocked(a_actor, dir, a_ignore)) {
                 if (debug) {
                     skipped += std::format("{} blocked ({}), ", event, why);
                 }

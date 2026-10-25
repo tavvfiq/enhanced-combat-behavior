@@ -300,3 +300,7 @@
 - Code audit: StateHelpers::GetActorForwardVector = (sin h, cos h) (heading clockwise from north); DetermineDodgeDirection used atan2 (counter-clockwise) and mapped +45..+135 deg to eventRight. Facing north (0,1), dodge east (1,0): diff -90 deg -> eventLeft. Swapped. Not runtime-confirmed (run 29 had no side dodges; older logs overwritten). Evasion side was a fixed +90 rotation of the attacker's facing; only obstacle-free check was the ledge probe (ray down, 180 units out, 200 drop).
 - Run 26 had 4 short dodges (60-110 units vs 150-340), consistent with bumping obstacles.
 - Expect next run: dodgecheck.py reports event == movement side for accepted dodges; `blocked (obstacle|actor|ledge)` entries when near walls. Untested in game.
+- Run 30 (0.13.0): no warnings. dodgecheck.py: accepted dodges 5, event == movement 5 (Right 174/159 units, Back 81, Forward 208/214). `no clear direction` 17, all `TKDodgeForward blocked (actor)` (forward dodge, path ray hit the target). Close swing lines: dodge 13, no dodge (roll) 59 (per tick, not per swing). Of the "dodge" ticks: candidate (8, 3.00) lost to PowerAttack 3.05 / Attack 3.85 and 4.70; some had no Dodge candidate (stamina check after the log line).
+
+## 0.13.1 (2026-10-25)
+- Fixes from run 30 above. Untested in game.
