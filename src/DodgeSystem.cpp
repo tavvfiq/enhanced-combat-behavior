@@ -4,6 +4,7 @@
 #include "EnvSensor.h"
 #include "pch.h"
 #include <cmath>
+#include <random>
 
 namespace CombatAI
 {
@@ -11,7 +12,34 @@ namespace CombatAI
     {
         constexpr float PI = 3.14159265f;
         constexpr float PI8 = 0.39269908f; // PI / 8
+        // Path probe: TK Dodge moved NPCs 150-340 units (run 26); the ray starts outside the body and runs at
+        // waist height, above small rocks and steps
+        constexpr float kPathStart = 35.0f;
+        constexpr float kPathLength = 220.0f;
+        constexpr float kPathHeight = 60.0f;
     } // namespace
+
+    const char *DodgeSystem::Blocked(RE::Actor *a_actor, const RE::NiPoint3 &a_dir)
+    {
+        const auto &envCfg = ::CombatAI::Config::GetInstance().GetEnvSensor();
+        if (envCfg.enableCliffSafeDodge &&
+            !EnvSensor::HasGroundAhead(a_actor, a_dir, envCfg.dodgeLedgeProbeDistance, envCfg.dodgeMaxDrop)) {
+            return "ledge";
+        }
+        const auto pos = ActorUtils::SafeGetPosition(a_actor);
+        if (!pos) {
+            return nullptr; // fail open, like the ledge probe
+        }
+        RE::NiPoint3 from = *pos + a_dir * kPathStart;
+        RE::NiPoint3 to = *pos + a_dir * kPathLength;
+        from.z += kPathHeight;
+        to.z += kPathHeight;
+        const auto hit = EnvSensor::CastRay(a_actor, from, to);
+        if (!hit.hit) {
+            return nullptr;
+        }
+        return hit.ref && hit.ref->As<RE::Actor>() ? "actor" : "obstacle";
+    }
 
     bool DodgeSystem::CanDodge(RE::Actor *a_actor)
     {
@@ -75,28 +103,37 @@ namespace CombatAI
         return true;
     }
 
-    bool DodgeSystem::ExecuteDodge(RE::Actor *a_actor, const RE::NiPoint3 &a_dodgeDirection)
+    bool DodgeSystem::ExecuteDodge(RE::Actor *a_actor, std::initializer_list<RE::NiPoint3> a_options)
     {
         if (!a_actor || !CanDodge(a_actor)) {
             return false;
         }
+        const bool debug = ::CombatAI::Config::GetInstance().IsDebugTarget(a_actor->GetFormID());
 
-        // Cliff-safe dodge: never carry the actor over a ledge. Probe for ground at the
-        // spot this dodge would land on; if there's a lethal drop, abort so the actor
-        // picks another action instead of leaping off a cliff. Final guard for every
-        // ExecuteDodge caller (evasion pre-checks and may flip sides before this).
-        const auto &envCfg = ::CombatAI::Config::GetInstance().GetEnvSensor();
-        if (envCfg.enableCliffSafeDodge) {
-            RE::NiPoint3 flatDir = a_dodgeDirection;
-            flatDir.z = 0.0f;
-            flatDir.Unitize();
-            if (!EnvSensor::HasGroundAhead(a_actor, flatDir, envCfg.dodgeLedgeProbeDistance, envCfg.dodgeMaxDrop)) {
-                return false; // would dodge off a ledge
+        // First clear option wins: a ledge, wall, object or actor in the way only bumps or drops the actor
+        std::string dodgeEvent;
+        std::string skipped;
+        for (RE::NiPoint3 dir : a_options) {
+            dir.z = 0.0f;
+            if (dir.Unitize() < 0.01f) {
+                continue;
             }
+            const std::string event = DetermineDodgeDirection(a_actor, dir);
+            if (const char *why = Blocked(a_actor, dir)) {
+                if (debug) {
+                    skipped += std::format("{} blocked ({}), ", event, why);
+                }
+                continue;
+            }
+            dodgeEvent = event;
+            break;
         }
-
-        // Determine dodge direction string
-        std::string dodgeEvent = DetermineDodgeDirection(a_actor, a_dodgeDirection);
+        if (dodgeEvent.empty()) {
+            if (debug) {
+                LOG_DEBUG("Dodge 0x{:08X}: no clear direction ({})", a_actor->GetFormID(), skipped);
+            }
+            return false;
+        }
 
         // Set step dodge variable if enabled
         if (m_config.enableStepDodge) {
@@ -113,8 +150,11 @@ namespace CombatAI
             success = a_actor->NotifyAnimationGraph(RE::BSFixedString(fallback.c_str()));
             dodgeEvent = fallback;
         }
-        if (::CombatAI::Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
-            LOG_DEBUG("Dodge 0x{:08X}: event {} {}", a_actor->GetFormID(), dodgeEvent, success ? "accepted" : "rejected");
+        if (debug) {
+            // Facing is logged so the analysis can check the event against the actual movement
+            const RE::NiPoint3 fwd = StateHelpers::GetActorForwardVector(a_actor);
+            LOG_DEBUG("Dodge 0x{:08X}: event {} {} (facing {:.2f},{:.2f}){}{}", a_actor->GetFormID(), dodgeEvent,
+                      success ? "accepted" : "rejected", fwd.x, fwd.y, skipped.empty() ? "" : "; ", skipped);
         }
 
         // Apply stamina cost if dodge was successful
@@ -143,38 +183,22 @@ namespace CombatAI
         RE::NiPoint3 dodgeDir;
 
         if (a_state.target.isAttacking || a_state.target.isPowerAttacking) {
-            // If target is attacking, dodge perpendicular to their attack direction
-            // Use target's forward vector to determine best dodge direction
+            // Out of the swing's line: perpendicular to the attacker's facing
             RE::NiPoint3 targetForward = a_state.target.forwardVector;
             targetForward.z = 0.0f;
             targetForward.Unitize();
-
-            // Perpendicular: rotate 90 degrees
             dodgeDir = RE::NiPoint3(-targetForward.y, targetForward.x, 0.0f);
         } else {
-            // If target is just blocking, dodge perpendicular to the line between us
             dodgeDir = RE::NiPoint3(-toTarget.y, toTarget.x, 0.0f);
         }
 
-        dodgeDir.Unitize();
-
-        // Cliff-safe evasion: if the chosen side is a ledge, try the mirror side before
-        // committing. A sideways evasion is equally valid left or right, so prefer the
-        // one with ground. If both sides drop off, ExecuteDodge's guard aborts.
-        const auto &envCfg = ::CombatAI::Config::GetInstance().GetEnvSensor();
-        if (envCfg.enableCliffSafeDodge) {
-            RE::NiPoint3 flat = dodgeDir;
-            flat.z = 0.0f;
-            flat.Unitize();
-            if (!EnvSensor::HasGroundAhead(a_actor, flat, envCfg.dodgeLedgeProbeDistance, envCfg.dodgeMaxDrop)) {
-                RE::NiPoint3 mirror(-flat.x, -flat.y, 0.0f);
-                if (EnvSensor::HasGroundAhead(a_actor, mirror, envCfg.dodgeLedgeProbeDistance, envCfg.dodgeMaxDrop)) {
-                    dodgeDir = mirror;
-                }
-            }
+        // Either side clears the swing: pick one at random (it was always the attacker's left), the other if
+        // that one is blocked, then straight back
+        thread_local std::mt19937 rng{std::random_device{}()};
+        if (rng() & 1u) {
+            dodgeDir = -dodgeDir;
         }
-
-        return ExecuteDodge(a_actor, dodgeDir);
+        return ExecuteDodge(a_actor, {dodgeDir, -dodgeDir, -toTarget});
     }
 
     std::string DodgeSystem::DetermineDodgeDirection(RE::Actor *a_actor, const RE::NiPoint3 &a_dodgeDirection)
@@ -208,18 +232,15 @@ namespace CombatAI
         while (angleDiff < -PI)
             angleDiff += 2.0f * PI;
 
-        // Determine dodge direction based on angle
-        // Forward: -PI/4 to PI/4
-        // Right: PI/4 to 3*PI/4
-        // Back: 3*PI/4 to -3*PI/4 (or PI to -PI)
-        // Left: -3*PI/4 to -PI/4
-
+        // Skyrim's heading turns clockwise (forward = (sin h, cos h)) while atan2 counts counter-clockwise,
+        // so a positive angle is to the actor's LEFT. Before 0.13.0 left and right were swapped here.
+        // Forward: -PI/4 to PI/4, Left: PI/4 to 3*PI/4, Right: -3*PI/4 to -PI/4, Back: the rest
         if (angleDiff >= -2.0f * PI8 && angleDiff < 2.0f * PI8) {
             return events.eventForward;
         } else if (angleDiff >= 2.0f * PI8 && angleDiff < 6.0f * PI8) {
-            return events.eventRight;
-        } else if (angleDiff >= -6.0f * PI8 && angleDiff < -2.0f * PI8) {
             return events.eventLeft;
+        } else if (angleDiff >= -6.0f * PI8 && angleDiff < -2.0f * PI8) {
+            return events.eventRight;
         } else {
             return events.eventBack;
         }

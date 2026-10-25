@@ -352,7 +352,7 @@ namespace CombatAI
         direction.Unitize();
 
         ConfigureDodgeSystem();
-        return m_dodgeSystem.ExecuteDodge(a_actor, direction);
+        return m_dodgeSystem.ExecuteDodge(a_actor, {direction});
     }
 
     bool ActionExecutor::ExecuteDirectionalDodge(RE::Actor *a_actor, RE::NiPoint3 a_direction)
@@ -360,16 +360,9 @@ namespace CombatAI
         if (!a_actor) {
             return false;
         }
-        a_direction.z = 0.0f;
-        a_direction.Unitize();
-        // Either side clears a projectile; take the mirror side over a ledge
-        const auto &envCfg = Config::GetInstance().GetEnvSensor();
-        if (envCfg.enableCliffSafeDodge &&
-            !EnvSensor::HasGroundAhead(a_actor, a_direction, envCfg.dodgeLedgeProbeDistance, envCfg.dodgeMaxDrop)) {
-            a_direction = -a_direction;
-        }
+        // Either side clears a projectile; the mirror side if this one is blocked or a ledge
         ConfigureDodgeSystem();
-        return m_dodgeSystem.ExecuteDodge(a_actor, a_direction);
+        return m_dodgeSystem.ExecuteDodge(a_actor, {a_direction, -a_direction});
     }
 
     void ActionExecutor::ConfigureDodgeSystem()

@@ -1,5 +1,12 @@
 # Changelog
 
+## CombatAITree 0.13.0 (2026-10-25)
+
+- **Dodge left and right were swapped.** Skyrim's heading turns clockwise but the angle maths counted counter-clockwise, so a dodge meant for the NPC's right sent `TKDodgeLeft`, and the reverse. An arrow sidestep went across the arrow's line instead of away from it, and the ledge check looked at the side the NPC didn't move to. Found in the code; the next log confirms it (see below).
+- **Dodges check their path.** Before dodging, a ray at waist height checks the next ~220 units for a wall, object or actor, alongside the existing ledge check. A blocked direction is skipped for the next option. If none is clear, there is no dodge and the brain picks something else.
+- **Attack dodges pick a side.** Was always the attacker's left. Now a random side, the other side if that one is blocked, then straight back. Arrow sidesteps try the side away from the arrow, then the other side. The forward dodge only goes forward.
+- **Debug lines.** `Dodge 0x..: event TKDodgeX accepted (facing x,y); TKDodgeY blocked (obstacle)` and `Dodge 0x..: no clear direction (...)`.
+
 ## CombatAITree 0.12.0 (2026-10-25)
 
 - **Close dodge.** NPCs can now dodge a melee swing (light or power) that is aimed at them from within the attacker's weapon reach (plus 30 units). Before, the attack dodge only worked 250-400 units out, where a light swing can't reach, so nothing dodged up close. It is rolled once per swing (`CloseDodgeChance`, default 0.3, INI and menu). A won roll goes first; a lost roll leaves the back-off and trade-blows rolls to decide that swing as before. It needs TK Dodge, the dodge stamina, and the NPC not mid-attack; the skill roll still applies, so roughly 1 swing in 5 gets dodged at default skill. Swings at someone else, and your recovery after a hit, don't count. The debug log shows `Evasion 0x..: close swing at X (reach Y) -> dodge|no dodge (roll)`.
