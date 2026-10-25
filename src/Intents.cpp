@@ -32,6 +32,8 @@ namespace CombatAI::Intents
             Clock::time_point moveUntil{};
             float param = 0.0f; // Circle side or Advance stop distance (see PostMove)
             Clock::time_point dualBlockUntil{};
+            float shotFactor = 1.0f;
+            Clock::time_point shotUntil{};
             bool dualBlockStarted = false;
         };
 
@@ -182,6 +184,27 @@ namespace CombatAI::Intents
         const auto until = Clock::now() + std::chrono::duration_cast<Clock::duration>(Seconds{a_seconds});
         g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) { e.dualBlockUntil = (std::max)(e.dualBlockUntil, until); });
         Debug(a_actor, "post dual block (ms)", static_cast<int>(a_seconds * 1000.0f));
+    }
+
+    void PostRangedShot(RE::Actor *a_actor, float a_factor)
+    {
+        if (!a_actor) {
+            return;
+        }
+        const auto until = Clock::now() + std::chrono::milliseconds(400);
+        g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
+            e.shotFactor = a_factor;
+            e.shotUntil = until;
+        });
+    }
+
+    float RangedShotFactor(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return 1.0f;
+        }
+        const auto e = g_board.Find(a_actor->GetFormID());
+        return e && Clock::now() < e->shotUntil ? e->shotFactor : 1.0f;
     }
 
     void EndDualBlockHold(RE::Actor *a_actor)

@@ -77,6 +77,11 @@ namespace CombatAI::Intents
     // Started and the hold ended over 0.3 s ago without the tree releasing it (thread gone): release from the brain
     bool DualBlockOverdue(RE::Actor *a_actor);
 
+    // Archers: how much more (or less) likely vanilla's ranged attack roll should be this moment (0 = hold the shot,
+    // 1 = vanilla, 2 = take it). Refreshed every brain tick, falls back to 1 after 0.4 s.
+    void PostRangedShot(RE::Actor *a_actor, float a_factor);
+    float RangedShotFactor(RE::Actor *a_actor);
+
     // Pending (not consumed) attack/defend intents exist - keeps vanilla branches out of the way.
     bool HasPending(RE::Actor *a_actor);
 

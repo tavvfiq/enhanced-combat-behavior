@@ -194,6 +194,13 @@ namespace CombatAI
         }
         MaybeSwitchTarget(a_actor, formID, state);
         DecisionResult decision = m_decisionMatrix.Evaluate(a_actor, state);
+        if (state.self.isRanged && config.GetDecisionMatrix().enableRangedPositioning) {
+            const float shot = DecisionMatrix::RangedShotFactor(state);
+            Intents::PostRangedShot(a_actor, shot);
+            if (debugEnabled && shot != 1.0f) {
+                LOG_DEBUG("Ranged 0x{:08X}: shot chance x{:.1f}", static_cast<std::uint32_t>(formID), shot);
+            }
+        }
 
         decision = ApplyCombatPacing(a_actor, formID, state, decision);
 

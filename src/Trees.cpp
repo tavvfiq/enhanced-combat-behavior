@@ -36,6 +36,47 @@ namespace CombatAI::Trees
         constexpr REL::RelocationID kRangedMovementTree{48476, 49468};
         constexpr std::size_t kRangedMovementSetRootSE = 0x495;
         constexpr std::size_t kRangedMovementSetRootAE = 0x957;
+        // The vanilla Ranged builder (SE 32398 / AE 33149) stores the ranged attack chance function (SE 49772 / AE
+        // 50700) in its RandomNode with a `lea rax, [rip+x]` (SE +0xA3, AE +0x111 in 1.6.1170 and 1.7.104). The lea
+        // is pointed at our RangedShotChance before the tree is built, so the roll is vanilla's times the brain's
+        // factor (RE 2026-10-26).
+        constexpr REL::RelocationID kRangedTree{32398, 33149};
+        constexpr std::size_t kRangedChanceLeaSE = 0xA3;
+        constexpr std::size_t kRangedChanceLeaAE = 0x111;
+        using ChanceFn = float (*)(RE::Actor *, RE::Actor *);
+        ChanceFn g_vanillaRangedChance = nullptr;
+
+        float RangedShotChance(RE::Actor *a_me, RE::Actor *a_target)
+        {
+            const float vanilla = g_vanillaRangedChance(a_me, a_target);
+            return a_me ? std::clamp(vanilla * Intents::RangedShotFactor(a_me), 0.0f, 1.0f) : vanilla;
+        }
+
+        void InstallRangedShotChance(SKSE::Trampoline &a_trampoline)
+        {
+            const auto lea = kRangedTree.address() + (REL::Module::IsAE() ? kRangedChanceLeaAE : kRangedChanceLeaSE);
+            const auto *b = reinterpret_cast<const std::uint8_t *>(lea);
+            if (b[0] != 0x48 || b[1] != 0x8D || b[2] != 0x05) {
+                LOG_ERROR("Tree: Ranged tree chance site does not match - archers keep vanilla shot timing");
+                return;
+            }
+            const auto next = lea + 7;
+            g_vanillaRangedChance = reinterpret_cast<ChanceFn>(next + *reinterpret_cast<const std::int32_t *>(lea + 3));
+            // Our function may be out of rel32 reach: jump through a stub in the trampoline (near the game)
+            auto *stub = static_cast<std::uint8_t *>(a_trampoline.allocate(14));
+            const std::uint8_t jmp[6] = {0xFF, 0x25, 0, 0, 0, 0}; // jmp [rip+0]
+            std::memcpy(stub, jmp, 6);
+            const auto target = reinterpret_cast<std::uintptr_t>(&RangedShotChance);
+            std::memcpy(stub + 6, &target, 8);
+            const auto disp = static_cast<std::int64_t>(reinterpret_cast<std::uintptr_t>(stub)) - static_cast<std::int64_t>(next);
+            if (disp < INT32_MIN || disp > INT32_MAX) {
+                LOG_ERROR("Tree: Ranged chance stub out of reach - archers keep vanilla shot timing");
+                return;
+            }
+            REL::safe_write(lea + 3, static_cast<std::int32_t>(disp));
+            LOG_INFO("Tree: Ranged attack chance redirected (the brain times archers' shots)");
+        }
+
         // The vanilla Magic builder is kept; its SetRoot call is hooked to add the DualBlock branch (SE 48065+0x4AC,
         // AE 49112+0x7AC in 1.6.1170 and 1.7.104, RE 2026-10-25).
         constexpr REL::RelocationID kMagicTree{48065, 49112};
@@ -949,6 +990,8 @@ namespace CombatAI::Trees
         } else {
             LOG_ERROR("Tree: CloseMovement SetRoot site does not match (byte {:02X}) - movement intents disabled", bytes[0]);
         }
+
+        InstallRangedShotChance(trampoline);
 
         const auto rangedSite =
             kRangedMovementTree.address() + (REL::Module::IsAE() ? kRangedMovementSetRootAE : kRangedMovementSetRootSE);

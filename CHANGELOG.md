@@ -1,5 +1,16 @@
 # Changelog
 
+## CombatAITree 0.22.0 (2026-10-26)
+
+- **Archers time their shots.** Vanilla decides when to draw with a random roll; the brain now scales that roll each moment (the Ranged tree's chance pointer is redirected, SE 32398+0xA3 / AE 33149+0x111):
+  - an ally between the archer and its target: no shot (×0);
+  - the target's guard raised and facing the archer: much less likely (×0.3), it waits for the guard to drop;
+  - an opening (target recovering, casting or drawing, staggered, fleeing, or looking away): twice as likely;
+  - otherwise vanilla.
+  Debug log: `Ranged 0x..: shot chance xN`. Load log: `Tree: Ranged attack chance redirected`.
+- **Clearing the line of fire.** An archer or mage with an ally in the way (the closest ally, within 55 units of the line to the target) steps sideways, away from the ally. Debug log: `Ranged 0x..: ally in the line of fire -> step aside`.
+- Spell timing for mages is not shaped yet (the Magic tree's cast rolls are built differently); they get the positioning and line-of-fire step only.
+
 ## CombatAITree 0.21.2 (2026-10-26)
 
 Run 46 (0.21.1): a Bandit Sorcerer (spell in hand) fell back from you and actually moved (76-81 units per fallback), then switched to its dagger. The contact cutoff worked ("left to vanilla" 198 times). But the archer's fallbacks all failed at once: 7 of 9 came while its bow was drawn.

@@ -135,6 +135,48 @@ namespace CombatAI
         return a_state.self.isRanged || w == WeaponType::Staff || w == WeaponType::Spell;
     }
 
+    bool DecisionMatrix::AllyInLineOfFire(const ActorStateData &a_state)
+    {
+        // Shortcut: only the closest ally is known; with several allies one off the line may still block it
+        const auto &cc = a_state.combatContext;
+        if (!a_state.target.isValid || !cc.hasNearbyAlly || cc.closestAllyDistance <= 0.0f ||
+            cc.closestAllyDistance >= a_state.target.distance) {
+            return false;
+        }
+        RE::NiPoint3 line = a_state.target.position - a_state.self.position;
+        RE::NiPoint3 toAlly = cc.closestAllyPosition - a_state.self.position;
+        line.z = toAlly.z = 0.0f;
+        const float length = line.Unitize();
+        const float along = toAlly.Dot(line);
+        if (length < 1.0f || along <= 30.0f || along >= length - 30.0f) {
+            return false; // beside us or past the target
+        }
+        const RE::NiPoint3 offLine = toAlly - line * along;
+        constexpr float kClearance = 55.0f; // ally body ~30 plus the arrow's or spell's width
+        return offLine.Length() < kClearance;
+    }
+
+    float DecisionMatrix::RangedShotFactor(const ActorStateData &a_state)
+    {
+        if (!a_state.target.isValid) {
+            return 1.0f;
+        }
+        if (AllyInLineOfFire(a_state)) {
+            return 0.0f; // don't shoot a friend in the back
+        }
+        const auto &t = a_state.target;
+        // A raised guard facing the archer stops the arrow: wait for it to drop
+        if (t.isBlocking && t.orientationDot > 0.5f) {
+            return 0.3f;
+        }
+        // An opening: recovering, casting or drawing, staggered, fleeing, or looking away
+        if (t.isInAttackRecovery || t.isCasting || t.isDrawingBow || t.isFleeing ||
+            t.knockState != RE::KNOCK_STATE_ENUM::kNormal || t.orientationDot < 0.2f) {
+            return 2.0f;
+        }
+        return 1.0f;
+    }
+
     DecisionResult DecisionMatrix::EvaluateRangedPositioning(RE::Actor *a_actor, const ActorStateData &a_state)
     {
         DecisionResult result;
@@ -193,6 +235,22 @@ namespace CombatAI
             if (debug) {
                 LOG_DEBUG("Ranged 0x{:08X}: target at {:.0f}{} -> close in to {:.0f}", a_actor->GetFormID(), dist,
                           noSight ? " out of sight" : "", result.holdDistance);
+            }
+        }
+        // An ally between us and the target: step sideways to clear the line of fire
+        if (result.action == ActionType::None && AllyInLineOfFire(a_state)) {
+            RE::NiPoint3 toAlly = a_state.combatContext.closestAllyPosition - a_state.self.position;
+            toAlly.z = 0.0f;
+            RE::NiPoint3 side(-away.y, away.x, 0.0f);
+            if (side.Dot(toAlly) > 0.0f) {
+                side = -side; // step to the side away from the ally
+            }
+            result.action = ActionType::Strafe;
+            result.priority = 1.5f;
+            result.direction = side;
+            result.intensity = 0.7f;
+            if (debug) {
+                LOG_DEBUG("Ranged 0x{:08X}: ally in the line of fire -> step aside", a_actor->GetFormID());
             }
         }
         // Otherwise in its band: vanilla shoots, casts, strafes and keeps its own optimal range

@@ -30,6 +30,10 @@ namespace CombatAI
             bool losing = false;
         };
         static DamageRace Race(const ActorStateData &a_state);
+        // Archers: factor on vanilla's ranged attack roll (0 hold, 1 vanilla, 2 take it) for this moment
+        static float RangedShotFactor(const ActorStateData &a_state);
+        // The closest ally stands in the line from this NPC to its target
+        static bool AllyInLineOfFire(const ActorStateData &a_state);
 
         // Held-back action for combat pacing: when an actor is denied an attack slot it
         // should stay engaged (circle/flank the target) instead of committing. Returns a
