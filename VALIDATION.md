@@ -338,3 +338,8 @@
 ## 0.17.1 (2026-10-25) dual-wield block probe
 - Source checked: WastelPlaster/SimpleDualWieldBlock src/main.cpp (GitHub, main): key down sets `actorState->actorState2.wantBlocking = 1` and NotifyAnimationGraph("blockStart"); key up clears it and sends "blockStop". No behavior files. CommonLib ActorState2::wantBlocking (bit 8 of ActorState+0x0C).
 - Probe built; untested in game. Pass: `blockStart accepted` and `blocking=true` after 0.2 s for a dual-wield or spell+weapon NPC.
+- Run 34 (0.17.1): load `Dagger block: NPCs with a dagger can block and bash`. DualBlock probe 52 tries, blockStart accepted 52: spell+spell 43 and empty+spell 4 never blocking (0 of 26 hits blocked); spell+dagger (spawned 0xFF000875) 5 tries: blocking=true 2 with the player's hit blocked=true (blockHitStart / blockAnticipateStart), 3 not (own attackState 3 at start; brain Executed Attack 0.1 s in; one unexplained). No dual-weapon NPC fought.
+
+## 0.18.0 (2026-10-25) DualBlock tree node
+- RE: Magic builder SE 48065 calls initNodes (46263) at +0x4AC; AE 1.6.1170 and 1.7.104 id 49112 calls 47518 at +0x7AC. Idle vtable (SE 256701 / AE 205318): RTTI at [-1], 10 slots; slot 2 Enter, 3 Exit. The Magic tree shape (Context > Repeat > child) is checked at runtime; a mismatch logs an error and leaves it vanilla.
+- Built; untested in game. Pass: `Tree: Magic tree extended`, DualBlock blockStart/release lines for a weapon+spell or dual-wield NPC, the player's hits blocked=true during holds, no stuck blocking after combat.

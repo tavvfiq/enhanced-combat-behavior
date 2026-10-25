@@ -8,6 +8,7 @@
 #include "ProjectileAwareness.h"
 #include "GuardCounterFeedbackTracker.h"
 #include "Intents.h"
+#include "Trees.h"
 #include "Logger.h"
 #include "ModEventSinks.h"
 #include "ParryFeedbackTracker.h"
@@ -142,6 +143,10 @@ namespace CombatAI
         float elapsed = a_deltaTime;
         if (!ShouldProcessActor(a_actor, formID, a_deltaTime, elapsed)) {
             return;
+        }
+        // A direct block whose tree thread never ran its Exit (tree torn down): release it here
+        if (Intents::DualBlockOverdue(a_actor)) {
+            Trees::ReleaseDualBlock(a_actor, true);
         }
 
         SCARIntegration::GetInstance().Track(a_actor, formID);
@@ -665,6 +670,9 @@ namespace CombatAI
         SCARIntegration::GetInstance().Evict(a_formID);
         m_executor.EvictActor(a_formID);
         ProjectileAwareness::GetInstance().Evict(a_formID);
+        if (Intents::DualBlockStarted(a_formID)) { // left combat or died mid-block
+            Trees::ReleaseDualBlock(RE::TESForm::LookupByID<RE::Actor>(a_formID), true);
+        }
         Intents::Evict(a_formID);
         m_observer.EvictActor(a_formID);
     }

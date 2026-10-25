@@ -8,4 +8,7 @@ namespace CombatAI::Trees
     // Patch the vanilla Melee/Block tree builders. Call from SKSEPlugin_Load: the engine builds
     // these trees before kDataLoaded.
     void Install();
+
+    // End a direct block (DualBlock node) and send blockStop, once; a_force ends it even if the hold isn't over.
+    void ReleaseDualBlock(RE::Actor *a_actor, bool a_force);
 } // namespace CombatAI::Trees

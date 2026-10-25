@@ -30,6 +30,11 @@ namespace CombatAI::Trees
         constexpr std::size_t kCircleAngleCallSE = 0x299;
         constexpr std::size_t kCircleAngleCallAE = 0x22B;
         constexpr REL::RelocationID kCircleAngle{49721, 50648};
+        // The vanilla Magic builder is kept; its SetRoot call is hooked to add the DualBlock branch (SE 48065+0x4AC,
+        // AE 49112+0x7AC in 1.6.1170 and 1.7.104, RE 2026-10-25).
+        constexpr REL::RelocationID kMagicTree{48065, 49112};
+        constexpr std::size_t kMagicSetRootSE = 0x4AC;
+        constexpr std::size_t kMagicSetRootAE = 0x7AC;
 
         // True if the instruction at a_site is a rel32 call to a_target (checked before patching).
         bool CallsTarget(std::uintptr_t a_site, std::uintptr_t a_target)
@@ -141,7 +146,60 @@ namespace CombatAI::Trees
             return AddChild(Checked(Named(a_block, a_blockName), a_blockName), counter);
         }
 
-        std::atomic<std::uint32_t> g_meleeBuilt{0}, g_blockBuilt{0};
+        // ---- DualBlock: an Idle node with a copied vtable (TREE_DESIGN 6). Enter starts a direct block (ActorState
+        // wantBlocking + blockStart, Simple Dual Wield Block's method) and Exit ends it once the brain's hold is over.
+        // Idle's own Enter/Update/Exit keep the frame and the 0.05 s hold, so the selector re-reads like elsewhere.
+        // It sits first in the Melee and Magic trees, so while it runs that hand can't swing or cast.
+        using NodeFn = void (*)(Node *, RE::CombatBehaviorThread *);
+        std::array<void *, 11> g_dualBlockVtable{}; // [0] RTTI, [1..10] = Idle's slots 0-9 (SE and AE: 10 slots)
+        NodeFn g_idleEnter = nullptr;
+        NodeFn g_idleExit = nullptr;
+
+        void SetWantBlocking(RE::Actor *a_actor, bool a_on)
+        {
+            if (auto *state = a_actor ? a_actor->AsActorState() : nullptr) {
+                state->actorState2.wantBlocking = a_on ? 1 : 0;
+            }
+        }
+
+        void DualBlockEnter(Node *a_node, RE::CombatBehaviorThread *a_thread)
+        {
+            auto *actor = RE::CombatBehaviorController::GetCurrentAttacker();
+            if (actor && Intents::StartDualBlock(actor)) {
+                SetWantBlocking(actor, true);
+                const bool started = actor->NotifyAnimationGraph("blockStart");
+                if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
+                    LOG_DEBUG("DualBlock 0x{:08X}: blockStart {}", actor->GetFormID(), started ? "accepted" : "rejected");
+                }
+            }
+            g_idleEnter(a_node, a_thread);
+        }
+
+        void DualBlockExit(Node *a_node, RE::CombatBehaviorThread *a_thread)
+        {
+            g_idleExit(a_node, a_thread);
+            if (auto *actor = RE::CombatBehaviorController::GetCurrentAttacker()) {
+                ReleaseDualBlock(actor, false);
+            }
+        }
+
+        Node *DualBlockNode()
+        {
+            auto *n = Idle(kHold);
+            if (n) {
+                n->vtable = &g_dualBlockVtable[1];
+            }
+            return Named(n, "Dual Block");
+        }
+
+        float WantDualBlock(RE::Actor *a_me, RE::Actor *) { return Intents::WantsDualBlock(a_me) ? 1.0f : 0.0f; }
+
+        Node *DualBlockBranch()
+        {
+            return Checked(RandomNode(DualBlockNode(), WantDualBlock, "Intent - Dual Block"), "intent dual block");
+        }
+
+        std::atomic<std::uint32_t> g_meleeBuilt{0}, g_blockBuilt{0}, g_magicBuilt{0};
 
         // Vanilla Melee: Context > Repeat > Selector{ RandomNode-Special Attack, RandomNode-Attack, Idle }.
         // Ours puts the brain's attack first.
@@ -149,7 +207,8 @@ namespace CombatAI::Trees
         {
             auto *selector = Checked(Named(NextSelector(), "Attack Selector"), "Attack Selector");
             SetChildren(selector,
-                        {Checked(RandomNode(Named(Attack(), "attack"), IntentAttack, "Intent - Attack"), "intent attack"),
+                        {DualBlockBranch(),
+                         Checked(RandomNode(Named(Attack(), "attack"), IntentAttack, "Intent - Attack"), "intent attack"),
                          Checked(RandomNode(Named(SpecialAttack(), "Special Attack"), VanillaSpecialAttack,
                                             "RandomNode - Special Attack"),
                                  "special attack"),
@@ -657,6 +716,31 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
+        // Vanilla Magic: Context > Repeat > <cast selection>. Ours: Context > Repeat > NextSelector{ DualBlock, <vanilla> }.
+        struct MagicSetRoot
+        {
+            static void thunk(void *a_tree, Node *a_root)
+            {
+                Node *repeat = a_root && a_root->childCount == 1 ? a_root->children[0] : nullptr;
+                Node *vanilla = repeat && repeat->childCount == 1 ? repeat->children[0] : nullptr;
+                if (!Is(repeat, Id::vtRepeat) || !vanilla) {
+                    LOG_ERROR("Tree: Magic tree has an unexpected shape - no dual block for spell hands");
+                    func(a_tree, a_root);
+                    return;
+                }
+                vanilla->parent = nullptr; // detach, or SetChildren would add the whole tree's root
+                auto *selector = Checked(Named(NextSelector(), "Intent Magic Selector"), "Intent Magic Selector");
+                SetChildren(selector, {DualBlockBranch(), vanilla});
+                repeat->children[0] = selector;
+                selector->parent = repeat;
+                func(a_tree, a_root);
+                if (g_magicBuilt.fetch_add(1) == 0) {
+                    LOG_INFO("Tree: Magic tree extended (dual block over vanilla casting)");
+                }
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
         void NoteStoppedByBrain(RE::CombatBehaviorThread *a_thread)
         {
             std::scoped_lock guard(g_auditLock);
@@ -747,8 +831,30 @@ namespace CombatAI::Trees
         };
     } // namespace
 
+    void ReleaseDualBlock(RE::Actor *a_actor, bool a_force)
+    {
+        if (a_actor && Intents::EndDualBlock(a_actor, a_force)) {
+            SetWantBlocking(a_actor, false);
+            const bool stopped = a_actor->NotifyAnimationGraph("blockStop");
+            if (Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+                LOG_DEBUG("DualBlock 0x{:08X}: released{}, blockStop {}", a_actor->GetFormID(), a_force ? " (forced)" : "",
+                          stopped ? "accepted" : "rejected");
+            }
+        }
+    }
+
     void Install()
     {
+        // DualBlock node vtable: Idle's, with our Enter (slot 2) and Exit (slot 3) around Idle's own
+        {
+            const auto *idle = reinterpret_cast<void *const *>(Id::vtIdle.address());
+            std::copy_n(idle - 1, g_dualBlockVtable.size(), g_dualBlockVtable.begin());
+            g_idleEnter = reinterpret_cast<NodeFn>(idle[2]);
+            g_idleExit = reinterpret_cast<NodeFn>(idle[3]);
+            g_dualBlockVtable[1 + 2] = reinterpret_cast<void *>(&DualBlockEnter);
+            g_dualBlockVtable[1 + 3] = reinterpret_cast<void *>(&DualBlockExit);
+        }
+
         // Full replacement: the vanilla builder never runs (same approach as Fenix-NG).
         auto &trampoline = SKSE::GetTrampoline();
         trampoline.write_branch<5>(kMeleeTree.address(), reinterpret_cast<std::uintptr_t>(&MeleeTree));
@@ -777,6 +883,14 @@ namespace CombatAI::Trees
             }
         } else {
             LOG_ERROR("Tree: CloseMovement SetRoot site does not match (byte {:02X}) - movement intents disabled", bytes[0]);
+        }
+
+        const auto magicSite = kMagicTree.address() + (REL::Module::IsAE() ? kMagicSetRootAE : kMagicSetRootSE);
+        if (CallsTarget(magicSite, Id::initNodes.address())) {
+            MagicSetRoot::func = trampoline.write_call<5>(magicSite, MagicSetRoot::thunk);
+            LOG_INFO("Tree: Magic SetRoot hooked (dual block for a weapon with a spell)");
+        } else {
+            LOG_ERROR("Tree: Magic SetRoot site does not match - no dual block for spell hands");
         }
 
         const auto circleSite = kCircleUpdate.address() + (REL::Module::IsAE() ? kCircleAngleCallAE : kCircleAngleCallSE);

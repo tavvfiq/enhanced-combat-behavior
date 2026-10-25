@@ -1,8 +1,7 @@
 #include "DecisionMatrix.h"
 #include "ActorUtils.h"
 #include "Config.h"
-#include "EngineProbes.h"
-#include "Hooks.h"
+#include "BlockRules.h"
 #include "Intents.h"
 #include "Logger.h"
 #include "ProjectileAwareness.h"
@@ -109,40 +108,6 @@ namespace CombatAI
         {
             static const std::uint64_t salt = std::random_device{}(); // a new sequence each session
             return static_cast<float>(SplitMix64(a_key + salt) >> 40) * (1.0f / 16777216.0f) < a_chance;
-        }
-    }
-
-    // Whether vanilla runs the Block tree (bash, block, parry, timed block) for this NPC. Its left-hand slot links the
-    // Block tree for an item of type Shield: a real shield, or CombatInventoryItemOneHandedBlock, which reports the
-    // same type (shared GetType SE 43824). Every humanoid race gets that item (SE 43626 -> 24852: race can equip a
-    // melee weapon), and it equips (CheckShouldEquip SE 43837) only when the right-hand combat item is melee and its
-    // weapon is not a dagger or fists (animationType & ~2 != 0). So daggers, fists, bows, staffs and crossbows
-    // can't block; swords, axes, maces and two-handed weapons can. A spell or torch in the left hand takes the slot.
-    static bool CanRunBlockTree(RE::Actor *a_actor)
-    {
-        RE::TESForm *leftHand = ActorUtils::SafeGetEquippedObject(a_actor, true);
-        RE::TESForm *rightHand = ActorUtils::SafeGetEquippedObject(a_actor, false);
-        if (leftHand && leftHand->IsArmor()) {
-            return true;
-        }
-        if (leftHand && leftHand != rightHand) {
-            return false; // a spell, torch or second weapon holds the left slot
-        }
-        const auto *weapon = rightHand ? rightHand->As<RE::TESObjectWEAP>() : nullptr;
-        if (!weapon) {
-            return false;
-        }
-        switch (weapon->GetWeaponType()) {
-        case RE::WEAPON_TYPE::kOneHandSword:
-        case RE::WEAPON_TYPE::kOneHandAxe:
-        case RE::WEAPON_TYPE::kOneHandMace:
-        case RE::WEAPON_TYPE::kTwoHandSword:
-        case RE::WEAPON_TYPE::kTwoHandAxe:
-            return true;
-        case RE::WEAPON_TYPE::kOneHandDagger:
-            return Hooks::DaggerBlockPatched(); // AllowDaggerBlock
-        default:
-            return false;
         }
     }
 
@@ -306,8 +271,8 @@ namespace CombatAI
         if (a_state.self.isRanged) {
             return result; // Return None - ranged weapons can't bash
         }
-        if (Intents::DefendUnavailable(a_actor)) {
-            return result;
+        if (Intents::DefendUnavailable(a_actor) || Intents::WantsDualBlock(a_actor)) {
+            return result; // or holding a direct block already
         }
 
         // Same anti-spam gate as attacks: without it the bash was re-posted every tick mid-bash
@@ -561,7 +526,7 @@ namespace CombatAI
         }
 
         // A parry is a bash from the Block tree
-        if (!CanRunBlockTree(a_actor)) {
+        if (!BlockRules::CanRunBlockTree(a_actor)) {
             return result;
         }
 
@@ -678,7 +643,7 @@ namespace CombatAI
         }
 
         // Run 33 posted 3 untaken blocks for a dagger bandit: only some equipment runs the Block tree
-        const bool blockTree = CanRunBlockTree(a_actor);
+        const bool blockTree = BlockRules::CanRunBlockTree(a_actor);
 
         // Check distance
         if (a_state.target.distance < timedBlockConfig.timedBlockMinDistance ||
@@ -692,11 +657,8 @@ namespace CombatAI
             timeUntilHit < timedBlockConfig.timedBlockWindowStart) {
             return result; // Outside timed block window
         }
-        if (!blockTree) {
-            // Probe: does this NPC's graph take a direct block (Simple Dual Wield Block's method)?
-            if (config.IsDebugTarget(a_actor->GetFormID())) {
-                EngineProbes::DualWieldBlockProbe(a_actor);
-            }
+        // No Block tree: a weapon with a spell, torch or second weapon blocks through our DualBlock node instead
+        if (!blockTree && !BlockRules::CanDualBlock(a_actor)) {
             return result;
         }
         if (!DefendRoll(a_actor, a_state, "timed block", timeUntilHit)) {
@@ -1635,6 +1597,9 @@ namespace CombatAI
             // checks came at sprint speed); the sprint attack is evaluated separately
             if (a_state.self.isSprinting) {
                 return skip("sprinting");
+            }
+            if (Intents::WantsDualBlock(a_actor)) {
+                return skip("holding a block"); // an attack would cancel it (run 34)
             }
 
             // Still equipping: run 28's bow/dagger bandit had 6 attacks refused within 0.7 s of drawing the dagger

@@ -65,6 +65,16 @@ namespace CombatAI::Intents
     // (run 29: a dagger bandit's 11 bash posts, 0 taken, while it feinted 75 times). The brain stops asking.
     bool DefendUnavailable(RE::Actor *a_actor);
 
+    // Direct block (DualBlock tree node) for NPCs without the Block tree. Unlike block/bash it is a state: the
+    // node holds while the brain's hold lasts. Start/End return true once, for the caller to send the events.
+    void PostDualBlock(RE::Actor *a_actor, float a_seconds);
+    bool WantsDualBlock(RE::Actor *a_actor);
+    bool StartDualBlock(RE::Actor *a_actor);
+    bool EndDualBlock(RE::Actor *a_actor, bool a_force);
+    bool DualBlockStarted(RE::FormID a_formID);
+    // Started and the hold ended over 0.3 s ago without the tree releasing it (thread gone): release from the brain
+    bool DualBlockOverdue(RE::Actor *a_actor);
+
     // Pending (not consumed) attack/defend intents exist - keeps vanilla branches out of the way.
     bool HasPending(RE::Actor *a_actor);
 

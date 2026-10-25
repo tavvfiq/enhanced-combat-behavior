@@ -31,6 +31,8 @@ namespace CombatAI::Intents
             Move move = Move::None;
             Clock::time_point moveUntil{};
             float param = 0.0f; // Circle side or Advance stop distance (see PostMove)
+            Clock::time_point dualBlockUntil{};
+            bool dualBlockStarted = false;
         };
 
         ThreadSafeMap<RE::FormID, Entry> g_board;
@@ -172,6 +174,70 @@ namespace CombatAI::Intents
                Clock::now() - r->last < std::chrono::duration_cast<Clock::duration>(kRefusalHold);
     }
 
+    void PostDualBlock(RE::Actor *a_actor, float a_seconds)
+    {
+        if (!a_actor) {
+            return;
+        }
+        const auto until = Clock::now() + std::chrono::duration_cast<Clock::duration>(Seconds{a_seconds});
+        g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) { e.dualBlockUntil = (std::max)(e.dualBlockUntil, until); });
+        Debug(a_actor, "post dual block (ms)", static_cast<int>(a_seconds * 1000.0f));
+    }
+
+    bool WantsDualBlock(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return false;
+        }
+        const auto e = g_board.Find(a_actor->GetFormID());
+        return e && Clock::now() < e->dualBlockUntil;
+    }
+
+    bool StartDualBlock(RE::Actor *a_actor)
+    {
+        bool start = false;
+        if (a_actor) {
+            const auto now = Clock::now();
+            g_board.Modify(a_actor->GetFormID(), [&](Entry &e) {
+                if (!e.dualBlockStarted && now < e.dualBlockUntil) {
+                    e.dualBlockStarted = start = true;
+                }
+            });
+        }
+        return start;
+    }
+
+    bool EndDualBlock(RE::Actor *a_actor, bool a_force)
+    {
+        bool end = false;
+        if (a_actor) {
+            const auto now = Clock::now();
+            g_board.Modify(a_actor->GetFormID(), [&](Entry &e) {
+                if (e.dualBlockStarted && (a_force || now >= e.dualBlockUntil)) {
+                    e.dualBlockStarted = false;
+                    e.dualBlockUntil = {};
+                    end = true;
+                }
+            });
+        }
+        return end;
+    }
+
+    bool DualBlockStarted(RE::FormID a_formID)
+    {
+        const auto e = g_board.Find(a_formID);
+        return e && e->dualBlockStarted;
+    }
+
+    bool DualBlockOverdue(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return false;
+        }
+        const auto e = g_board.Find(a_actor->GetFormID());
+        return e && e->dualBlockStarted && Clock::now() >= e->dualBlockUntil + std::chrono::milliseconds(300);
+    }
+
     bool PostMove(RE::Actor *a_actor, Move a_kind, float a_param)
     {
         if (!a_actor) {
@@ -254,7 +320,7 @@ namespace CombatAI::Intents
         const auto e = g_board.Find(a_actor->GetFormID());
         const auto now = Clock::now();
         return e && ((e->attack != Attack::None && now < e->attackUntil) ||
-                     (e->defend != Defend::None && now < e->defendUntil));
+                     (e->defend != Defend::None && now < e->defendUntil) || now < e->dualBlockUntil);
     }
 
     Attack CommittedAttack(RE::Actor *a_actor)

@@ -125,7 +125,7 @@ compared as normalized instructions, with call and rip targets mapped to Address
 
 SE IDs come from Fenix's original SE work. We haven't re-verified them with our SE tools yet (to do before the first SE build).
 
-## 6. Our own leaf class (designed; not built, see below)
+## 6. Our own leaf class (built in 0.18.0 as the DualBlock node; dodge/jump/feint still not, see below)
 
 Dodge, jump and feint would need a leaf node that holds the tree's resource while the action plays.
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## CombatAITree 0.18.0 (2026-10-25)
+
+- **NPCs with a weapon plus a spell, torch or second weapon can timed-block.** Vanilla never gives them the Block tree, so nothing ever asked them to block. Run 34's probe showed their animations do block when told the way Simple Dual Wield Block does it for the player: set the "wants to block" flag, send `blockStart`. Both tries that weren't cut short blocked your hit. Now a timed block for these NPCs runs a new tree node (an Idle node with our own start and end steps). It is the first branch in the Melee tree (dual wield) and in the Magic tree (a spell in the left hand, via a new hook on the vanilla Magic builder). The node holds the block until just after your predicted hit (0.3-1.0 s), and while it runs that hand can't swing or cast. The brain also posts no attacks or bashes while the block is held, which is what broke one probe block. Same per-swing defend roll and priority as the shield timed block. No parry for these NPCs (that needs the Block tree's bash).
+- Pure casters (spells in both hands, or a spell and an empty hand) don't get it: run 34 tried 47 times and nothing blocked, they have nothing to block with.
+- If the tree thread goes away mid-block (combat ends, NPC dies), the brain releases the block itself.
+- The 0.17.1 probe is gone. Debug log: `DualBlock 0x..: blockStart accepted` and `released, blockStop accepted`; load log: `Tree: Magic SetRoot hooked` and, once a magic user fights, `Tree: Magic tree extended`.
+
 ## CombatAITree 0.17.1 (2026-10-25)
 
 - **Debug probe: direct block for dual-wielders and spell users.** For the NPC selected in the console, when your swing aimed at it enters the timed-block window and its equipment can't run the Block tree (a spell, torch or second weapon in the left hand), the plugin tries Simple Dual Wield Block's method: set the "wants to block" flag, send `blockStart`, hold 0.6 s, then clear it and send `blockStop`. The log shows `DualBlock 0x..: left <hand>, right <hand> -> blockStart accepted|rejected`, then whether the NPC reads as blocking after 0.2 s. It decides whether a custom block node for these NPCs can work. Only the selected NPC, only with the debug log on.

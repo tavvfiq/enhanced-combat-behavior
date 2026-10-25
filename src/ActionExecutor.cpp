@@ -1,4 +1,5 @@
 #include "ActionExecutor.h"
+#include "BlockRules.h"
 #include "Intents.h"
 #include "ActorUtils.h"
 #include "Config.h"
@@ -318,6 +319,14 @@ namespace CombatAI
                     a_actor, target, a_state.temporal.target.estimatedAttackDuration,
                     a_state.temporal.target.timeUntilAttackHits);
             }
+        }
+
+        // Without the Block tree (a weapon with a spell, torch or second weapon): our DualBlock node holds a direct
+        // block until just after the predicted hit
+        if (!BlockRules::CanRunBlockTree(a_actor)) {
+            const float timeUntilHit = a_state.temporal.target.timeUntilAttackHits;
+            Intents::PostDualBlock(a_actor, std::clamp(timeUntilHit < 999.0f ? timeUntilHit + 0.25f : 0.6f, 0.3f, 1.0f));
+            return true;
         }
 
         // Our Block tree runs the vanilla Block node; the timed-block window above is already applied
