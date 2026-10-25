@@ -397,3 +397,7 @@
 - RE: Movement selector option 8 RangedMovement (CombatInventory::QRawMaxRange 48463 > 1024) per COMBAT_AI_RE.md; builder found by vtables CreateContextNode<ContextRangedMovement> (SE 266932 / AE 214000) and NodeObject<MaintainOptimalRange> (SE 266933 / AE 214013): AE 1.6.1170 and 1.7.104 id 49468 calls initNodes 47518 at +0x957; SE factories 48480/48484/48485 are called from 48476, which calls initNodes 46263 at +0x495. Shape checked at runtime (Context > Repeat > child).
 - WEAPON_TYPE: CommonLib TESObjectWEAP.h kStaff = 8, kCrossbow = 9; IdentifyWeaponType mapped 8 -> Crossbow (IsCrossbow() runs first, so real crossbows were right; staffs were wrong).
 - Untested in game. Pass: `Tree: RangedMovement tree extended`, Ranged lines for an archer/mage, MoveNode lines for its Fallback/Advance.
+- Run 45 (0.21.0): `Tree: RangedMovement tree extended`. Archers 0x8E1A4, 0x8FF14: Ranged "fall back" 216, "close in" 57 (2011-2168 units or out of sight); with the bow (WeaponType 8) Executed Retreat 92 / 59, Advancing 54; with the dagger (3) the melee rules (Flanking 132 / 91, Bash 8 / 12). Our Fallback in RangedMovement: failed at start 23 (moved 0, 42-391 units), ran 6 (moved 8-54, target closing). Circle failures there: path / straight-path checks. AnimEvent bowAttackStart 25, attackRelease 18. "Bandit Mage" 0xFF0008F4 had a dagger in the right hand (melee rules): no caster tested.
+
+## 0.21.1 (2026-10-26)
+- Contact cutoff from run 45 above. Untested in game.

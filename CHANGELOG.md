@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.21.1 (2026-10-26)
+
+Run 45 (0.21.0): ranged positioning works. Bow-drawn archers fell back from you (Retreat was their top action), closed in from beyond 2000 units or out of sight, and kept shooting (25 draws). But a walking archer can't outrun a running player: it backed off 30-54 units while you closed from 133 to 88.
+
+- **No falling back in contact.** Below 150 units an archer or mage stops backing off and is left to vanilla, which switches to its melee weapon (the archers did, to their daggers). Falling back now only applies between 150 and `RangedKeepAwayDistance` (450). Debug log: `Ranged 0x..: melee target in contact at X -> left to vanilla`.
+
 ## CombatAITree 0.21.0 (2026-10-26)
 
 - **Archers and mages take the brain's moves.** Vanilla runs a different movement tree for NPCs whose max range is over 1024 (bows, crossbows, staffs, most spells): RangedMovement, not CloseMovement. Our movement branches were only in CloseMovement, so every move the brain picked for them did nothing. The RangedMovement builder's SetRoot is now hooked too (SE 48476+0x495, AE 49468+0x957), with the same Advance/Circle/Fallback/Backoff branches in front of vanilla's.

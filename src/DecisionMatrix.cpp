@@ -148,6 +148,16 @@ namespace CombatAI
         away.z = 0.0f;
         away.Unitize();
 
+        // In contact: no more falling back, a walking archer can't outrun a running attacker (run 45: it backed off
+        // 30-54 units while the player closed 133 -> 88 and kept hitting). Vanilla switches to its melee weapon.
+        constexpr float kContactDistance = 150.0f;
+        if (!a_state.target.isRanged && dist < kContactDistance) {
+            if (debug) {
+                LOG_DEBUG("Ranged 0x{:08X}: melee target in contact at {:.0f} -> left to vanilla", a_actor->GetFormID(), dist);
+            }
+            return result;
+        }
+
         // A melee attacker inside the keep-away distance: fall back (kite). More urgent when it is swinging at us.
         if (!a_state.target.isRanged && dist < dm.rangedKeepAwayDistance) {
             const bool swinging = (a_state.target.isAttacking || a_state.target.isPowerAttacking) &&
