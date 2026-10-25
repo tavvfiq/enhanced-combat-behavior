@@ -323,3 +323,7 @@
 
 ## 0.16.0 (2026-10-25) learned hit timing, defend roll
 - Fixes from run 32 above. The learned sample uses the same reference as attackStartTime (the observer's swing detection, up to one evaluation late), so prediction and sample agree. Untested in game.
+- Run 33 (0.16.0): load line `defend 0.50`. Executed TimedBlock 9, Parry 0. parrytime.py: 4 with block events, player hit blocked 0.23-0.30 s later (blockStart/blockAnticipateStart/blockHitStart); 5 without an event: 3 from 0x8E1A4 (dagger, no shield; block intents 6 posted, 2 taken in its minute), 0x8E0ED at 55.713 (0.33 s after its own block at 55.384), 0x8E1A1 at 38.990. Defend ticks: timed block won 14, lost 19; parry window 4 (all lost), parry needs >= 35 stamina. Defend skill-roll fails 5. Player hits: blocked 5, not blocked 24. HitTiming samples 0.12-1.30 s, average settling 0.47-0.53 s.
+
+## 0.16.1 (2026-10-25)
+- Fixes from run 33 above. Untested in game.

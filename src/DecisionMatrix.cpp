@@ -110,6 +110,13 @@ namespace CombatAI
         }
     }
 
+    // Shield in the left hand: the only equipment the Block tree (bash, block, parry, timed block) runs for
+    static bool HasShield(RE::Actor *a_actor)
+    {
+        RE::TESForm *leftHand = ActorUtils::SafeGetEquippedObject(a_actor, true);
+        return leftHand && leftHand->IsArmor();
+    }
+
     // Per-swing defend roll for parry and timed block (DefendOnSwingChance). Rolled once per swing (bit 30 keeps the
     // key apart from the trade-blows and close-dodge rolls); a won roll outranks back-off, strafe and trade-blow
     // attacks but not a won close dodge (10).
@@ -524,6 +531,11 @@ namespace CombatAI
             return result;
         }
 
+        // A parry is a bash from the Block tree, which only shield users run
+        if (!HasShield(a_actor)) {
+            return result;
+        }
+
         // Check if self is idle/ready (can't parry while attacking)
         if (a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone &&
             a_state.self.attackState != RE::ATTACK_STATE_ENUM::kDraw) {
@@ -636,21 +648,9 @@ namespace CombatAI
             return result; // Already attacking - can't timed block
         }
 
-        // Check if actor can block (has shield or weapon)
-        bool canBlock = false;
-        RE::TESForm *leftHand = ActorUtils::SafeGetEquippedObject(a_actor, true);
-        RE::TESForm *rightHand = ActorUtils::SafeGetEquippedObject(a_actor, false);
-
-        if (leftHand && leftHand->IsArmor()) {
-            // Has shield
-            canBlock = true;
-        } else if (rightHand && rightHand->IsWeapon()) {
-            // Has weapon (can block with weapon)
-            canBlock = true;
-        }
-
-        if (!canBlock) {
-            return result; // Can't block - no shield or weapon
+        // Only a shield runs the Block tree (0.14.0 finding); run 33 posted 3 untaken blocks for a dagger bandit
+        if (!HasShield(a_actor)) {
+            return result;
         }
 
         // Check distance

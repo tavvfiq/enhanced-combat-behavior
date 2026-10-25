@@ -1,5 +1,13 @@
 # Changelog
 
+## CombatAITree 0.16.1 (2026-10-25)
+
+Run 33 (0.16.0): timed block works. 4 timed blocks raised the shield 0.23-0.30 s before your hit, and all 4 hits were blocked (5 of your 29 hits were blocked all fight). The learned timing settled near 0.47 s.
+
+- **Parry and timed block only for NPCs with a shield.** The timed block also accepted a weapon in the right hand, but only shield users run the Block tree, so a dagger bandit posted 3 blocks that could never be taken.
+- **Learned hit timing ignores outliers.** From the 3rd hit, a sample under half or over double the average is skipped (logged as `ignored`). Run 33 had samples of 0.12 s and 1.30 s among ~0.45 s hits, and one 1.30 s moved the average to 0.68 s.
+- Parry ran 0 times: it needs the 35 bash stamina, and the bandits were below that on 33 of 37 window ticks, so they timed-blocked instead. That is the game's bash cost, unchanged.
+
 ## CombatAITree 0.16.0 (2026-10-25)
 
 Run 32 (0.15.0): the one timed block that ran worked (block up 0.06 s after the request, your hit 0.29 s later, blocked). But there were only 2 timed blocks and no parries in 3.5 minutes.
