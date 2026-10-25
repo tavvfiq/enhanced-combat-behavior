@@ -391,3 +391,4 @@
 
 ## 0.20.2 (2026-10-26)
 - Fixes and tuning from run 43 above. Untested in game.
+- Run 44 (0.20.2, group of 4 selected in turn): Executed Flanking 424, Advancing 248, Strafe 43, Backoff 35, Attack 30, TimedBlock 6. In-reach ticks 309: no attack candidate and no Offense skip 225, of which own attackState 1-6 on 218 (already swinging); Offense skips: target is attacking 17, not facing 8 (run 43: 26 / 38), last action too recent 0 (run 43: 14). Attack candidate scores 1.85-5.91, median 3.55 (run 43: 2.62). Pacing granted 11, waiting 9, retaliating 3. Selected-NPC swings 26, hits on the player 25 (run 43: 19 / 17). Counter windows 8: two led into an attack state at once (vanilla block-attack), one lost 5 ticks to a failed skill roll (offense rolls hold 1 s), then attacked at 3.11.
