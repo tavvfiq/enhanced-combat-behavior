@@ -1,5 +1,18 @@
 # Changelog
 
+## CombatAITree 0.19.0 (2026-10-26)
+
+Decision matrix and pacing audit (code read, no run). Bugs fixed, most of them inherited from combat-ai-ng:
+
+- **"Target just finished attacking" read the wind-up as an opening.** The attack scoring treated 0.1-0.5 s after the target's last attack as its recovery window, but that timer restarts when a swing starts, so it pointed at the swing itself. It now means "out of the swing and idle for under 0.4 s".
+- **The guard counter bonus was thrown away.** In the power-attack choice, a good opening *set* the power bonus to 0.3 instead of adding 0.3, wiping the guard counter's +2.0 and the weapon and matchup bonuses.
+- **Power attacks were chosen at a loss.** Any "prefer power" rule picked the power attack even when its total bonus was negative, so it could win with a lower score than a normal attack. A power attack now needs a positive bonus.
+- **A swing at someone else stopped the approach.** Advancing and the sprint attack still waited out any swing of the target's, also one aimed at another NPC (the 0.14.0 fix covered strafe, back-off and attacks). They now check the aim too.
+- **Being outnumbered cancelled the pursuit of a fleeing target** (the outnumbered priority overwrote the pursuit boost). It no longer does.
+- **Pacing: the same NPC kept the attack slot.** When a slot's time ran out, the holder, already in reach and asking every tick, usually took it straight back, so a waiting NPC might never get a turn. A holder whose slot just ran out now sits out 1.5 s while someone else is waiting.
+
+Found but not changed (behavior choices, see STATE.md): flanking never runs outdoors (an "is the ally position valid" check uses world coordinates, which are always too large there); feints fire on a target that is merely facing the NPC; attacking a blocking target gets a bonus.
+
 ## CombatAITree 0.18.7 (2026-10-26)
 
 - **Fix (0.18.6 regression): a dual block now lasts until your blow actually lands.** 0.18.6 ended the hold when the attacker went into "recovery", but between combo swings that flag is already set before the next blow comes. In run 40 that ended 30 blocks about 0.15 s in, and only 5 of your 73 hits on the Bandit Chief were blocked. The hold now ends on the hit itself (blocked or not), or when you stop attacking, or after 1.2 s. Debug log: `DualBlock 0x..: the blow landed, ending the hold`.

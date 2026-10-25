@@ -1356,8 +1356,9 @@ namespace CombatAI
 
             // Don't advance if target is actively attacking (stay defensive)
             // Exception: if target is fleeing, or recovering from a swing (an opening)
+            // A swing aimed at someone else doesn't stop the approach (1 vs many)
             if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && !a_state.target.isFleeing &&
-                !a_state.target.isInAttackRecovery) {
+                !a_state.target.isInAttackRecovery && TargetAimedAtUs(a_actor, a_state)) {
                 // If we are in sprint attack range, we might still want to sprint attack
                 // (checked later) But generally advancing into an attack is bad unless we
                 // sprinting
@@ -1398,7 +1399,7 @@ namespace CombatAI
 
                 // Multiple enemies = less likely to advance recklessly
                 bool outnumbered = (a_state.combatContext.enemyCount > a_state.combatContext.allyCount + 1);
-                if (outnumbered) {
+                if (outnumbered && !a_state.target.isFleeing) { // a fleeing target keeps the pursuit boost
                     basePriority = 0.8f; // Reduced priority when outnumbered
                 }
 
@@ -1454,7 +1455,7 @@ namespace CombatAI
             // Don't sprint attack if target is actively attacking (too risky)
             // Exception: if target is in attack recovery or fleeing
             if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && !a_state.target.isInAttackRecovery &&
-                !a_state.target.isFleeing) {
+                !a_state.target.isFleeing && TargetAimedAtUs(a_actor, a_state)) {
                 shouldSprintAttack = false;
             }
 
@@ -1673,9 +1674,13 @@ namespace CombatAI
             // Use temporal state: Detect vulnerable windows based on target timing
             float targetTimeSinceLastAttack = a_state.temporal.target.timeSinceLastAttack;
             float targetIdleDuration = a_state.temporal.target.idleDuration;
+            // Just finished a swing: out of it and idle for under 0.4 s. timeSinceLastAttack restarts when a swing
+            // STARTS, so the old "0.1-0.5 s since the last attack" test read the target's wind-up as an opening.
+            const bool targetJustFinished =
+                !a_state.target.isAttacking && targetTimeSinceLastAttack < 2.0f && targetIdleDuration < 0.4f;
 
             // Boost priority if target just finished attacking (recovery window)
-            if (targetTimeSinceLastAttack < 0.5f && targetTimeSinceLastAttack > 0.1f) {
+            if (targetJustFinished) {
                 targetIsVulnerable = true; // Target just finished attack - recovery window
             }
 
@@ -1822,13 +1827,12 @@ namespace CombatAI
             // Target in attack recovery is also a good opportunity
             // Use temporal state: Detect recovery window timing (reuse variable
             // declared above)
-            if (a_state.target.isInAttackRecovery ||
-                (targetTimeSinceLastAttack < 0.5f && targetTimeSinceLastAttack > 0.1f)) {
+            if (a_state.target.isInAttackRecovery || targetJustFinished) {
                 targetStateModifier += config.GetScoringWeights().targetRecoveryBonus; // Target recovering
                 hasGoodOpening = true;
 
                 // Extra bonus if target just finished attack (immediate recovery window)
-                if (targetTimeSinceLastAttack < 0.3f && targetTimeSinceLastAttack > 0.1f) {
+                if (targetJustFinished && targetIdleDuration < 0.25f) {
                     targetStateModifier += 0.2f; // Just finished attack - perfect timing
                 }
             }
@@ -2128,7 +2132,7 @@ namespace CombatAI
 
             // Power attacks are better when we have good openings
             if (hasGoodOpening) {
-                powerAttackBonus = 0.3f; // Power attacks are excellent when opportunities exist
+                powerAttackBonus += 0.3f; // was "= 0.3f", which wiped the guard counter's +2.0 and the weapon bonuses
                 shouldPowerAttack = true;
             }
 
@@ -2213,9 +2217,17 @@ namespace CombatAI
                     powerAttackBonus += 0.2f; // Flanking power attack is devastating
                 }
 
-                result.priority = finalPriority + powerAttackBonus + powerAttackStaminaModifier;
-                // Power attack - committed attack, high intensity
-                result.intensity = 0.8f; // High intensity for committed power attack
+                // Only when it scores above the normal attack: a power attack was picked even with a net negative
+                // bonus (e.g. two-handed +0.2, two enemies on us -0.3), below what a normal attack would score
+                const float powerExtra = powerAttackBonus + powerAttackStaminaModifier;
+                if (powerExtra > 0.0f) {
+                    result.priority = finalPriority + powerExtra;
+                    result.intensity = 0.8f; // High intensity for committed power attack
+                } else {
+                    result.action = ActionType::Attack;
+                    result.priority = finalPriority;
+                    result.intensity = 0.6f;
+                }
             } else {
                 result.action = ActionType::Attack;
                 result.priority = finalPriority;

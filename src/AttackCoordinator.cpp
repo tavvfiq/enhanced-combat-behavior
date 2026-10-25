@@ -32,10 +32,26 @@ namespace CombatAI
         const float now = m_now.load();
         bool granted = false;
 
+        // Rotation: a holder whose slot just ran out sits out briefly while someone else is waiting. Without this
+        // the holder, already in reach and asking every tick, usually took the freed slot straight back.
+        constexpr float kRestSeconds = 1.5f;
+        if (const auto rested = m_rested.Find(a_attacker); rested && now - *rested < kRestSeconds) {
+            bool othersWaiting = false;
+            m_held.WithReadLock([&](const auto &held) {
+                for (const auto &[id, since] : held) {
+                    othersWaiting |= id != a_attacker && now - since < 1.0f;
+                }
+            });
+            if (othersWaiting) {
+                return false;
+            }
+        }
+
         m_slots.ModifyOrCreate(a_target, [&](SlotBucket &bucket) {
             // Rotate out expired slots so waiting attackers get their turn.
             for (auto it = bucket.begin(); it != bucket.end();) {
                 if (now - it->second.acquireTime > it->second.window) {
+                    m_rested.ModifyOrCreate(it->first, [&](float &a_time) { a_time = now; });
                     it = bucket.erase(it);
                 } else {
                     ++it;
@@ -69,7 +85,9 @@ namespace CombatAI
 
     void AttackCoordinator::Cleanup()
     {
-        // Drop empty buckets so the map doesn't grow unbounded across encounters.
+        // Drop rests long over, and empty buckets, so the maps don't grow unbounded across encounters.
+        const float now = m_now.load();
+        m_rested.WithWriteLock([&](auto &map) { std::erase_if(map, [&](const auto &e) { return now - e.second > 10.0f; }); });
         m_slots.WithWriteLock([](std::unordered_map<RE::FormID, SlotBucket> &map) {
             for (auto it = map.begin(); it != map.end();) {
                 if (it->second.empty()) {
@@ -81,5 +99,9 @@ namespace CombatAI
         });
     }
 
-    void AttackCoordinator::Reset() { m_slots.Clear(); }
+    void AttackCoordinator::Reset()
+    {
+        m_slots.Clear();
+        m_rested.Clear();
+    }
 } // namespace CombatAI

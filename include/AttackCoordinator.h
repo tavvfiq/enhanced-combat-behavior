@@ -70,6 +70,8 @@ namespace CombatAI
 
         ThreadSafeMap<RE::FormID, SlotBucket> m_slots;
         ThreadSafeMap<RE::FormID, float> m_held;
+        // Attacker -> time its last slot expired; it waits kRestSeconds before taking one again while others wait
+        ThreadSafeMap<RE::FormID, float> m_rested;
         std::atomic<float> m_now{0.0f};
     };
 } // namespace CombatAI

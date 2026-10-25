@@ -372,3 +372,8 @@
 ## 0.18.7 (2026-10-26)
 - Fix from run 40 above. Untested in game.
 - Run 41 (0.18.7): 0xFF00084A (Bandit Chief). Player hits 53, blocked 2. Executed TimedBlock 6: blockStart 4 (cast stopped first 3), `the blow landed, ending the hold` 5, releases accepted 4; 59.534 block up 0.57 s, the blow blocked=true. Of the unblocked hits: NPC own attackState 1-4 on 37, defend roll lost 8, no defend check 5 (predicted hit never in window 4, no tick saw the swing 1). Defend window ticks won 6, lost 29. HitTiming median 0.42-0.54 s.
+
+## 0.19.0 (2026-10-26) decision matrix + pacing audit
+- Read: DecisionMatrix.cpp (Evaluate, Interrupt, Parry/TimedBlock, Evasion, Survival, Offense, Backoff, Flanking, Feinting), CombatDirector::ApplyCombatPacing, AttackCoordinator, CombatStyleEnhancer (assignments).
+- Fixed: see CHANGELOG 0.19.0. Evidence is the code; none of these were measured in a run. Flanking: closestAllyPosition is a world position (Combat log line "ClosestPos=(-70282.1,-67908.2,...)"), so allyDistSq ~ 9e9 > 1e7 and EvaluateFlanking returns early in exteriors.
+- Build ok; untested in game.
