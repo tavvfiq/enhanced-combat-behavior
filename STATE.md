@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.16.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.16.2 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -80,7 +80,8 @@ Open (run 28): bash fired 1/12 taken, 10 of 11 refusals at stamina <= 8% (bash s
 - 0.14.1: removed the 0.13.1 executor fallback ForwardDodge -> Advancing (CombatDirector already relabels a failed ForwardDodge as Advancing). Build-validated only.
 - 0.15.0: EnableParry/EnableTimedBlock true in the shipped INI; EvaluateTimedBlock no longer requires TimedBlockIntegration::IsAvailable, ExecuteTimedBlock applies the window spell only when available; parry and timed block need TargetAimedAtUs; low bash stamina falls through to EvaluateTimedBlock. Build-validated only. Runtime-evidenced (run 32). Timing check: scratchpad parrytime.py and hittime.py.
 - 0.16.0: ActorStateObserver::OnHitLanded learns per-attacker swing-start-to-hit (EWMA 0.3, light/power, melee hits incl. blocked) and timeUntilAttackHits uses it after 2 hits (else 0.6 x estimate + 0.24). DefendRoll (DefendOnSwingChance 0.5, key bit 30) gates parry / timed block; won roll priority >= 6. Runtime-evidenced (run 33).
-- 0.16.1: HasShield (left hand armor) required for parry and timed block; OnHitLanded skips samples outside 0.5x-2x the average from the 3rd hit. Build-validated only.
+- 0.16.1: HasShield (left hand armor) required for parry and timed block (too strict, replaced in 0.16.2); OnHitLanded skips samples outside 0.5x-2x the average from the 3rd hit. Build-validated only.
+- 0.16.2: CanRunBlockTree = shield in the left hand, or empty left hand and a right-hand sword/axe/mace/two-handed weapon (vanilla CombatInventoryItemOneHandedBlock rule, SE 43626/43833/43837, COMBAT_AI_RE.md). Build-validated only.
 Finding (#4, RE notes COMBAT_AI_RE.md ActionEquipmentSelector): the Block tree (bash, block, parry, timed block) is linked only for equipment type 3 Shield. NPCs without a shield never run it, so their bash/block/parry/timed-block intents can't be taken (0x8E1A4 with a dagger, archers). DefendUnavailable (0.11.1) stops the requests after 3. Whether two-handed or one-handed weapon blocking goes through another path is unknown.
 Open (run 29): selected-NPC attacks fired 44 of 74 taken; 12 refused before vanilla checks, mostly within 0-3 s of the previous attack (per-attack cooldown suspected, not probed); range/path FAIL 16.
 Open (actuator, run 25): taken attack intents started a swing within 1 s 14/33, bash 6/25 (0/4 at 0 stamina); dodge events all rejected (TK Dodge not installed, expected); feint/dodge/jump still on the old executor; block intents never posted; feedback channel (roadmap 0.3.0) not built.

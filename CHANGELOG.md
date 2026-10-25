@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.16.2 (2026-10-25)
+
+- **Weapon blocking is back for swords, axes, maces and two-handed weapons.** 0.16.1 allowed parry and timed block only with a shield, which was too strict. Disassembly (SE 1.5.97) shows how vanilla decides: the Block tree runs for a shield, or for a "one-handed block" combat item that every humanoid NPC has. That item is equipped when the right hand holds a melee weapon that is not a dagger and not fists. So daggers and fists can't block, which is why run 33's dagger bandit never blocked even in vanilla, and bows, staffs and crossbows can't either. A spell or torch in the left hand takes the slot. Parry and timed block now follow the same rule.
+
 ## CombatAITree 0.16.1 (2026-10-25)
 
 Run 33 (0.16.0): timed block works. 4 timed blocks raised the shield 0.23-0.30 s before your hit, and all 4 hits were blocked (5 of your 29 hits were blocked all fight). The learned timing settled near 0.47 s.

@@ -327,3 +327,6 @@
 
 ## 0.16.1 (2026-10-25)
 - Fixes from run 33 above. Untested in game.
+
+## 0.16.2 (2026-10-25) vanilla weapon-block rule
+- Disassembly, SE 1.5.97: CombatInventoryItemOneHandedBlock vtable 0x141681cf8, GetType slot 9 = 43824 = CombatInventoryItemShield's (TYPE kShield, CommonLib kOneHandedBlock = kShield). Created in CombatInventory 43626 (+0x2d7: `call 24852` on Actor+0x1F0 race; 24852 = `test byte [rcx+0x428], 0x7e; seta al` = TESRace::validEquipTypes bits 1-6), ctor 43833 at +0x337. CheckShouldEquip 43837: other item's vfunc slot 9 (GetType) == 1 (Melee), then `movzx ecx, byte [weapon+0x19d]` (weaponData.animationType) `and cl, 0xfd`, true when non-zero (not 0 hand-to-hand, not 2 dagger). AE not disassembled (same data-driven rule assumed). Untested in game.

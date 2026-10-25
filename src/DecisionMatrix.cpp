@@ -110,11 +110,36 @@ namespace CombatAI
         }
     }
 
-    // Shield in the left hand: the only equipment the Block tree (bash, block, parry, timed block) runs for
-    static bool HasShield(RE::Actor *a_actor)
+    // Whether vanilla runs the Block tree (bash, block, parry, timed block) for this NPC. Its left-hand slot links the
+    // Block tree for an item of type Shield: a real shield, or CombatInventoryItemOneHandedBlock, which reports the
+    // same type (shared GetType SE 43824). Every humanoid race gets that item (SE 43626 -> 24852: race can equip a
+    // melee weapon), and it equips (CheckShouldEquip SE 43837) only when the right-hand combat item is melee and its
+    // weapon is not a dagger or fists (animationType & ~2 != 0). So daggers, fists, bows, staffs and crossbows
+    // can't block; swords, axes, maces and two-handed weapons can. A spell or torch in the left hand takes the slot.
+    static bool CanRunBlockTree(RE::Actor *a_actor)
     {
         RE::TESForm *leftHand = ActorUtils::SafeGetEquippedObject(a_actor, true);
-        return leftHand && leftHand->IsArmor();
+        RE::TESForm *rightHand = ActorUtils::SafeGetEquippedObject(a_actor, false);
+        if (leftHand && leftHand->IsArmor()) {
+            return true;
+        }
+        if (leftHand && leftHand != rightHand) {
+            return false; // a spell, torch or second weapon holds the left slot
+        }
+        const auto *weapon = rightHand ? rightHand->As<RE::TESObjectWEAP>() : nullptr;
+        if (!weapon) {
+            return false;
+        }
+        switch (weapon->GetWeaponType()) {
+        case RE::WEAPON_TYPE::kOneHandSword:
+        case RE::WEAPON_TYPE::kOneHandAxe:
+        case RE::WEAPON_TYPE::kOneHandMace:
+        case RE::WEAPON_TYPE::kTwoHandSword:
+        case RE::WEAPON_TYPE::kTwoHandAxe:
+            return true;
+        default:
+            return false;
+        }
     }
 
     // Per-swing defend roll for parry and timed block (DefendOnSwingChance). Rolled once per swing (bit 30 keeps the
@@ -531,8 +556,8 @@ namespace CombatAI
             return result;
         }
 
-        // A parry is a bash from the Block tree, which only shield users run
-        if (!HasShield(a_actor)) {
+        // A parry is a bash from the Block tree
+        if (!CanRunBlockTree(a_actor)) {
             return result;
         }
 
@@ -648,8 +673,8 @@ namespace CombatAI
             return result; // Already attacking - can't timed block
         }
 
-        // Only a shield runs the Block tree (0.14.0 finding); run 33 posted 3 untaken blocks for a dagger bandit
-        if (!HasShield(a_actor)) {
+        // Run 33 posted 3 untaken blocks for a dagger bandit: only some equipment runs the Block tree
+        if (!CanRunBlockTree(a_actor)) {
             return result;
         }
 
