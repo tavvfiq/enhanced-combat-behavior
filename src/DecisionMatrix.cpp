@@ -1538,10 +1538,6 @@ namespace CombatAI
                         basePriority += 0.3f;
                     }
                 }
-                if (a_state.target.isBlocking && !a_state.target.isAttacking) {
-                    basePriority += 0.3f;
-                }
-
                 if (a_state.target.orientationDot < 0.5f) {
                     basePriority += 0.2f;
                     sprintOpeningRisk += 0.2f;
@@ -1811,11 +1807,8 @@ namespace CombatAI
                 hasGoodOpening = true;
             }
 
-            // Good opportunities
-            if (a_state.target.isBlocking && !a_state.target.isAttacking) {
-                targetStateModifier += 0.3f; // Target blocking (not attacking) - good opportunity
-                hasGoodOpening = true;
-            }
+            // (A blocking target is no opening for a normal attack: it bounces off. Bash, feint and power attacks
+            // have their own rules for a guard.)
 
             // Target is idle/not ready - good opportunity, especially when close
             // Note: We don't have target idle state, but we can infer from not
@@ -2411,12 +2404,12 @@ namespace CombatAI
         // - We're in melee range or approaching it
         // - We outnumber the target (more allies = higher priority)
 
-        // Validate closestAllyPosition is valid (not zero/uninitialized)
-        // Check if position is reasonable (not NaN, not zero, not extremely far)
+        // An ally that is known and within ~3000 units. This used to test the ally's world position (|pos|^2 > 1e7),
+        // which outdoors (coordinates ~70000) always failed, so flanking never ran in exteriors.
         RE::NiPoint3 allyPos = a_state.combatContext.closestAllyPosition;
-        float allyDistSq = allyPos.x * allyPos.x + allyPos.y * allyPos.y + allyPos.z * allyPos.z;
-        if (allyDistSq < 1.0f || allyDistSq > 10000000.0f) { // Very close to zero or extremely far = invalid
-            return result;                                   // Invalid ally position
+        const float allyDist = a_state.combatContext.closestAllyDistance;
+        if (allyDist <= 0.0f || allyDist > 3000.0f) {
+            return result;
         }
 
         // Check if target is facing towards an ally (engaged with ally)
@@ -2632,8 +2625,9 @@ namespace CombatAI
 
         // Feinting is most effective when target is blocking (perfect counter)
         bool targetIsBlocking = a_state.target.isBlocking;
-        bool targetIsDefensive =
-            targetIsBlocking || (a_state.target.orientationDot > 0.6f && !a_state.target.isAttacking);
+        // Only an actual guard: "facing us and not attacking" counted too, so NPCs feinted (a bash) at a target that
+        // was just standing there
+        bool targetIsDefensive = targetIsBlocking;
 
         // Relaxed range: allow feinting when approaching melee range, not just in it
         float reachDistance = a_state.weaponReach * 1.5f; // Extended range for feinting

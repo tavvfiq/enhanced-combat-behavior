@@ -377,3 +377,6 @@
 - Read: DecisionMatrix.cpp (Evaluate, Interrupt, Parry/TimedBlock, Evasion, Survival, Offense, Backoff, Flanking, Feinting), CombatDirector::ApplyCombatPacing, AttackCoordinator, CombatStyleEnhancer (assignments).
 - Fixed: see CHANGELOG 0.19.0. Evidence is the code; none of these were measured in a run. Flanking: closestAllyPosition is a world position (Combat log line "ClosestPos=(-70282.1,-67908.2,...)"), so allyDistSq ~ 9e9 > 1e7 and EvaluateFlanking returns early in exteriors.
 - Build ok; untested in game.
+
+## 0.19.1 (2026-10-26)
+- Audit choices A/B/C applied as described in CHANGELOG 0.19.1. Untested in game. Expect: Flanking chosen by EvaluateFlanking (not only the pacing hold) in exterior group fights; far fewer Feint executions against a non-blocking player.

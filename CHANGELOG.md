@@ -1,5 +1,13 @@
 # Changelog
 
+## CombatAITree 0.19.1 (2026-10-26)
+
+The three audit choices from 0.19.0:
+
+- **Flanking runs outdoors.** Its ally check now uses the ally's distance (known and within 3000 units) instead of the ally's world coordinates, which outdoors were always "too far". This logic has barely run before, so group fights change: allies work around you more. Watch whether they still press the attack enough.
+- **Feints only against a guard.** A feint (a bash) needs the target blocking, or blocking often lately. It used to fire on a target that was just facing the NPC.
+- **No attack bonus for a blocking target.** A normal or sprint attack into a block bounces off; the +0.3 for "target blocking" is gone. Power attacks keep their guard-break bonus, and bash and feint keep theirs.
+
 ## CombatAITree 0.19.0 (2026-10-26)
 
 Decision matrix and pacing audit (code read, no run). Bugs fixed, most of them inherited from combat-ai-ng:
