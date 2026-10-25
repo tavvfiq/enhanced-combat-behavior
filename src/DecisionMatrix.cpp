@@ -32,6 +32,32 @@ namespace CombatAI
     static_assert(!IsAimedAt(800.0f, -0.999f, 100.0f)); // aiming away
     constexpr float kAimSlack = 75.0f; // third-person camera offset and aim wobble, on top of our body radius
 
+    // The target's swing or shot points at this NPC, not a neighbour. The player's body heading misses its bow
+    // crosshair by the camera offset (run 11), so the actor under the crosshair counts too.
+    static bool TargetAimedAtUs(RE::Actor *a_actor, const ActorStateData &a_state)
+    {
+        if (a_state.target.isPlayer) {
+            if (auto *player = RE::PlayerCharacter::GetSingleton();
+                player && player->GetInfoRuntimeData().autoAimActor.get().get() == a_actor) {
+                return true;
+            }
+        }
+        return IsAimedAt(a_state.target.distance, a_state.target.orientationDot, a_state.self.boundRadius + kAimSlack);
+    }
+
+    // Stamina vanilla's bash needs (GMST fStaminaBashBase, read once): below it StartAttack refuses the bash
+    static float BashStaminaCost()
+    {
+        static const float cost = [] {
+            auto *settings = RE::GameSettingCollection::GetSingleton();
+            auto *setting = settings ? settings->GetSetting("fStaminaBashBase") : nullptr;
+            const float value = setting ? setting->GetFloat() : 0.0f;
+            LOG_INFO("Bash stamina cost {:.1f} (fStaminaBashBase{})", value, setting ? "" : " not found, gate off");
+            return value;
+        }();
+        return cost;
+    }
+
     static float EffectiveAttackRange(const ActorStateData &a_state, float a_weaponReach, float a_multiplier,
                                       float a_safetyMargin = 0.0f)
     {
@@ -230,6 +256,12 @@ namespace CombatAI
 
         // Same anti-spam gate as attacks: without it the bash was re-posted every tick mid-bash
         if (a_state.temporal.self.timeSinceLastAction < 0.3f) {
+            return result;
+        }
+
+        // Shortcut: base cost only (vanilla may scale it), upgrade if bashes are still refused with stamina left.
+        // Run 28: 10 of 11 refused bashes came at 0-8% stamina.
+        if (a_state.self.currentStamina < BashStaminaCost()) {
             return result;
         }
 
@@ -858,11 +890,14 @@ namespace CombatAI
             }
         }
 
-        // Trigger: Target is attacking me and close, OR target is blocking AND close
-        // Use threshold instead of exact equality (0.7 = roughly facing towards, more
-        // lenient for blocking)
+        // Trigger: the target's attack is aimed at this NPC and can reach it here (the band starts beyond melee
+        // reach, so a melee swing only as a power or sprint attack). Run 28 dodged at 254-340 units from the
+        // player's swings at someone else, and the old "target is blocking" trigger dodged a guard.
         bool shouldDodge = false;
-        if (a_state.target.orientationDot > 0.7f) {
+        const bool reachesBand =
+            a_state.target.isRanged || a_state.target.isPowerAttacking || a_state.target.isSprinting;
+        if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && reachesBand &&
+            TargetAimedAtUs(a_actor, a_state)) {
             bool conditionsMet = false;
             float minEvasionDist = config.GetDecisionMatrix().evasionMinDistance;
 
@@ -880,14 +915,6 @@ namespace CombatAI
                     if (targetAttackingDuration > 0.5f) {
                         // Target committed to attack - better dodge timing
                     }
-                }
-            } else if (a_state.target.isBlocking) {
-                // Blocking: only dodge if close enough (blocking isn't as urgent as
-                // attacking) Require closer distance for blocking targets to trigger
-                // dodge
-                float blockingEvasionMaxDist = minEvasionDist * 1.5f; // Slightly further than min evasion distance
-                if (a_state.target.distance >= minEvasionDist && a_state.target.distance <= blockingEvasionMaxDist) {
-                    conditionsMet = true;
                 }
             }
 
@@ -1532,6 +1559,11 @@ namespace CombatAI
             // checks came at sprint speed); the sprint attack is evaluated separately
             if (a_state.self.isSprinting) {
                 return skip("sprinting");
+            }
+
+            // Still equipping: run 28's bow/dagger bandit had 6 attacks refused within 0.7 s of drawing the dagger
+            if (a_state.temporal.self.timeSinceWeaponSwitch < 1.0f) {
+                return skip("weapon just switched, s", a_state.temporal.self.timeSinceWeaponSwitch);
             }
 
             // Vanilla's hit cone refuses a target well off to the side (run 27: 3 at 57-100 deg); let it turn first

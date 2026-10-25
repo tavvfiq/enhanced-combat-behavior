@@ -27,7 +27,7 @@ namespace CombatAI
         void Update();
 
         // Soonest threat on course to hit this actor (closest approach within its radius)
-        IncomingProjectile Assess(RE::FormID a_self, const RE::NiPoint3 &a_selfPos, float a_selfRadius) const;
+        IncomingProjectile Assess(RE::Actor *a_self, const RE::NiPoint3 &a_selfPos, float a_selfRadius) const;
 
         // One reaction roll per actor per projectile, so the chance isn't re-rolled every tick
         bool RollReaction(RE::FormID a_actor, RE::FormID a_threat, float a_chance);

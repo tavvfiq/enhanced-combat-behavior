@@ -64,8 +64,8 @@ namespace CombatAI
         data.temporal = GatherTemporalState(a_actor, target, a_deltaTime, data);
 
         if (Config::GetInstance().GetProjectileAwareness().enableProjectileDodge) {
-            data.incomingProjectile = ProjectileAwareness::GetInstance().Assess(
-                a_actor->GetFormID(), data.self.position, data.self.boundRadius);
+            data.incomingProjectile =
+                ProjectileAwareness::GetInstance().Assess(a_actor, data.self.position, data.self.boundRadius);
         }
 
         // Environmental sensing: line of sight to the primary target. A single Havok
@@ -946,6 +946,12 @@ namespace CombatAI
             actorTemporal.timeSinceLastBash += a_deltaTime;
             actorTemporal.timeSinceLastFeint += a_deltaTime;
 
+            actorTemporal.timeSinceWeaponSwitch += a_deltaTime;
+            if (a_state.self.weaponType != actorTemporal.lastWeaponType) {
+                actorTemporal.lastWeaponType = a_state.self.weaponType;
+                actorTemporal.timeSinceWeaponSwitch = 0.0f;
+            }
+
             // Retreat time counts until its health rises (a potion or heal makes retreating worth it again)
             const float health = a_state.self.healthPercent;
             if (actorTemporal.retreatTime == 0.0f || health > actorTemporal.retreatHealth + 0.05f) {
@@ -1023,6 +1029,7 @@ namespace CombatAI
             temporal.self.timeSinceLastBash = actorTemporal.timeSinceLastBash;
             temporal.self.timeSinceLastFeint = actorTemporal.timeSinceLastFeint;
             temporal.self.retreatTime = actorTemporal.retreatTime;
+            temporal.self.timeSinceWeaponSwitch = actorTemporal.timeSinceWeaponSwitch;
 
             // Copy parry feedback
             temporal.self.lastParrySuccess = actorTemporal.lastParrySuccess;

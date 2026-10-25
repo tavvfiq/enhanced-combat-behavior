@@ -1,5 +1,12 @@
 # Changelog
 
+## CombatAITree 0.11.0 (2026-10-25)
+
+- **NPCs dodge only what is aimed at them.** In run 28, 7 of 9 dodges were sidesteps from an allied bandit archer's arrows aimed at you, because the NPC stood on the arrow's line. Projectile sidesteps now count only shots from someone hostile to that NPC. The other 2 dodges came while you swung 254-340 units away, probably at someone else. The attack dodge now needs the target's attack aimed at this NPC (the same aim line the jump uses, plus your bow crosshair). It also needs an attack that can reach that far: a shot, a power attack or a sprint attack. The old "dodge when the target is blocking" trigger is gone.
+- **No bash without the stamina for it.** Bash waits until the NPC has the game's base bash stamina cost (`fStaminaBashBase`, logged once as `Bash stamina cost`). In run 28 vanilla refused 10 of 11 bashes at 0-8% stamina.
+- **No attack for 1 s after a weapon switch.** Run 28's bow/dagger bandit had 6 attacks refused within 0.7 s of drawing its dagger.
+- Unchanged: the forward dodge (a gap-closer toward an open target), and the strafe fallback when the target attacks.
+
 ## CombatAITree 0.10.0 (2026-10-25)
 
 Run 27's probe showed where the lost attacks go: of 53 attack intents the tree took, 31 fired; 11 were turned down before vanilla's checks, 8 failed its range/path check and 3 its hit cone.

@@ -109,6 +109,9 @@ namespace CombatAI
             float timeSinceLastSprintAttack = 999.0f;
             float timeSinceLastBash = 999.0f;
             float timeSinceLastFeint = 999.0f;
+            // Equipped weapon type and how long ago it changed (an attack right after a switch is refused)
+            WeaponType lastWeaponType = WeaponType::None;
+            float timeSinceWeaponSwitch = 999.0f;
             // Time spent retreating since its health last rose, and its lowest health since (cornered rule)
             bool retreating = false;
             float retreatTime = 0.0f;

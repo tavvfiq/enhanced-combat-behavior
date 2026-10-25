@@ -29,14 +29,17 @@ namespace CombatAI
         m_threats = std::move(threats);
     }
 
-    IncomingProjectile ProjectileAwareness::Assess(RE::FormID a_self, const RE::NiPoint3 &a_selfPos,
+    IncomingProjectile ProjectileAwareness::Assess(RE::Actor *a_self, const RE::NiPoint3 &a_selfPos,
                                                    float a_selfRadius) const
     {
         const auto &settings = Config::GetInstance().GetProjectileAwareness();
         IncomingProjectile best;
         std::lock_guard guard(m_lock);
         for (const auto &threat : m_threats) {
-            if (threat.shooter == a_self) {
+            // Enemies' shots only: run 28 sidestepped an allied archer's arrows aimed at the player 7 of 9 times.
+            // No shooter actor (traps) is skipped too.
+            auto *shooter = RE::TESForm::LookupByID<RE::Actor>(threat.shooter);
+            if (!shooter || shooter == a_self || !shooter->IsHostileToActor(a_self)) {
                 continue;
             }
             // Horizontal closest approach along the flight path. Projectiles fly at chest

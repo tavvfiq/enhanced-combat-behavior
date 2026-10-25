@@ -211,6 +211,8 @@ namespace CombatAI
         float theirAverageHit = 0.0f;
         // Seconds spent retreating without its health rising
         float retreatTime = 0.0f;
+        // Seconds since its equipped weapon type changed
+        float timeSinceWeaponSwitch = 999.0f;
     };
 
     struct TargetTemporalState
