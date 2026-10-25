@@ -50,6 +50,12 @@ namespace CombatAI
         // An attack or bash animation event was accepted by the actor's graph: the swing really started
         void NotifySwingStarted(RE::Actor *a_actor) { m_observer.NotifySwingStarted(a_actor); }
 
+        // A melee hit landed: learn the attacker's swing timing (parry / timed block)
+        void OnHitLanded(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power)
+        {
+            m_observer.OnHitLanded(a_attacker, a_victim, a_power);
+        }
+
       private:
         CombatDirector() = default;
         ~CombatDirector() = default;

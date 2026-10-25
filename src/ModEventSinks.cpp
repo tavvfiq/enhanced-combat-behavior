@@ -98,6 +98,10 @@ namespace CombatAI
         // Any hit (player's included, blocked or not) can provoke a target switch
         CombatDirector::GetInstance().OnActorHit(target, attacker);
         AttackDefenseFeedbackTracker::GetInstance().OnRaceHit(attacker, target); // the player's hits count too
+        if (a_event->projectile == 0) { // melee only: a shot's timing has nothing to do with a swing
+            CombatDirector::GetInstance().OnHitLanded(attacker, target,
+                                                      a_event->flags.any(RE::TESHitEvent::Flag::kPowerAttack));
+        }
 
         const auto &config = Config::GetInstance();
         if (config.IsDebugTarget(attacker->GetFormID()) || config.IsDebugTarget(target->GetFormID())) {

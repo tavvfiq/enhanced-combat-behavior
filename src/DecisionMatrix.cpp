@@ -110,6 +110,22 @@ namespace CombatAI
         }
     }
 
+    // Per-swing defend roll for parry and timed block (DefendOnSwingChance). Rolled once per swing (bit 30 keeps the
+    // key apart from the trade-blows and close-dodge rolls); a won roll outranks back-off, strafe and trade-blow
+    // attacks but not a won close dodge (10).
+    constexpr float kDefendPriority = 6.0f;
+    static bool DefendRoll(RE::Actor *a_actor, const ActorStateData &a_state, const char *a_what, float a_timeUntilHit)
+    {
+        const auto swing = ((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) |
+                            a_state.temporal.target.swingCount) ^ (1ull << 30);
+        const bool won = RollOnce(swing, Config::GetInstance().GetDecisionMatrix().defendOnSwingChance);
+        if (Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+            LOG_DEBUG("Defend 0x{:08X}: swing in the {} window (hit in {:.2f}s) -> {}", a_actor->GetFormID(), a_what,
+                      a_timeUntilHit, won ? a_what : "no (roll)");
+        }
+        return won;
+    }
+
     DecisionResult DecisionMatrix::Evaluate(RE::Actor *a_actor, const ActorStateData &a_state)
     {
         std::vector<DecisionResult> possibleDecisions;
@@ -525,6 +541,9 @@ namespace CombatAI
         if (timeUntilHit > parryConfig.parryWindowEnd || timeUntilHit < parryConfig.parryWindowStart) {
             return result; // Outside parry window
         }
+        if (!DefendRoll(a_actor, a_state, "parry", timeUntilHit)) {
+            return result;
+        }
 
         // Base priority for parry
         float priority = parryConfig.parryBasePriority;
@@ -582,12 +601,10 @@ namespace CombatAI
             priority -= 0.3f; // Low stamina - reduce parry priority
         }
 
-        // Only parry if priority is high enough
-        if (priority >= 1.0f) {
-            result.action = ActionType::Parry;
-            result.priority = priority;
-            result.intensity = 1.0f; // Maximum intensity for parry
-        }
+        // The won defend roll decides; the score above only matters if it would rank higher still
+        result.action = ActionType::Parry;
+        result.priority = (std::max)(priority, kDefendPriority);
+        result.intensity = 1.0f; // Maximum intensity for parry
 
         return result;
     }
@@ -648,6 +665,9 @@ namespace CombatAI
             timeUntilHit < timedBlockConfig.timedBlockWindowStart) {
             return result; // Outside timed block window
         }
+        if (!DefendRoll(a_actor, a_state, "timed block", timeUntilHit)) {
+            return result;
+        }
 
         // Base priority for timed block
         float priority = timedBlockConfig.timedBlockBasePriority;
@@ -706,12 +726,10 @@ namespace CombatAI
             priority -= 0.3f; // Low stamina - reduce timed block priority
         }
 
-        // Only timed block if priority is high enough
-        if (priority >= 1.0f) {
-            result.action = ActionType::TimedBlock;
-            result.priority = priority;
-            result.intensity = 1.0f; // Maximum intensity for timed block
-        }
+        // The won defend roll decides; the score above only matters if it would rank higher still
+        result.action = ActionType::TimedBlock;
+        result.priority = (std::max)(priority, kDefendPriority);
+        result.intensity = 1.0f; // Maximum intensity for timed block
 
         return result;
     }

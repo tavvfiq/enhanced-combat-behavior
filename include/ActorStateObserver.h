@@ -36,6 +36,8 @@ namespace CombatAI
 
         // Notify that an action was executed (for temporal tracking)
         void NotifyActionExecuted(RE::Actor *a_actor, ActionType a_action);
+        // A melee hit landed (blocked or not): learn the attacker's swing-start-to-hit time from the victim's view
+        void OnHitLanded(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power);
         // Starts the anti-spam action timer when an attack/bash actually starts (any thread)
         void NotifySwingStarted(RE::Actor *a_actor);
 
@@ -192,6 +194,7 @@ namespace CombatAI
             float timeUntilAttackHits = 999.0f;   // Estimated time until attack hits (999
                                                   // if not attacking or already hit)
             bool isPowerAttack = false;           // Track if current attack is a power attack
+            std::chrono::steady_clock::time_point updatedAt{}; // when attackStartTime was last advanced
             std::uint32_t swingCount = 0;         // One id per swing (attackStartTime is elapsed time, not an id)
 
             // Previous states for duration tracking
@@ -208,6 +211,13 @@ namespace CombatAI
 
         // Thread-safe temporal state storage (keyed by FormID)
         ThreadSafeMap<RE::FormID, ActorTemporalData> m_actorTemporalData;
+        // Per attacker: average swing-start-to-hit time [light, power] and how many hits it is from
+        struct HitDelay
+        {
+            float average[2] = {0.0f, 0.0f};
+            std::uint32_t count[2] = {0, 0};
+        };
+        ThreadSafeMap<RE::FormID, HitDelay> m_hitDelays;
         ThreadSafeMap<RE::FormID, TargetTemporalData> m_targetTemporalData; // Keyed by target FormID, but we'll use
                                                                             // actor-target pair
 

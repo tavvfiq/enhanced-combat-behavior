@@ -319,3 +319,7 @@
 ## 0.15.0 (2026-10-25) parry and timed block without mods
 - Code audit before the change: EvaluateParry had no mod check (EldenParry only feeds ParryFeedbackTracker via a mod callback; parry scoring does not read it). EvaluateTimedBlock returned while SimpleTimedBlock.esp was missing and ExecuteTimedBlock failed without its window spell. Config.h defaults were already true; the shipped INI set both false.
 - Timing is the open question: both use timeUntilAttackHits (hit assumed at 60% of the estimated swing), unverified. parrytime.py measures executed Parry/TimedBlock against the player's next Probe Hit on that NPC. Untested in game.
+- Run 32 (0.15.0): `Simple Timed Block not found: timed blocks run as well-timed plain blocks`. Executed TimedBlock 2, Parry 0. parrytime.py: 12.547 TimedBlock -> blockStart +0.06, blockHitStart +0.29, player hit 0.29 s later blocked=true; 53.447 TimedBlock -> no event, no hit. TimedBlock candidate on ~35 ticks at 1.36-1.75, beaten by Backoff 1.65-2.15, Strafe 1.45-1.80, Attack 2.35, close Dodge 10.2; skill-roll fails 3. Swing ticks in 50-200 units 150; TimeUntilAtkHits in 0.05-0.33 on 65. hittime.py: 41 player hits, swing start (as the observer saw it) to hit median 0.46 s (0.17-1.21), estimate 0.22 s (EstAtkDur 0.37 for every swing); error mostly +0.16 to +0.40.
+
+## 0.16.0 (2026-10-25) learned hit timing, defend roll
+- Fixes from run 32 above. The learned sample uses the same reference as attackStartTime (the observer's swing detection, up to one evaluation late), so prediction and sample agree. Untested in game.

@@ -1135,6 +1135,9 @@ namespace CombatAI
                 // it when the actor switches opponents.
                 RE::FormID targetKey = formID;
 
+                // Swing-start-to-hit time learned from this target's hits (0 = not enough hits yet)
+                const auto delay = m_hitDelays.Find(targetFormID);
+
                 // Update the target temporal data atomically under the map's lock.
                 m_targetTemporalData.ModifyOrCreate(targetKey, [&](TargetTemporalData &targetTemporal) {
                     // The cache is keyed by the observing actor, so reset it when that
@@ -1252,10 +1255,15 @@ namespace CombatAI
                         if (targetTemporal.attackStartTime >= 0.0f) {
                             // Attack is in progress, update elapsed time
                             targetTemporal.attackStartTime += a_deltaTime;
+                            targetTemporal.updatedAt = std::chrono::steady_clock::now();
 
-                            // Calculate time until attack hits
-                            // Assume attack hits at ~60% of total duration (windup phase)
-                            float hitTime = targetTemporal.estimatedAttackDuration * 0.6f;
+                            // Calculate time until attack hits: this attacker's measured swing-start-to-hit
+                            // time once 2 hits are seen, else 60% of the estimated duration plus 0.24 s
+                            // (run 32: that estimate was 0.24 s early, median of 41 player hits, 0.46 s actual)
+                            const int kind = targetTemporal.isPowerAttack ? 1 : 0;
+                            float hitTime = delay && delay->count[kind] >= 2
+                                                ? delay->average[kind]
+                                                : targetTemporal.estimatedAttackDuration * 0.6f + 0.24f;
                             targetTemporal.timeUntilAttackHits = hitTime - targetTemporal.attackStartTime;
 
                             // Clamp to reasonable range
@@ -1310,6 +1318,38 @@ namespace CombatAI
         }
 
         return temporal;
+    }
+
+    void ActorStateObserver::OnHitLanded(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power)
+    {
+        if (!a_attacker || !a_victim) {
+            return;
+        }
+        // The victim's view of its target's swing: elapsed at its last update plus the time since
+        float sample = -1.0f;
+        m_targetTemporalData.Modify(a_victim->GetFormID(), [&](TargetTemporalData &t) {
+            if (t.targetFormID == a_attacker->GetFormID() && t.attackStartTime >= 0.0f) {
+                sample = t.attackStartTime +
+                         std::chrono::duration<float>(std::chrono::steady_clock::now() - t.updatedAt).count();
+            }
+        });
+        if (sample < 0.05f || sample > 1.5f) {
+            return; // no swing seen, or a hit from an earlier swing
+        }
+        constexpr float kAlpha = 0.3f;
+        float average = sample;
+        std::uint32_t count = 0;
+        m_hitDelays.ModifyOrCreate(a_attacker->GetFormID(), [&](HitDelay &d) {
+            const int k = a_power ? 1 : 0;
+            d.average[k] = d.count[k] ? d.average[k] + kAlpha * (sample - d.average[k]) : sample;
+            average = d.average[k];
+            count = ++d.count[k];
+        });
+        if (Config::GetInstance().IsDebugTarget(a_victim->GetFormID())) {
+            LOG_DEBUG("HitTiming 0x{:08X} -> 0x{:08X}: swing start to {} hit {:.2f}s (average {:.2f}s over {})",
+                      a_attacker->GetFormID(), a_victim->GetFormID(), a_power ? "power" : "light", sample, average,
+                      count);
+        }
     }
 
     void ActorStateObserver::NotifySwingStarted(RE::Actor *a_actor)

@@ -1,5 +1,12 @@
 # Changelog
 
+## CombatAITree 0.16.0 (2026-10-25)
+
+Run 32 (0.15.0): the one timed block that ran worked (block up 0.06 s after the request, your hit 0.29 s later, blocked). But there were only 2 timed blocks and no parries in 3.5 minutes.
+
+- **Hit timing is learned from real hits.** The brain predicted your blow at 60% of a fixed 0.37 s swing, 0.22 s after the swing starts. Measured over 41 of your hits it lands at a median 0.46 s, so the prediction was about 0.24 s early and a parry's bash would have come out too soon. Each attacker's swing-start-to-hit time (light and power separately) is now averaged from its melee hits, blocked or not. Until 2 hits are seen it uses the old estimate plus 0.24 s. The debug log shows `HitTiming 0x.. -> 0x..: swing start to light hit X s (average Y s over N)`.
+- **Parry and timed block take their turn in the per-swing reactions.** They scored 1.36-1.75 and lost to back-off, strafe and attacks. Now, when a swing aimed at the NPC is inside the parry or timed-block window, one roll per swing (`DefendOnSwingChance`, default 0.5, INI and menu) decides whether it defends. A won roll outranks back-off, strafe and trade-blow attacks but not a won close dodge. Parry when it has the bash stamina, else timed block. The skill roll still applies. Order per swing: dodge roll, defend roll, then back-off and trade blows. Debug: `Defend 0x..: swing in the parry window (hit in X s) -> parry|no (roll)`.
+
 ## CombatAITree 0.15.0 (2026-10-25)
 
 - **Parry and timed block are on by default and need no mod.** A parry is a bash timed to land when your swing hits; a timed block is a block started just before it. Both are vanilla actions run through the Block tree. EldenParry and Simple Timed Block are now optional: EldenParry adds the parry effect and success feedback, and Simple Timed Block's window spell is applied only when it is loaded. Before, timed block needed `SimpleTimedBlock.esp` or never ran, and both were off in the shipped INI. This is also the first time the brain asks for a block at all (0 block requests in every earlier run).
