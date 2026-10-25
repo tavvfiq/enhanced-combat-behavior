@@ -158,6 +158,7 @@ namespace CombatAI
         liveFloat("Back off from a swing (chance)", &config.m_decisionMatrix.backoffOnSwingChance, 0.0f, 1.0f);
         liveFloat("Step out after own swing (chance)", &config.m_decisionMatrix.backoffAfterSwingChance, 0.0f, 1.0f);
         liveFloat("Trade blows with a swing (chance)", &config.m_decisionMatrix.tradeBlowsChance, 0.0f, 1.0f);
+        liveFloat("Dodge a close swing (chance)", &config.m_decisionMatrix.closeDodgeChance, 0.0f, 1.0f);
         liveFloat("Power attack min stamina", &config.m_decisionMatrix.powerAttackMinStamina, 0.0f, 1.0f);
                 liveFloat("Health threshold", &config.m_decisionMatrix.healthThreshold, 0.0f, 1.0f);
                 ImGuiMCP::Checkbox("Power attack stamina check",

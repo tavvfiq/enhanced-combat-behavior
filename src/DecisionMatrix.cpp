@@ -898,27 +898,35 @@ namespace CombatAI
         // reach, so a melee swing only as a power or sprint attack). Run 28 dodged at 254-340 units from the
         // player's swings at someone else, and the old "target is blocking" trigger dodged a guard.
         bool shouldDodge = false;
+        bool closeDodge = false;
         const bool reachesBand =
             a_state.target.isRanged || a_state.target.isPowerAttacking || a_state.target.isSprinting;
-        if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && reachesBand &&
-            TargetAimedAtUs(a_actor, a_state)) {
+        if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && TargetAimedAtUs(a_actor, a_state)) {
             bool conditionsMet = false;
-            float minEvasionDist = config.GetDecisionMatrix().evasionMinDistance;
+            const float minEvasionDist = config.GetDecisionMatrix().evasionMinDistance;
 
-            if (a_state.target.isAttacking || a_state.target.isPowerAttacking) {
-                // Attacking: dodge if within evasion range
-                // Use temporal state: Higher priority if target has been attacking for a
-                // while (committed)
-                float targetAttackingDuration = a_state.temporal.target.attackingDuration;
-                if (a_state.target.distance >= minEvasionDist &&
-                    a_state.target.distance <= config.GetDecisionMatrix().sprintAttackMaxDistance) {
-                    conditionsMet = true;
+            // Band: a shot, power attack or sprint attack that reaches this far
+            if (reachesBand && a_state.target.distance >= minEvasionDist &&
+                a_state.target.distance <= config.GetDecisionMatrix().sprintAttackMaxDistance) {
+                conditionsMet = true;
+            }
 
-                    // Boost priority if target has been attacking for a while (committed to
-                    // attack)
-                    if (targetAttackingDuration > 0.5f) {
-                        // Target committed to attack - better dodge timing
-                    }
+            // Close: any melee swing aimed at us from within its reach, rolled once per swing (it can also block,
+            // back off or trade blows). Before 0.12.0 nothing dodged inside the band.
+            constexpr float kCloseDodgeMargin = 30.0f;
+            const float swingReach = StateHelpers::EffectiveAttackRange(
+                a_state.target.weaponReach > 0.0f ? a_state.target.weaponReach : a_state.weaponReach,
+                a_state.self.boundRadius, 1.0f) + kCloseDodgeMargin;
+            if (!conditionsMet && !a_state.target.isRanged && !a_state.target.isInAttackRecovery &&
+                a_state.target.distance <= swingReach) {
+                // Own key per swing: bit 31 keeps it apart from the trade-blows roll on the same swing
+                const auto swing = ((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) |
+                                    a_state.temporal.target.swingCount) ^ (1ull << 31);
+                closeDodge = RollOnce(swing, config.GetDecisionMatrix().closeDodgeChance);
+                conditionsMet = closeDodge;
+                if (config.IsDebugTarget(a_actor->GetFormID())) {
+                    LOG_DEBUG("Evasion 0x{:08X}: close swing at {:.0f} (reach {:.0f}) -> {}", a_actor->GetFormID(),
+                              a_state.target.distance, swingReach, closeDodge ? "dodge" : "no dodge (roll)");
                 }
             }
 
@@ -1005,6 +1013,11 @@ namespace CombatAI
             // Apply weapon evasion modifier (one-handed can dodge faster, two-handed
             // slower)
             result.priority = baseDodgePriority + weaponEvasionModifier;
+            // A won close-dodge roll goes first: above back-off (up to 2.15 in run 29, plus style boosts), so its
+            // roll and the trade-blows roll only decide swings the dodge roll lost
+            if (closeDodge) {
+                result.priority = (std::max)(result.priority, 3.0f);
+            }
 
             // Dodge intensity based on urgency (closer = more urgent)
             float distance = a_state.target.distance;

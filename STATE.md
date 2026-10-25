@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.11.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.12.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -72,6 +72,7 @@ Open (actuator, run 27): of 53 taken attack intents 31 fired; 11 turned down bef
 Open (run 28): bash fired 1/12 taken, 10 of 11 refusals at stamina <= 8% (bash stamina cost); 16 attack refusals before the checks all from dagger/bow bandit 0x8E1A4 (6 within 0.7 s of switching to melee, rest unexplained); none of the fast no-check cases had the sprint flag, so the 0.10.0 sprint gate never fired.
 - 0.11.0: projectile dodge only for shooters hostile to self (Assess takes the actor; IsHostileToActor); evasion dodge needs TargetAimedAtUs (IsAimedAt or player autoAimActor) and a ranged/power/sprinting target, blocking trigger removed; bash gated on currentStamina >= GMST fStaminaBashBase; offense skip for 1 s after the weapon type changes. Runtime-evidenced (run 29).
 - 0.11.1: Intents::DefendUnavailable (3 block/bash posts in a row expired untaken, latest < 10 s) stops EvaluateInterrupt and EvaluateFeinting; feint also needs currentStamina >= fStaminaBashBase. Build-validated only.
+- 0.12.0: close dodge in EvaluateEvasion: target swinging, aimed at us (TargetAimedAtUs), melee, not in recovery, dist <= EffectiveAttackRange(target reach, self radius, 1.0) + 30; RollOnce per swing (key bit 31 apart from trade roll) at CloseDodgeChance 0.3; won roll priority >= 3.0. Build-validated only.
 Open (run 29): selected-NPC attacks fired 44 of 74 taken; 12 refused before vanilla checks, mostly within 0-3 s of the previous attack (per-attack cooldown suspected, not probed); range/path FAIL 16.
 Open (actuator, run 25): taken attack intents started a swing within 1 s 14/33, bash 6/25 (0/4 at 0 stamina); dodge events all rejected (TK Dodge not installed, expected); feint/dodge/jump still on the old executor; block intents never posted; feedback channel (roadmap 0.3.0) not built.
   Run 20 (0.9.1): stable 8.8 min; failed rolls -> None 128/132. Healthy in-range NPC: Attack candidate 74 ticks, 54 lost to failed skill rolls (skill 62-69%, 1 s reroll window). Retreat 443 = all at 10-29% HP (health rule).

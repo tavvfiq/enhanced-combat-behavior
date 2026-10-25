@@ -55,6 +55,7 @@ namespace CombatAI
         RE::Actor *target = targetPtr.get();
         if (target) {
             data.target = GatherTargetState(a_actor, target);
+            data.target.weaponReach = GetWeaponReach(target);
         }
 
         // Gather combat context (multiple enemies, etc.) - cached for performance

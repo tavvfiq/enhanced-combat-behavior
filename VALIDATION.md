@@ -291,3 +291,7 @@
 
 ## 0.11.1 (2026-10-25) defend refusals
 - Fix from run 29 above. Untested in game.
+
+## 0.12.0 (2026-10-25) close dodge
+- Before: EvaluateEvasion dodged only at EvasionMinDistance 250 to SprintAttackMaxDistance 400; nothing below 250. Back-off priorities in run 29: up to 2.15 (most common), CombatStyleEnhancer adds up to +0.15 to dodge/backoff; won close dodge set to >= 3.0.
+- New config DecisionMatrix.CloseDodgeChance 0.3 (INI, menu, load log). Untested in game.

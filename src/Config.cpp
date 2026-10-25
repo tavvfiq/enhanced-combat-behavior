@@ -64,10 +64,11 @@ namespace CombatAI
         LOG_INFO("Stamina: retreat/backoff {}; power attacks, sprint attacks and power bashes need {:.0f}% stamina",
                  m_decisionMatrix.staminaAffectsRetreat ? "also on low stamina" : "on health only",
                  m_decisionMatrix.powerAttackMinStamina * 100.0f);
-        LOG_INFO("Damage race: {} (retreat at <= {:.1f} hits from death up to {:.0f}% health, press +{:.2f}); trade blows {:.2f}",
+        LOG_INFO("Damage race: {} (retreat at <= {:.1f} hits from death up to {:.0f}% health, press +{:.2f}); trade blows {:.2f}; "
+                 "close dodge {:.2f}",
                  m_damageMomentum.enableDamageRace ? "on" : "OFF", m_damageMomentum.raceRetreatHits,
                  m_damageMomentum.raceRetreatMaxHealth * 100.0f, m_damageMomentum.racePressBonus,
-                 m_decisionMatrix.tradeBlowsChance);
+                 m_decisionMatrix.tradeBlowsChance, m_decisionMatrix.closeDodgeChance);
         return true;
     }
 
@@ -157,6 +158,7 @@ namespace CombatAI
         D("DecisionMatrix", "BackoffOnSwingChance", m_decisionMatrix.backoffOnSwingChance);
         D("DecisionMatrix", "BackoffAfterSwingChance", m_decisionMatrix.backoffAfterSwingChance);
         D("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance);
+        D("DecisionMatrix", "CloseDodgeChance", m_decisionMatrix.closeDodgeChance);
         D("DecisionMatrix", "PowerAttackMinStamina", m_decisionMatrix.powerAttackMinStamina);
         D("DecisionMatrix", "HealthThreshold", m_decisionMatrix.healthThreshold);
         B("DecisionMatrix", "EnableSurvivalRetreat", m_decisionMatrix.enableSurvivalRetreat);
@@ -470,6 +472,9 @@ namespace CombatAI
             0.0f, 1.0f);
         m_decisionMatrix.tradeBlowsChance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance)),
+            0.0f, 1.0f);
+        m_decisionMatrix.closeDodgeChance = std::clamp(
+            static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "CloseDodgeChance", m_decisionMatrix.closeDodgeChance)),
             0.0f, 1.0f);
         m_decisionMatrix.backoffStepDistance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "BackoffStepDistance", m_decisionMatrix.backoffStepDistance)),

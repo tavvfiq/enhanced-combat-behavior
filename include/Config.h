@@ -93,6 +93,7 @@ namespace CombatAI
             float backoffOnSwingChance = 0.35f;   // Chance to back off from each of the target's normal swings
             float backoffAfterSwingChance = 0.4f; // Chance to step out after each of its own swings
             float tradeBlowsChance = 0.3f;        // Chance to attack into each of the target's normal swings
+            float closeDodgeChance = 0.3f;        // Chance to dodge each melee swing aimed at it from within reach
             bool staminaAffectsRetreat = false;  // Off: retreat/backoff depend on health only (light attacks cost no stamina)
             float powerAttackMinStamina = 0.7f;  // Power/sprint attacks and power bashes need this stamina fraction
             float healthThreshold = 0.3f;

@@ -78,6 +78,7 @@ namespace CombatAI
         RE::NiPoint3 position;
         RE::NiPoint3 forwardVector;
         float boundRadius = 30.0f; // Horizontal body radius (game units)
+        float weaponReach = 0.0f;  // Its weapon reach (from Precision or fallback), for the close dodge
 
         RE::TESForm *equippedRightHand = nullptr;
         WeaponType weaponType = WeaponType::None; // Target weapon type equipped

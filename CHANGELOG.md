@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.12.0 (2026-10-25)
+
+- **Close dodge.** NPCs can now dodge a melee swing (light or power) that is aimed at them from within the attacker's weapon reach (plus 30 units). Before, the attack dodge only worked 250-400 units out, where a light swing can't reach, so nothing dodged up close. It is rolled once per swing (`CloseDodgeChance`, default 0.3, INI and menu). A won roll goes first; a lost roll leaves the back-off and trade-blows rolls to decide that swing as before. It needs TK Dodge, the dodge stamina, and the NPC not mid-attack; the skill roll still applies, so roughly 1 swing in 5 gets dodged at default skill. Swings at someone else, and your recovery after a hit, don't count. The debug log shows `Evasion 0x..: close swing at X (reach Y) -> dodge|no dodge (roll)`.
+- The target's own weapon reach is now gathered for this; the NPC's own reach is the fallback.
+
 ## CombatAITree 0.11.1 (2026-10-25)
 
 - **No more feint spam when bash can't run.** In run 29 the bow/dagger bandit, holding its dagger, feinted 75 times. A feint is a bash, and its 11 bash requests were never taken (its Block tree wasn't running). Once 3 block/bash requests in a row expire untaken, the NPC stops asking for bash or feint for 10 s; a request the tree takes clears it. Feint also needs the bash stamina cost now (35 in this setup).
