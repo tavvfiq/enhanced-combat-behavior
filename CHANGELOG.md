@@ -1,5 +1,12 @@
 # Changelog
 
+## CombatAITree 0.18.4 (2026-10-26)
+
+The 0.18.3 dump shows the vanilla Magic tree: Magic Context > "Casting Type Selector" > one case per casting type ("Cast Immediate Repeat", "Cast Concentration Repeat") > that type's spell selector (prepare dual cast, cast, idle). Those "Repeat" cases are value nodes, not loop nodes, which is why both earlier splices found nothing.
+
+- **Spell hands get the dual block** (third try). Our branch now goes in front of each casting type's spell selector. The loop that re-runs the tree is the equipment selector above it, so every pass reads our branch first. The load log says `Tree: Magic tree extended (dual block in 2 casting types)`.
+- **Fix: the cast stop covered only dual casts.** The two classes 0.18.2 hooked are the dual-cast nodes; a normal cast is a separate class. All four (single and dual, immediate and concentration) now stop for a wanted dual block. They share the same exit, which interrupts the cast. The dump is removed.
+
 ## CombatAITree 0.18.3 (2026-10-26)
 
 Run 36 (0.18.2): the Melee-tree dual block caught 3 of 5 of your hits (`blocked=true`) on a dual-wielding Bandit Chief. The Magic tree splice found no loop node at all (`Tree: Magic tree has no Repeat node`), so spell hands still don't dual block.

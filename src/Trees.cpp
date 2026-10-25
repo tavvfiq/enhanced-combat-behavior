@@ -728,7 +728,7 @@ namespace CombatAI::Trees
                 if (actor && a_thread && Intents::WantsDualBlock(actor)) {
                     if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
                         LOG_DEBUG("DualBlock 0x{:08X}: {} cast stopped for the block", actor->GetFormID(),
-                                  K == 0 ? "immediate" : "concentration");
+                                  K == 0 ? "immediate" : K == 1 ? "concentration" : K == 2 ? "dual immediate" : "dual concentration");
                     }
                     a_thread->Ascend();
                     return;
@@ -738,35 +738,20 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
-        // Vanilla Magic has no Repeat under its root: the builder (SE 48065) makes two, deeper down, one per casting
-        // branch (two Repeat factory calls). Run 35 logged "unexpected shape" for a Context > Repeat check. Each
-        // single-child Repeat gets Repeat > NextSelector{ DualBlock, <its vanilla child> }, so the branch is re-read
-        // inside every loop.
-        void CollectRepeats(Node *a_node, std::vector<Node *> &a_out, int a_depth)
+        // Vanilla Magic (0.18.3 dump): Context > ValueNode "Casting Type Selector" > one ValueNode case per casting
+        // type ("Cast Immediate Repeat", "Cast Concentration Repeat") > that type's spell selector. The loop is the
+        // equipment selector above, which re-runs the tree from the top. Each case gets
+        // case > NextSelector{ DualBlock, <its spell selector> }, so every pass reads our branch first.
+        void CollectCastCases(Node *a_node, std::vector<Node *> &a_out, int a_depth)
         {
             if (!a_node || a_depth > 16) {
                 return;
             }
-            if (Is(a_node, Id::vtRepeat) && a_node->childCount == 1 && a_node->children[0]) {
+            if (Is(a_node, Id::vtCastTypeCase) && a_node->childCount == 1 && a_node->children[0]) {
                 a_out.push_back(a_node);
             }
             for (std::int32_t i = 0; i < a_node->childCount; ++i) {
-                CollectRepeats(a_node->children[i], a_out, a_depth + 1);
-            }
-        }
-
-        // One-time layout dump: name, vtable offset from the module base (names come from the RE tools), children
-        void DumpTree(const Node *a_node, int a_depth)
-        {
-            if (!a_node || a_depth > 12) {
-                return;
-            }
-            LOG_INFO("Tree dump: {:{}}'{}' vt +0x{:X} children {}", "", a_depth * 2,
-                     a_node->name.c_str() ? a_node->name.c_str() : "", reinterpret_cast<std::uintptr_t>(a_node->vtable) -
-                                                                         REL::Module::get().base(),
-                     a_node->childCount);
-            for (std::int32_t i = 0; i < a_node->childCount && i < 16; ++i) {
-                DumpTree(a_node->children[i], a_depth + 1);
+                CollectCastCases(a_node->children[i], a_out, a_depth + 1);
             }
         }
 
@@ -774,29 +759,21 @@ namespace CombatAI::Trees
         {
             static void thunk(void *a_tree, Node *a_root)
             {
-                if (g_magicBuilt.load() == 0) {
-                    static std::atomic<bool> dumped{false};
-                    if (!dumped.exchange(true)) {
-                        LOG_INFO("Tree dump: vanilla Magic tree at SetRoot (repeat vt +0x{:X})",
-                                 Id::vtRepeat.address() - REL::Module::get().base());
-                        DumpTree(a_root, 0);
-                    }
-                }
-                std::vector<Node *> repeats;
-                CollectRepeats(a_root, repeats, 0);
-                for (auto *repeat : repeats) {
-                    Node *vanilla = repeat->children[0];
+                std::vector<Node *> cases;
+                CollectCastCases(a_root, cases, 0);
+                for (auto *castCase : cases) {
+                    Node *vanilla = castCase->children[0];
                     vanilla->parent = nullptr; // detach, or SetChildren would add the whole tree's root
                     auto *selector = Checked(Named(NextSelector(), "Intent Magic Selector"), "Intent Magic Selector");
                     SetChildren(selector, {DualBlockBranch(), vanilla});
-                    repeat->children[0] = selector; // Repeat keeps its one-slot child array
-                    selector->parent = repeat;
+                    castCase->children[0] = selector; // the case keeps its one-slot child array
+                    selector->parent = castCase;
                 }
                 func(a_tree, a_root);
-                if (repeats.empty()) {
-                    LOG_ERROR("Tree: Magic tree has no Repeat node - no dual block for spell hands");
+                if (cases.empty()) {
+                    LOG_ERROR("Tree: Magic tree has no casting-type case node - no dual block for spell hands");
                 } else if (g_magicBuilt.fetch_add(1) == 0) {
-                    LOG_INFO("Tree: Magic tree extended (dual block under {} cast loops)", repeats.size());
+                    LOG_INFO("Tree: Magic tree extended (dual block in {} casting types)", cases.size());
                 }
             }
             static inline REL::Relocation<decltype(thunk)> func;
@@ -949,9 +926,12 @@ namespace CombatAI::Trees
         const auto magicSite = kMagicTree.address() + (REL::Module::IsAE() ? kMagicSetRootAE : kMagicSetRootSE);
         if (CallsTarget(magicSite, Id::initNodes.address())) {
             MagicSetRoot::func = trampoline.write_call<5>(magicSite, MagicSetRoot::thunk);
-            REL::Relocation<std::uintptr_t> immediate{Id::vtCastImmediate}, concentration{Id::vtCastConcentration};
+            REL::Relocation<std::uintptr_t> immediate{Id::vtCastImmediate}, concentration{Id::vtCastConcentration},
+                dualImmediate{Id::vtDualCastImmediate}, dualConcentration{Id::vtDualCastConcentration};
             CastUpdate<0>::func = immediate.write_vfunc(4, CastUpdate<0>::thunk);
             CastUpdate<1>::func = concentration.write_vfunc(4, CastUpdate<1>::thunk);
+            CastUpdate<2>::func = dualImmediate.write_vfunc(4, CastUpdate<2>::thunk);
+            CastUpdate<3>::func = dualConcentration.write_vfunc(4, CastUpdate<3>::thunk);
             LOG_INFO("Tree: Magic SetRoot hooked (dual block for a weapon with a spell; a running cast stops for it)");
         } else {
             LOG_ERROR("Tree: Magic SetRoot site does not match - no dual block for spell hands");

@@ -42,10 +42,16 @@ namespace CombatAI::TreeNodes
         inline constexpr REL::RelocationID vtCircle{266102, 212772};
         inline constexpr REL::RelocationID vtFallback{266101, 212759};
         inline constexpr REL::RelocationID vtBackoff{266103, 212785};
-        // NodeObject1<CombatBehaviorCast{Immediate,Concentration}Spell, bool>; their Exit (SE 48104/48103, AE
-        // 49141/49140) calls SE 48040 / AE 49087, which calls MagicCaster::InterruptCast (SE 33630 / AE 34408)
-        inline constexpr REL::RelocationID vtCastImmediate{266704, 213718};
-        inline constexpr REL::RelocationID vtCastConcentration{266706, 213733};
+        // Magic tree cast nodes (0.18.3 tree dump + RTTI): NodeObject<Cast{Immediate,Concentration}Spell> = single
+        // cast, NodeObject1<..., bool> = dual cast. All four share Exit SE 48104/48103 / AE 49141/49140, which call
+        // SE 48040 / AE 49087, which calls MagicCaster::InterruptCast (SE 33630 / AE 34408).
+        inline constexpr REL::RelocationID vtCastImmediate{266705, 213720};
+        inline constexpr REL::RelocationID vtCastConcentration{266707, 213735};
+        inline constexpr REL::RelocationID vtDualCastImmediate{266704, 213718};
+        inline constexpr REL::RelocationID vtDualCastConcentration{266706, 213733};
+        // ValueNodeT<CastingType>: the Magic tree's per-casting-type case ("Cast Immediate Repeat" / "Cast
+        // Concentration Repeat"), one child each: that type's spell selector
+        inline constexpr REL::RelocationID vtCastTypeCase{266709, 213739};
     } // namespace Id
 
     // Base engine node (size 0x28).

@@ -8,7 +8,7 @@ includes("extern/styyx-util")
 
 -- set project
 set_project("CombatAITree")
-set_version("0.18.3")
+set_version("0.18.4")
 set_license("GPL-3.0")
 
 -- set defaults

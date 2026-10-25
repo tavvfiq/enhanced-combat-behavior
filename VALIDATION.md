@@ -354,3 +354,7 @@
 
 ## 0.18.3 (2026-10-26)
 - Tree dump only. Untested in game.
+- Run 37 (0.18.3) dump, AE 1.7.104 vtable offsets -> RTTI (se.py v17): 'Magic Context' +0x1961B70 (213692 CreateContextNode1<ContextMagic>) > 'ValueNode - Casting Type Selector' +0x1961E88 (213737 ValueNodeT<CastingType expression>, 2 children) > 'ValueNode - Cast Immediate Repeat' / 'Cast Concentration Repeat' +0x1961EE8 (213739 ValueNodeT<CastingType>, 1 child) > 'Cast ... Spell Selector' +0x18ED320 (205291 FallbackSelector<NextChildSelector>, 3 children: RandomNode Prepare Dual Cast (213741 > 213705 PrepareDualCast > 213718 / 213733 NodeObject1<Cast..., bool> = dual cast), RandomNode Cast (> 213720 / 213735 NodeObject<Cast...> = single cast), Idle 205318). No vtRepeat in the tree.
+
+## 0.18.4 (2026-10-26)
+- SE equivalents by RTTI name: ValueNodeT<CastingType> 266709, NodeObject<CastImmediateSpell> 266705, NodeObject<CastConcentrationSpell> 266707 (Exit 48104/48103 -> 48040 -> 33630, same as the dual-cast vtables 266704/266706). AE 1.6.1170 same ids as 1.7.104. Untested in game.
