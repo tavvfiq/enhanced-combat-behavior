@@ -1,5 +1,12 @@
 # Changelog
 
+## CombatAITree 0.20.1 (2026-10-26)
+
+Run 42 (0.20.0, group fight): flanking, now running outdoors, took over. 1662 of ~1960 executed actions were Flanking and only 48 were attacks, Flanking even winning inside attack range (292 vs 46). The counter worked when it got the chance (counters scored 5.3-6.7 and swung) but often lost to flanking or to your next swing.
+
+- **Flanking gets an NPC beside you, then it attacks.** Once it is at your side or back, it no longer flanks (the "keep the position" rules that kept it circling are gone; the attack already gets a flanking bonus there). Inside attack range flanking is capped at 1.4, so an attack with an opening wins.
+- **A counter goes in even if you chain your next swing.** The counter window skips the trade-blows roll.
+
 ## CombatAITree 0.20.0 (2026-10-26)
 
 - **Counter attacks without a mod.** When an NPC blocks one of your melee blows (shield, weapon or dual block), a 0.6 s counter window opens while you recover. In it the brain strongly prefers a power attack, or a normal attack when it lacks the power-attack stamina. Before, the counter only existed with EldenCounter (its graph variable still counts too), and its bonus was being thrown away anyway (fixed in 0.19.0). Debug log: `Counter 0x..: blocked a hit, counter window open 0.6 s`.

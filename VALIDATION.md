@@ -383,3 +383,7 @@
 
 ## 0.20.0 (2026-10-26) counter attack
 - Code: isGuardCounterActive drove only EldenCounter's Val_GuardCounter; EvaluateOffense gives +2.0 and prefers a power attack while it is set (bonus now kept, 0.19.0). New: kHitBlocked melee hit on a non-player opens 0.6 s. Untested in game. Pass: `Counter 0x..` line, then an Attack/PowerAttack executed within 0.6 s and an attackStart*/attackPowerStart* AnimEvent.
+- Run 42 (0.20.0, group of 3, outdoors): Executed Flanking 1662, Backoff 181, Attack 46, Advancing 44, TimedBlock 17, Dodge 5, Strafe 5, PowerAttack 2, Feint 2 (B works: was 75-79), ForwardDodge 2. In range: Flanking 292, Backoff 174, Attack 46. Flanking at 1.65 from EvaluateFlanking (the pacing hold is 1.0). Counter windows 9: followed by Attack 5.33 / 6.68 / 2.20-2.65 with attackStart on 4; lost to Flanking or "target is attacking" on the rest. Pacing: slot granted 23, waiting 30, retaliating 11.
+
+## 0.20.1 (2026-10-26)
+- Fixes from run 42 above. Untested in game.

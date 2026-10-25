@@ -1639,7 +1639,9 @@ namespace CombatAI
                     (std::min)(1.0f, config.GetDecisionMatrix().tradeBlowsChance * (race.winning ? 2.0f : 1.0f));
                 const auto swing =
                     (static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) | a_state.temporal.target.swingCount;
-                if (a_state.target.isPowerAttacking || !RollOnce(swing, trade)) {
+                // A counter (we just blocked its blow) goes in even if it chains the next swing (run 42 lost counters
+                // here); otherwise one trade roll per swing
+                if (!a_state.self.isGuardCounterActive && (a_state.target.isPowerAttacking || !RollOnce(swing, trade))) {
                     return skip("target is attacking"); // Let evasion handle this - strafe/dodge instead
                 }
                 if (debugOffense) {
@@ -2445,9 +2447,13 @@ namespace CombatAI
         targetToSelf.z /= targetToSelfDist;
         float targetSelfDot = a_state.target.forwardVector.Dot(targetToSelf);
 
-        // Optimal flanking position: to the side or behind target (dot < 0.3)
-        // Allow flanking even if already in position to maintain it or improve it
+        // Optimal flanking position: to the side or behind target (dot < 0.3). Already there: no flanking, attack from
+        // here (offense adds its flanking bonus). Run 42: with flanking finally running outdoors, the "maintain the
+        // position" rules kept NPCs circling: Flanking 1662 of ~1960 executed actions, Attack 46.
         bool isInFlankingPosition = (targetSelfDot < 0.3f);
+        if (isInFlankingPosition) {
+            return result;
+        }
 
         // Calculate outnumbering bonus (more allies = higher priority)
         float outnumberBonus = 0.0f;
@@ -2497,8 +2503,6 @@ namespace CombatAI
         // Check if multiple allies are engaged (better flanking opportunity)
         bool multipleAlliesEngaged = (a_state.combatContext.allyCount >= 2);
 
-        // Check if we're already behind target (very good flanking position)
-        bool isBehindTarget = (targetSelfDot < -0.3f);
 
         if (targetEngagedWithAlly && targetToSelfDist < 1500.0f) {
             // If target is engaged with ally, flanking is always useful
@@ -2526,18 +2530,6 @@ namespace CombatAI
             }
         }
 
-        // If we're already in flanking position but outnumber significantly, maintain
-        // it
-        if (isInFlankingPosition && a_state.combatContext.allyCount >= 2 &&
-            a_state.combatContext.allyCount > a_state.combatContext.enemyCount) {
-            shouldFlank = true;
-            basePriority = 1.3f; // Lower priority but still valid to maintain position
-
-            // Bonus if we're already behind target (excellent position)
-            if (isBehindTarget) {
-                situationBonus += 0.2f; // Already behind = maintain position
-            }
-        }
 
         // If target is vulnerable and we have allies, flanking is excellent
         if (targetIsVulnerable && a_state.combatContext.allyCount >= 1 && targetToSelfDist < 1500.0f && !shouldFlank) {
@@ -2546,12 +2538,6 @@ namespace CombatAI
             situationBonus += 0.3f; // Vulnerable target = excellent opportunity
         }
 
-        // If we're already behind target and have allies, maintain flanking position
-        if (isBehindTarget && a_state.combatContext.allyCount >= 1 && targetToSelfDist < 1200.0f && !shouldFlank) {
-            shouldFlank = true;
-            basePriority = 1.4f;    // Good priority to maintain behind-target position
-            situationBonus += 0.2f; // Already in good position
-        }
 
         // Follower pincer: the player is holding the target's attention, go around it
         if (shouldFlank && targetEngagedWithAlly && a_state.combatContext.allyIsPlayer) {
@@ -2561,6 +2547,11 @@ namespace CombatAI
         if (shouldFlank) {
             result.action = ActionType::Flanking;
             result.priority = basePriority + outnumberBonus + situationBonus; // Add all bonuses
+            // In reach a real attack outranks it (attacks with an opening score ~1.5-3, run 42 flanked at 1.65 in
+            // reach); flanking then only wins when the attack has nothing going for it
+            if (a_state.combatContext.isInAttackRange) {
+                result.priority = (std::min)(result.priority, 1.4f);
+            }
 
             // Calculate optimal flanking direction (perpendicular to target, away from
             // ally) This creates a pincer movement
@@ -2580,10 +2571,6 @@ namespace CombatAI
             if (targetIsVulnerable) {
                 intensity =
                     (intensity + 0.1f > 1.0f) ? 1.0f : (intensity + 0.1f); // More intensity when target is vulnerable
-            }
-            if (isBehindTarget) {
-                intensity = 0.7f; // Lower intensity when already behind (maintain
-                                  // position, don't overcommit)
             }
             result.intensity = intensity;
         }
