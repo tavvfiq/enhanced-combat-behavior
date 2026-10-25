@@ -19,3 +19,5 @@ This plugin integrates with the following mods (all optional):
 ## Special Thanks
 - The Skyrim modding community for their excellent tools and frameworks
 - All contributors and testers
+
+- SCAR (Skyrim Combos AI Revolution) by max-su-2019, MIT License: the SCAR_ActionData annotation format and range rules used by src/SCARData.cpp (https://github.com/max-su-2019/SCAR).

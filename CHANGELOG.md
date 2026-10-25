@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.23.0 (2026-10-26)
+
+- **Casters hold fire with an ally in the way.** A "Hold Cast" branch now sits in front of vanilla's cast selector in the Magic tree (after the dual block): while an ally stands in the line to the target, the NPC doesn't start a cast, and a running stream (concentration) spell stops. This covers mages and hybrids with a spell in either hand. Single casts already charging are left alone. Debug log: `Ranged 0x..: concentration cast stopped`.
+- **SCAR action data reader, read-only (step 1 of letting the brain drive SCAR/MCO/BFCO movesets).** It reads the `SCAR_ActionData{...}` annotations on the NPC's active animation clip, with SCAR's format and range rules (SCAR 2.0.1, MIT, credit max-su-2019). Nothing is triggered yet and SCAR keeps doing its job. For the selected NPC, when the brain wants to attack (or the NPC is in its combo window) the log lists the actions the clip offers and which would fit right now: `SCAR 0x..: N actions on the active clip (t X), best fit <event>: ...`. The parser checks itself against SCAR's documented examples on first use (`SCAR data reader self-test passed`).
+
 ## CombatAITree 0.22.2 (2026-10-26)
 
 - **Line of fire checks every ally**, up to 8 the combat scan sees (was the closest one only). The archer steps away from whichever ally is in the way.

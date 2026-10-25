@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.22.2 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.23.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -107,6 +107,8 @@ SCAR research (subagent, source e62b63a, MIT): data = clip annotations `SCAR_Act
 - 0.22.0: Ranged tree chance lea (SE 32398+0xA3 -> 49772, AE 33149+0x111 -> 50700) redirected through a trampoline stub to RangedShotChance = vanilla x Intents::RangedShotFactor (CombatDirector posts DecisionMatrix::RangedShotFactor each tick for bow/crossbow: 0 ally in line, 0.3 guard facing, 2 opening); EvaluateRangedPositioning strafes aside when AllyInLineOfFire (closest ally within 55 units of the line). Build-validated only. Not done: mage cast timing (SE 48065 has one lea of 48048 only; AE two of 49095). Runtime-evidenced (run 47).
 - 0.22.1: RangedShotFactor opening no longer includes target orientationDot < 0.2. Build-validated only.
 - 0.22.2: CombatContext.allyPositions[8] filled by the ally scan, AllyInLineOfFire checks all; Fallback start audit (SE 46712 +0x15F anim-driven / +0x27B straight path, AE 47908 +0x12B / +0x239); StartAttack stamina-cost probe (SE 48139+0x29B -> 25863, AE 49170+0x27A -> 26429). Build-validated only.
+- 0.23.0: Magic tree cases get NextSelector{DualBlock, Hold Cast (Idle, Intents::RangedShotFactor <= 0), vanilla}; CombatDirector posts the factor for non-archers as AllyInLineOfFire ? 0 : 1; CastUpdate stops concentration casts (K 1/3) on hold. SCARData (include/SCARData.h, src/SCARData.cpp): flat-JSON parser + SelfTest, Read (graphs[0] activeNodes, first hkbClipGenerator with SCAR_ActionData, under the manager's updateLock), InRange (SCAR rule without the AABB height check), Probe (debug, selected NPC, on Attack/PowerAttack decisions or kNextAttack). Build-validated only.
+SCAR next (phase 2, after the probe shows data in game): trigger the chosen action from inside our Melee tree's Attack node (CombatAnimation with the attack-data event / TESActionData for idles, as SCAR does), which needs a hook at the Attack node's StartAttack call (SE 48147+0x164; AE site not yet found) and SCAR.dll removed (its hook never calls the original).
 Next (if accepted): custom block leaf (TREE_DESIGN 6, Idle clone) in the Melee tree for dual wield, then the Magic tree (needs its builder hook, SE/AE RE).
 Finding (#4, RE notes COMBAT_AI_RE.md ActionEquipmentSelector): the Block tree (bash, block, parry, timed block) is linked only for equipment type 3 Shield. NPCs without a shield never run it, so their bash/block/parry/timed-block intents can't be taken (0x8E1A4 with a dagger, archers). DefendUnavailable (0.11.1) stops the requests after 3. Whether two-handed or one-handed weapon blocking goes through another path is unknown.
 Open (run 29): selected-NPC attacks fired 44 of 74 taken; 12 refused before vanilla checks, mostly within 0-3 s of the previous attack (per-attack cooldown suspected, not probed); range/path FAIL 16.

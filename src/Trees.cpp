@@ -241,6 +241,15 @@ namespace CombatAI::Trees
 
         float WantDualBlock(RE::Actor *a_me, RE::Actor *) { return Intents::WantsDualBlock(a_me) ? 1.0f : 0.0f; }
 
+        // Hold a cast while the brain says the shot is off (an ally in the line of fire): an Idle branch in front of
+        // vanilla's cast selector, re-read every 0.05 s like the others
+        float WantHoldCast(RE::Actor *a_me, RE::Actor *) { return a_me && Intents::RangedShotFactor(a_me) <= 0.0f ? 1.0f : 0.0f; }
+
+        Node *HoldCastBranch()
+        {
+            return Checked(RandomNode(Named(Idle(kHold), "Hold Cast"), WantHoldCast, "Intent - Hold Cast"), "intent hold cast");
+        }
+
         Node *DualBlockBranch()
         {
             return Checked(RandomNode(DualBlockNode(), WantDualBlock, "Intent - Dual Block"), "intent dual block");
@@ -836,9 +845,11 @@ namespace CombatAI::Trees
             static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
             {
                 auto *actor = RE::CombatBehaviorController::GetCurrentAttacker();
-                if (actor && a_thread && Intents::WantsDualBlock(actor)) {
+                // Stop for a wanted dual block, or a stream (concentration) spell with an ally in the line of fire
+                const bool holdStream = (K == 1 || K == 3) && actor && Intents::RangedShotFactor(actor) <= 0.0f;
+                if (actor && a_thread && (Intents::WantsDualBlock(actor) || holdStream)) {
                     if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
-                        LOG_DEBUG("DualBlock 0x{:08X}: {} cast stopped for the block", actor->GetFormID(),
+                        LOG_DEBUG("{} 0x{:08X}: {} cast stopped", holdStream ? "Ranged" : "DualBlock", actor->GetFormID(),
                                   K == 0 ? "immediate" : K == 1 ? "concentration" : K == 2 ? "dual immediate" : "dual concentration");
                     }
                     a_thread->Ascend();
@@ -876,7 +887,7 @@ namespace CombatAI::Trees
                     Node *vanilla = castCase->children[0];
                     vanilla->parent = nullptr; // detach, or SetChildren would add the whole tree's root
                     auto *selector = Checked(Named(NextSelector(), "Intent Magic Selector"), "Intent Magic Selector");
-                    SetChildren(selector, {DualBlockBranch(), vanilla});
+                    SetChildren(selector, {DualBlockBranch(), HoldCastBranch(), vanilla});
                     castCase->children[0] = selector; // the case keeps its one-slot child array
                     selector->parent = castCase;
                 }
@@ -884,7 +895,7 @@ namespace CombatAI::Trees
                 if (cases.empty()) {
                     LOG_ERROR("Tree: Magic tree has no casting-type case node - no dual block for spell hands");
                 } else if (g_magicBuilt.fetch_add(1) == 0) {
-                    LOG_INFO("Tree: Magic tree extended (dual block in {} casting types)", cases.size());
+                    LOG_INFO("Tree: Magic tree extended (dual block and cast hold in {} casting types)", cases.size());
                 }
             }
             static inline REL::Relocation<decltype(thunk)> func;

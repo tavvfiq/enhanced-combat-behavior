@@ -8,6 +8,7 @@
 #include "ProjectileAwareness.h"
 #include "GuardCounterFeedbackTracker.h"
 #include "Intents.h"
+#include "SCARData.h"
 #include "Trees.h"
 #include "Logger.h"
 #include "ModEventSinks.h"
@@ -194,8 +195,18 @@ namespace CombatAI
         }
         MaybeSwitchTarget(a_actor, formID, state);
         DecisionResult decision = m_decisionMatrix.Evaluate(a_actor, state);
-        if (state.self.isRanged && config.GetDecisionMatrix().enableRangedPositioning) {
-            const float shot = DecisionMatrix::RangedShotFactor(state);
+        // Debug: which SCAR actions this NPC's active clip offers and which would fit now (read-only)
+        if (debugEnabled && state.target.isValid &&
+            (decision.action == ActionType::Attack || decision.action == ActionType::PowerAttack ||
+             state.self.attackState == RE::ATTACK_STATE_ENUM::kNextAttack)) {
+            if (auto target = RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID)) {
+                SCARData::Probe(a_actor, target, state.weaponReach);
+            }
+        }
+        // Shot factor for archers; for everyone else a cast hold while an ally is in the line of fire
+        if (config.GetDecisionMatrix().enableRangedPositioning && state.target.isValid) {
+            const float shot = state.self.isRanged ? DecisionMatrix::RangedShotFactor(state)
+                                                   : (DecisionMatrix::AllyInLineOfFire(state) ? 0.0f : 1.0f);
             Intents::PostRangedShot(a_actor, shot);
             if (debugEnabled && shot != 1.0f) {
                 LOG_DEBUG("Ranged 0x{:08X}: shot chance x{:.1f}", static_cast<std::uint32_t>(formID), shot);
