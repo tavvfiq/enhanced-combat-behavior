@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.18.3 (2026-10-26)
+
+Run 36 (0.18.2): the Melee-tree dual block caught 3 of 5 of your hits (`blocked=true`) on a dual-wielding Bandit Chief. The Magic tree splice found no loop node at all (`Tree: Magic tree has no Repeat node`), so spell hands still don't dual block.
+
+- **Debug: the vanilla Magic tree's layout is logged once at load** (`Tree dump:` lines: node names, node class offsets, child counts), to see where its casting loops really are. No behavior change.
+
 ## CombatAITree 0.18.2 (2026-10-26)
 
 - **A cast stops for the block.** When the brain wants a dual block while the NPC's spell hand is casting, the running cast node stops the way our movement preemption stops a movement node. Vanilla then runs that node's own exit, which interrupts the cast (MagicCaster::InterruptCast, checked in SE 1.5.97, AE 1.6.1170 and 1.7.104), and the Magic tree's loop picks up the block. Before, the block waited for the cast to finish and could expire first. Debug log: `DualBlock 0x..: immediate|concentration cast stopped for the block`. Only NPCs the brain asks to dual block are affected.

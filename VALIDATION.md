@@ -350,3 +350,7 @@
 
 ## 0.18.2 (2026-10-26) cast stops for the block
 - Disassembly: NodeObject1<CastImmediateSpell,bool> vtable SE id 266704 / AE 213718 (Exit 48104 / 49141, Update 48127 / 49159); <CastConcentrationSpell,bool> SE 266706 / AE 213733 (Exit 48103 / 49140, Update 48126 / 49158). Both Exits call SE 48040 / AE 49087, which calls SE 33630 / AE 34408 = MagicCaster::InterruptCast (CommonLib RELOCATION_ID(33630, 34408)). Same in AE 1.6.1170 and 1.7.104. Untested in game.
+- Run 36 (0.18.2): `Tree: Magic tree has no Repeat node`. Dual block 0xFF000826 (Bandit Chief, right WeaponType 5... logged melee 1H) 5 started, player hits blocked=true 3 (blockHitStart). One early `blockStop accepted` 37 ms before our release after the hold ended (executor pre-movement release once WantsDualBlock was false).
+
+## 0.18.3 (2026-10-26)
+- Tree dump only. Untested in game.

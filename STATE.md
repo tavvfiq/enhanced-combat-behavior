@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.18.2 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.18.3 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -86,7 +86,8 @@ Open (run 28): bash fired 1/12 taken, 10 of 11 refusals at stamina <= 8% (bash s
 - 0.17.1: EngineProbes::DualWieldBlockProbe (selected NPC, debug log): when EvaluateTimedBlock reaches the window for an NPC without the Block tree, set ActorState2.wantBlocking + blockStart, sample IsBlocking at 0.2 s, release at 0.6 s (wantBlocking 0 + blockStop). Runtime-evidenced (run 34).
 - 0.18.0: DualBlock node (Idle clone, vtable copy with Enter/Exit) first in the Melee tree and, via the Magic SetRoot hook (SE 48065+0x4AC, AE 49112+0x7AC), in the Magic tree; Intents dual-block hold state (also counts as pending, so vanilla attack branches wait); ExecuteTimedBlock posts it for BlockRules::CanDualBlock NPCs (hold = time to hit + 0.25 s, 0.3-1.0); offense/bash skip while held; brain-side release when overdue or on evict. BlockRules.h holds CanRunBlockTree/CanDualBlock. Runtime-evidenced for the Melee tree (run 35); Magic splice failed the shape check.
 - 0.18.1: Magic splice puts NextSelector{DualBlock, child} under every single-child Repeat found (depth <= 16); executor keeps a held dual block through movement; no feint while held. Build-validated only.
-- 0.18.2: cast node Update hook (vtCastImmediate SE 266704 / AE 213718, vtCastConcentration SE 266706 / AE 213733, slot 4): Ascend when WantsDualBlock; their Exit interrupts the cast. Build-validated only.
+- 0.18.2: cast node Update hook (vtCastImmediate SE 266704 / AE 213718, vtCastConcentration SE 266706 / AE 213733, slot 4): Ascend when WantsDualBlock; their Exit interrupts the cast. Build-validated only (no Magic splice yet, so never triggered).
+- 0.18.3: one-time Tree dump of the vanilla Magic tree at SetRoot (run 36: no vtRepeat node found under the root). Build-validated only.
 Next (if accepted): custom block leaf (TREE_DESIGN 6, Idle clone) in the Melee tree for dual wield, then the Magic tree (needs its builder hook, SE/AE RE).
 Finding (#4, RE notes COMBAT_AI_RE.md ActionEquipmentSelector): the Block tree (bash, block, parry, timed block) is linked only for equipment type 3 Shield. NPCs without a shield never run it, so their bash/block/parry/timed-block intents can't be taken (0x8E1A4 with a dagger, archers). DefendUnavailable (0.11.1) stops the requests after 3. Whether two-handed or one-handed weapon blocking goes through another path is unknown.
 Open (run 29): selected-NPC attacks fired 44 of 74 taken; 12 refused before vanilla checks, mostly within 0-3 s of the previous attack (per-attack cooldown suspected, not probed); range/path FAIL 16.

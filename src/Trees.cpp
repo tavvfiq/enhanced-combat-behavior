@@ -755,10 +755,33 @@ namespace CombatAI::Trees
             }
         }
 
+        // One-time layout dump: name, vtable offset from the module base (names come from the RE tools), children
+        void DumpTree(const Node *a_node, int a_depth)
+        {
+            if (!a_node || a_depth > 12) {
+                return;
+            }
+            LOG_INFO("Tree dump: {:{}}'{}' vt +0x{:X} children {}", "", a_depth * 2,
+                     a_node->name.c_str() ? a_node->name.c_str() : "", reinterpret_cast<std::uintptr_t>(a_node->vtable) -
+                                                                         REL::Module::get().base(),
+                     a_node->childCount);
+            for (std::int32_t i = 0; i < a_node->childCount && i < 16; ++i) {
+                DumpTree(a_node->children[i], a_depth + 1);
+            }
+        }
+
         struct MagicSetRoot
         {
             static void thunk(void *a_tree, Node *a_root)
             {
+                if (g_magicBuilt.load() == 0) {
+                    static std::atomic<bool> dumped{false};
+                    if (!dumped.exchange(true)) {
+                        LOG_INFO("Tree dump: vanilla Magic tree at SetRoot (repeat vt +0x{:X})",
+                                 Id::vtRepeat.address() - REL::Module::get().base());
+                        DumpTree(a_root, 0);
+                    }
+                }
                 std::vector<Node *> repeats;
                 CollectRepeats(a_root, repeats, 0);
                 for (auto *repeat : repeats) {
