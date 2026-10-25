@@ -1,4 +1,5 @@
 #include "ModEventSinks.h"
+#include "Intents.h"
 #include "ActorUtils.h"
 #include "AttackDefenseFeedbackTracker.h"
 #include "CombatDirector.h"
@@ -101,6 +102,13 @@ namespace CombatAI
         if (a_event->projectile == 0) { // melee only: a shot's timing has nothing to do with a swing
             CombatDirector::GetInstance().OnHitLanded(attacker, target,
                                                       a_event->flags.any(RE::TESHitEvent::Flag::kPowerAttack));
+            // The blow a dual block guards against has landed (blocked or not): the hold is done
+            if (Intents::WantsDualBlock(target)) {
+                Intents::EndDualBlockHold(target);
+                if (Config::GetInstance().IsDebugTarget(target->GetFormID())) {
+                    LOG_DEBUG("DualBlock 0x{:08X}: the blow landed, ending the hold", target->GetFormID());
+                }
+            }
         }
 
         const auto &config = Config::GetInstance();

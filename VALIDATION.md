@@ -367,3 +367,7 @@
 
 ## 0.18.6 (2026-10-26) dual block holds through the swing
 - Fix from run 39 above. Untested in game.
+- Run 40 (0.18.6): 0xFF000819 (Bandit Chief). Player hits 73: blocked 5. DualBlock blockStart 30, `swing over (hit landed)` 30, `(target stopped attacking)` 1; parrytime.py: blockStop +0.15 s after blockStart typical, then the hit unblocked. Cause: isInAttackRecovery (kHit/kNextAttack/kFollowThrough) is already true between combo swings.
+
+## 0.18.7 (2026-10-26)
+- Fix from run 40 above. Untested in game.

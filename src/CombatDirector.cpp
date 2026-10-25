@@ -183,12 +183,13 @@ namespace CombatAI
 
         // Gather state and evaluate the decision matrix (the heavy per-actor work)
         ActorStateData state = m_observer.GatherState(a_actor, elapsed);
-        // A held dual block ends with the swing it guards against: the blow landed (recovery) or the swing stopped
-        if (Intents::WantsDualBlock(a_actor) && (!state.target.isAttacking || state.target.isInAttackRecovery)) {
+        // A held dual block ends when the swing stops without hitting; a landed blow ends it from the hit event
+        // (ModEventSinks). Not on the attacker's recovery state: between combo swings it is set before the next blow,
+        // and run 40 dropped 30 blocks ~0.15 s in that way (5 of 73 hits blocked).
+        if (Intents::WantsDualBlock(a_actor) && !state.target.isAttacking) {
             Intents::EndDualBlockHold(a_actor);
             if (debugEnabled) {
-                LOG_DEBUG("DualBlock 0x{:08X}: swing over ({}), ending the hold", static_cast<std::uint32_t>(formID),
-                          state.target.isInAttackRecovery ? "hit landed" : "target stopped attacking");
+                LOG_DEBUG("DualBlock 0x{:08X}: target stopped attacking, ending the hold", static_cast<std::uint32_t>(formID));
             }
         }
         MaybeSwitchTarget(a_actor, formID, state);

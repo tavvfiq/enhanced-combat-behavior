@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.18.7 (2026-10-26)
+
+- **Fix (0.18.6 regression): a dual block now lasts until your blow actually lands.** 0.18.6 ended the hold when the attacker went into "recovery", but between combo swings that flag is already set before the next blow comes. In run 40 that ended 30 blocks about 0.15 s in, and only 5 of your 73 hits on the Bandit Chief were blocked. The hold now ends on the hit itself (blocked or not), or when you stop attacking, or after 1.2 s. Debug log: `DualBlock 0x..: the blow landed, ending the hold`.
+
 ## CombatAITree 0.18.6 (2026-10-26)
 
 Run 39 (0.18.5): the fixes worked. Your hits blocked on the sword+spell Bandit Chief went from 2 to 7 of 57, defend checks from 25 to 55 window ticks, and 17 timed blocks ran. But 7 of the 17 ended before your blow, which landed 0.56-0.78 s after the block went up. Your swings came in two speeds (start to hit 0.12-0.50 s for 33 of them, 0.63-1.11 s for 24), so a single predicted hit time can't fit both.
