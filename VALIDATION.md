@@ -453,3 +453,6 @@
 ## 0.27.0 (2026-10-26) caution/patience, combo reach
 - static_assert bounds for RiskScale and CautionScale. Untested in game. Pass: Personality lines differ more between same-template bandits; out-of-reach follow-up skips well below run 52's 81; bandits still block/back off (caution x0.6 floor).
 - Run 53 (0.27.0, 5 min; Scout 0x8E1A1, Vanguard 0x8E0ED, Archer 0x8FF14): loads, no warnings. Personality: confidence 4 / aggression 2 for all three, style offense 0.58 / 0.65 / 0.76, avoid 0.20 / 0.00 / 0.20 -> risk 0.77 / 0.81 / 0.80, caution 0.13 / 0.09 / 0.14, patience 0.47 / 0.43 / 0.36. Forward dodge: 6 distinct openings (target busy; 2 flagged exposed), chance 0.35-0.36, all "walk" (0.65^6 = 7.5%), 0 executions, none from facing away. Combo follow-up: 3 started, 3 chained; 61 out-of-reach skips at 170-410 units (limit 136-154, player at range: target attacking/drawing 644 of 1668 ticks, in reach 58). Defend rolls: ~5 distinct swings, 1 timed block won. Actions: Flanking 950 of 1633 (approach flanking), Attack 6.
+
+## 0.28.0 (2026-10-26) flanking only near the target
+- Untested in game. Pass: Flanking far below run 53's 950 of 1633, more Advancing and Attack; no Flanking beyond ~2.5x reach outside pacing waits (`Pacing ..: slots full`).

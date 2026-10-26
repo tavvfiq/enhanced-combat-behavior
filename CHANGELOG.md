@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.28.0 (2026-10-26)
+
+- **NPCs walk in instead of circling from afar.** Flanking now only happens near the target (within 2.5x the attack range) and only when the target isn't facing that NPC; when it is, the NPC is the target's focus and fights instead. Before, flanking won from up to 1500 units over walking in (run 53: Flanking 950 of 1633 actions, Attack 6). NPCs waiting for an attack slot still circle (pacing), unchanged.
+
 ## CombatAITree 0.27.0 (2026-10-26)
 
 - **Personality reaches the careful and patient choices.** Caution scales backing off after its own swing and on the target's swing, the per-swing parry / timed block roll and the close dodge, gently (x0.6 .. x1.4) so a Foolhardy bandit still blocks and backs off, just less. Patience gates feints: one roll per 2 s, 40% (impatient) to 100% (patient).

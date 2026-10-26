@@ -2645,6 +2645,17 @@ namespace CombatAI
             return result;
         }
 
+        // Flanking is a short arc near the target, not the approach. Run 53: Flanking 950 of 1633 actions, Attack 6;
+        // it won from up to 1500 units (priority 1.4-2.2 against Advancing's 1.0-1.4) and circled instead of closing.
+        // Beyond 2.5x the attack range it walks in; and when the target is facing it, it is the target's focus, so
+        // going around is pointless: it fights (offense / defense decide).
+        const auto &dm = Config::GetInstance().GetDecisionMatrix();
+        const float reach = EffectiveAttackRange(a_state, a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f,
+                                                 dm.offenseReachMultiplier, dm.offenseReachSafetyMargin);
+        if (targetToSelfDist > reach * 2.5f || TargetAimedAtUs(a_actor, a_state)) {
+            return result;
+        }
+
         // Calculate outnumbering bonus (more allies = higher priority)
         float outnumberBonus = 0.0f;
         if (a_state.combatContext.allyCount > a_state.combatContext.enemyCount) {
@@ -2739,9 +2750,6 @@ namespace CombatAI
             result.priority = basePriority + outnumberBonus + situationBonus; // Add all bonuses
             // In or near reach a real attack outranks it (attacks with an opening score ~1.5-3; run 42 flanked at 1.65
             // in reach, run 43 at up to 2.05 just outside it); flanking then only wins when the attack has nothing
-            const auto &dm = Config::GetInstance().GetDecisionMatrix();
-            const float reach = EffectiveAttackRange(a_state, a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f,
-                                                     dm.offenseReachMultiplier, dm.offenseReachSafetyMargin);
             if (a_state.combatContext.isInAttackRange || a_state.target.distance <= reach * 1.5f) {
                 result.priority = (std::min)(result.priority, 1.4f);
             }
