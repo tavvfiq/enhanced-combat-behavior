@@ -1,4 +1,5 @@
 #include "Personality.h"
+#include "Boss.h"
 #include "CombatStyleEnhancer.h"
 #include "Config.h"
 #include "Logger.h"
@@ -64,6 +65,31 @@ namespace CombatAI::Personality
         }
         const Traits t = Compute(a_actor);
         g_cache.ModifyOrCreate(id, [&](Cached &c) { c = {t, now}; });
+        return t;
+    }
+
+    Traits Effective(RE::Actor *a_actor)
+    {
+        Traits t = Get(a_actor);
+        switch (Boss::CurrentPhase(a_actor)) {
+        case Boss::Phase::None:
+            return t;
+        case Boss::Phase::Enraged:
+            t.risk = (std::min)(1.0f, t.risk + 0.2f);
+            break;
+        case Boss::Phase::Desperate:
+            if (Boss::Brave(a_actor)) {
+                t.risk = 1.0f; // all-in
+                t.caution = 0.25f;
+                return t;
+            }
+            t.risk *= 0.5f; // falls back among its minions (EvaluateBoss)
+            t.caution = 0.9f;
+            return t;
+        default:
+            break;
+        }
+        t.caution = (std::max)(t.caution, 0.4f); // a boss still defends well (run 55's chief read caution 0.01)
         return t;
     }
 } // namespace CombatAI::Personality

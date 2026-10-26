@@ -1,5 +1,6 @@
 #include "ComboFollowUp.h"
 #include "AttackCoordinator.h"
+#include "Boss.h"
 #include "Config.h"
 #include "Logger.h"
 #include "SCARIntegration.h"
@@ -214,11 +215,14 @@ namespace CombatAI::ComboFollowUp
         // One roll per window: power when its window is open and stamina allows, else normal
         const float powerMin = Config::GetInstance().GetDecisionMatrix().powerAttackMinStamina;
         bool power = false, go = false;
+        // An enraged boss (or a brave desperate one) chains more and harder: x1.5 power, x1.3 normal
+        const auto phase = Boss::CurrentPhase(a_actor);
+        const bool raging = phase == Boss::Phase::Enraged || (phase == Boss::Phase::Desperate && Boss::Brave(a_actor));
         if (powerOpen && a_state.self.staminaPercent >= powerMin) {
-            power = go = Roll(settings.comboPowerChance);
+            power = go = Roll((std::min)(1.0f, settings.comboPowerChance * (raging ? 1.5f : 1.0f)));
         }
         if (!go && normalOpen) {
-            go = Roll(settings.comboFollowUpChance);
+            go = Roll((std::min)(1.0f, settings.comboFollowUpChance * (raging ? 1.3f : 1.0f)));
         }
         g_windows.Modify(formID, [&](Window &w) {
             w.powerRolled |= powerOpen;

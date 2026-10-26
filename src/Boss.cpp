@@ -18,6 +18,7 @@ namespace CombatAI::Boss
             const RE::TESNPC *base = nullptr;
         };
         ThreadSafeMap<RE::FormID, Cached> g_cache;
+        ThreadSafeMap<RE::FormID, Phase> g_phase;
 
         RE::BGSLocationRefType *BossRefType()
         {
@@ -138,5 +139,35 @@ namespace CombatAI::Boss
                       a_actor->GetLevel(), playerLevel);
         }
         return info;
+    }
+
+    Phase UpdatePhase(RE::Actor *a_actor, float a_healthPercent)
+    {
+        if (!a_actor || !Get(a_actor).boss) {
+            return Phase::None;
+        }
+        const Phase phase = a_healthPercent < 0.25f ? Phase::Desperate : (a_healthPercent < 0.5f ? Phase::Enraged : Phase::Normal);
+        Phase previous = Phase::None;
+        g_phase.ModifyOrCreate(a_actor->GetFormID(), [&](Phase &p) {
+            previous = p;
+            p = phase;
+        });
+        if (phase != previous) {
+            static constexpr const char *kNames[] = {"none", "normal", "enraged", "desperate"};
+            LOG_INFO("Boss 0x{:08X}: phase {} (health {:.0f}%{})", a_actor->GetFormID(), kNames[static_cast<int>(phase)],
+                     a_healthPercent * 100.0f,
+                     phase == Phase::Desperate ? (Brave(a_actor) ? ", brave: all-in" : ", careful: falls back") : "");
+        }
+        return phase;
+    }
+
+    Phase CurrentPhase(RE::Actor *a_actor)
+    {
+        return a_actor ? g_phase.GetOrDefault(a_actor->GetFormID(), Phase::None) : Phase::None;
+    }
+
+    bool Brave(RE::Actor *a_actor)
+    {
+        return a_actor && a_actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kConfidence) >= 3.0f;
     }
 } // namespace CombatAI::Boss

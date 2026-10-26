@@ -4,6 +4,7 @@
 #include "BlockRules.h"
 #include "Intents.h"
 #include "Personality.h"
+#include "Boss.h"
 #include "Logger.h"
 #include "ProjectileAwareness.h"
 #include "SCARIntegration.h"
@@ -122,7 +123,7 @@ namespace CombatAI
         const auto swing = ((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) |
                             a_state.temporal.target.swingCount) ^ (1ull << 30);
         const bool won = RollOnce(swing, (std::min)(1.0f, Config::GetInstance().GetDecisionMatrix().defendOnSwingChance *
-                                                            Personality::CautionScale(Personality::Get(a_actor).caution)));
+                                                            Personality::CautionScale(Personality::Effective(a_actor).caution)));
         if (Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
             LOG_DEBUG("Defend 0x{:08X}: swing in the {} window (hit in {:.2f}s) -> {}", a_actor->GetFormID(), a_what,
                       a_timeUntilHit, won ? a_what : "no (roll)");
@@ -189,6 +190,104 @@ namespace CombatAI
             return 2.0f;
         }
         return 1.0f;
+    }
+
+    // Is the target casting a healing spell (a beneficial value modifier on health) in either hand?
+    static bool TargetHealing(const ActorStateData &a_state)
+    {
+        if (!a_state.target.isCasting) {
+            return false;
+        }
+        auto *target = RE::TESForm::LookupByID<RE::Actor>(a_state.target.targetFormID);
+        if (!target) {
+            return false;
+        }
+        for (const auto source : {RE::MagicSystem::CastingSource::kLeftHand, RE::MagicSystem::CastingSource::kRightHand}) {
+            auto *caster = target->GetMagicCaster(source);
+            auto *spell = caster ? caster->currentSpell : nullptr;
+            auto *effect = spell ? spell->GetCostliestEffectItem() : nullptr;
+            const auto *base = effect ? effect->baseEffect : nullptr;
+            if (!base || base->IsHostile() || base->data.primaryAV != RE::ActorValue::kHealth) {
+                continue;
+            }
+            const auto archetype = base->GetArchetype();
+            if (archetype == RE::EffectSetting::Archetype::kValueModifier || archetype == RE::EffectSetting::Archetype::kPeakValueModifier ||
+                archetype == RE::EffectSetting::Archetype::kDualValueModifier) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    DecisionResult DecisionMatrix::EvaluateBoss(RE::Actor *a_actor, const ActorStateData &a_state)
+    {
+        // Boss only: punish turtling, kiting and healing; a careful boss near death falls back among its minions.
+        // Priorities sit above ordinary attacks (~1.5-3) and below a won defend roll (6) or close dodge (10).
+        DecisionResult result;
+        const auto phase = Boss::CurrentPhase(a_actor);
+        if (phase == Boss::Phase::None || !a_state.target.isValid || (a_state.target.isPlayer && !a_state.target.isDetected)) {
+            return result;
+        }
+        const bool debug = Config::GetInstance().IsDebugTarget(a_actor->GetFormID());
+        const auto &dm = Config::GetInstance().GetDecisionMatrix();
+        const float reach = EffectiveAttackRange(a_state, a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f,
+                                                 dm.offenseReachMultiplier, dm.offenseReachSafetyMargin);
+        const float dist = a_state.target.distance;
+        RE::NiPoint3 toTarget = a_state.target.position - a_state.self.position;
+        toTarget.z = 0.0f;
+        toTarget.Unitize();
+        const auto pick = [&](ActionType a_action, float a_priority, const char *a_why) {
+            result.action = a_action;
+            result.priority = a_priority;
+            result.direction = a_action == ActionType::Retreat ? -toTarget : toTarget;
+            result.intensity = 1.0f;
+            if (debug) {
+                LOG_DEBUG("Boss 0x{:08X}: {} -> {} (priority {:.1f})", a_actor->GetFormID(), a_why, ActionName(a_action), a_priority);
+            }
+            return result;
+        };
+
+        // Desperate and careful: fall back, when its minions are behind it (away from the target)
+        const auto &cc = a_state.combatContext;
+        if (phase == Boss::Phase::Desperate && !Boss::Brave(a_actor) && cc.hasNearbyAlly && cc.closestAllyDistance > 250.0f) {
+            RE::NiPoint3 toAlly = cc.closestAllyPosition - a_state.self.position;
+            toAlly.z = 0.0f;
+            if (toAlly.Dot(toTarget) < 0.0f) {
+                return pick(ActionType::Retreat, 2.0f, "desperate, falls back toward its minions");
+            }
+        }
+
+        // Punish healing: the target is casting a heal
+        if (TargetHealing(a_state)) {
+            if (cc.isInAttackRange && a_state.self.isIdle) {
+                return pick(ActionType::Attack, 2.8f, "target healing");
+            }
+            if (dist < 1200.0f) {
+                pick(ActionType::Advancing, 2.2f, "target healing, rushes in");
+                result.sprint = true;
+                return result;
+            }
+        }
+
+        // Guard break: the target has held its block for a second, in reach and facing us
+        if (a_state.target.isBlocking && a_state.temporal.target.blockingDuration >= 1.0f && cc.isInAttackRange &&
+            a_state.self.isIdle && a_state.target.orientationDot > 0.5f) {
+            if (a_state.self.staminaPercent >= dm.powerAttackMinStamina) {
+                return pick(ActionType::PowerAttack, 2.6f, "guard break (target turtling)");
+            }
+            if (BlockRules::CanRunBlockTree(a_actor) && a_state.self.currentStamina >= BashStaminaCost()) {
+                return pick(ActionType::Bash, 2.4f, "guard break with a bash (low stamina)");
+            }
+        }
+
+        // Anti-kite: the target keeps its distance shooting or casting; close it at a sprint
+        const bool kiting = a_state.target.isRanged || a_state.target.isCasting || a_state.target.isDrawingBow;
+        if (kiting && dist > reach * 2.0f && dist < 1500.0f && !a_state.self.isSprinting) {
+            pick(ActionType::Advancing, 1.9f, "target kiting, closes the gap");
+            result.sprint = true;
+            return result;
+        }
+        return result;
     }
 
     bool DecisionMatrix::RollSelfTest()
@@ -342,6 +441,11 @@ namespace CombatAI
         DecisionResult feintingResult = ranged ? DecisionResult() : EvaluateFeinting(a_actor, a_state);
         if (feintingResult.action != ActionType::None) {
             possibleDecisions.push_back(feintingResult);
+        }
+
+        DecisionResult bossResult = ranged ? DecisionResult() : EvaluateBoss(a_actor, a_state);
+        if (bossResult.action != ActionType::None) {
+            possibleDecisions.push_back(bossResult);
         }
 
         DecisionResult offenseResult = ranged ? DecisionResult() : EvaluateOffense(a_actor, a_state);
@@ -1122,7 +1226,7 @@ namespace CombatAI
                 const auto swing = ((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) |
                                     a_state.temporal.target.swingCount) ^ (1ull << 31);
                 closeDodge = RollOnce(swing, (std::min)(1.0f, config.GetDecisionMatrix().closeDodgeChance *
-                                                            Personality::CautionScale(Personality::Get(a_actor).caution)));
+                                                            Personality::CautionScale(Personality::Effective(a_actor).caution)));
                 conditionsMet = closeDodge;
             }
             const bool closeSwing = closeDodge || (!conditionsMet && !a_state.target.isRanged &&
@@ -1568,7 +1672,7 @@ namespace CombatAI
                                           a_state.self.currentStamina >= dodgeCfg.RequiredStamina() &&
                                           a_state.self.staminaPercent >= dodgeCfg.forwardDodgeMinStamina;
                 if (canUseForwardDodge) {
-                    const float risk = Personality::Get(a_actor).risk;
+                    const float risk = Personality::Effective(a_actor).risk;
                     const bool exposed = a_state.combatContext.enemyCount > a_state.combatContext.allyCount + 1 ||
                                          a_state.self.healthPercent < 0.5f;
                     float chance = dodgeCfg.forwardDodgeChance * Personality::RiskScale(risk) * (counterOpening ? 2.0f : 1.0f);
@@ -1673,7 +1777,7 @@ namespace CombatAI
                 const auto bucket = static_cast<std::uint32_t>(
                     std::chrono::duration<float>(std::chrono::steady_clock::now().time_since_epoch()).count() / 2.0f);
                 shouldSprintAttack = RollOnce((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) | (1ull << 60) | bucket,
-                                              0.4f + 0.6f * Personality::Get(a_actor).risk);
+                                              0.4f + 0.6f * Personality::Effective(a_actor).risk);
             }
 
             if (shouldSprintAttack) {
@@ -1847,7 +1951,7 @@ namespace CombatAI
                 !a_state.target.isRanged && TargetAimedAtUs(a_actor, a_state)) {
                 // Trading blows: one roll per normal swing of the target, twice the chance while winning the race
                 const float trade = (std::min)(1.0f, config.GetDecisionMatrix().tradeBlowsChance * (race.winning ? 2.0f : 1.0f) *
-                                                         Personality::RiskScale(Personality::Get(a_actor).risk));
+                                                         Personality::RiskScale(Personality::Effective(a_actor).risk));
                 const auto swing =
                     (static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) | a_state.temporal.target.swingCount;
                 // A counter (we just blocked its blow) goes in even if it chains the next swing (run 42 lost counters
@@ -2297,6 +2401,12 @@ namespace CombatAI
 
             // Weapon type considerations: Two-handed weapons are better for power
             // attacks One-handed weapons are faster, so normal attacks might be better
+            // An enraged boss (or a brave desperate one) hits harder
+            if (const auto phase = Boss::CurrentPhase(a_actor);
+                phase == Boss::Phase::Enraged || (phase == Boss::Phase::Desperate && Boss::Brave(a_actor))) {
+                powerAttackBonus += 0.3f;
+                shouldPowerAttack = true;
+            }
             if (a_state.self.isTwoHanded) {
                 powerAttackBonus += 0.2f; // Two-handed weapons excel at power attacks
                 shouldPowerAttack = true; // Prefer power attacks with two-handed
@@ -2891,7 +3001,7 @@ namespace CombatAI
             const auto bucket = static_cast<std::uint32_t>(
                 std::chrono::duration<float>(std::chrono::steady_clock::now().time_since_epoch()).count() / 2.0f);
             goodFeintOpportunity = RollOnce((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) | (1ull << 59) | bucket,
-                                            0.4f + 0.6f * Personality::Get(a_actor).patience);
+                                            0.4f + 0.6f * Personality::Effective(a_actor).patience);
         }
         if (goodFeintOpportunity && inFeintRange) {
             result.action = ActionType::Feint;

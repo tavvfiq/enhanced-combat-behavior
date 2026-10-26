@@ -17,6 +17,9 @@ namespace CombatAI::Personality
 
     // Cached per actor for 10 s (actor values can change: frenzy, rally, fear)
     Traits Get(RE::Actor *a_actor);
+    // Get plus the boss phase (Boss.h): caution floor 0.4, enraged risk +0.2, desperate all-in or careful.
+    // The brain's rolls use this one.
+    Traits Effective(RE::Actor *a_actor);
 
     // Multiplier for a risky chance: 0.25 (risk 0) .. 1.75 (risk 1); about 0.9 for an average bandit
     constexpr float RiskScale(float a_risk) { return 0.25f + 1.5f * a_risk; }

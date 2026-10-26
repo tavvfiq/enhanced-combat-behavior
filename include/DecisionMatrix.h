@@ -36,6 +36,8 @@ namespace CombatAI
         static bool AllyInLineOfFire(const ActorStateData &a_state, RE::NiPoint3 *a_where = nullptr);
         // Bow, crossbow, staff or a spell in the right hand
         static bool IsRangedFighter(const ActorStateData &a_state);
+        // Boss only: guard break, anti-kite, punish healing, desperate fall-back (Boss.h)
+        DecisionResult EvaluateBoss(RE::Actor *a_actor, const ActorStateData &a_state);
         // Checks the once-per-key roll's hit rate (logged at load)
         static bool RollSelfTest();
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## CombatAITree 0.30.0 (2026-10-26)
+
+- **Bosses fight like bosses** (bandit chiefs, draugr deathlords and anything else `[Boss]` detection flags):
+  - **No waiting:** a boss never waits for an attack slot and takes none of its minions' slots.
+  - **Health phases** (logged: `Boss 0x..: phase enraged (health 48%)`): enraged below 50% (risk +0.2, power attacks favoured, combo follow-ups x1.3 normal / x1.5 power); desperate below 25%: a Brave or Foolhardy boss goes all-in (risk 1, caution 0.25), a more careful one falls back toward its minions when they are behind it (caution 0.9).
+  - **Skill:** caution never below 0.4 outside the desperate phase (run 55's chief read 0.01), so it still parries, timed-blocks and backs off; +0.15 skill on the mistake roll.
+  - **Anti-cheese:** guard break when you hold a block for a second in its reach (power attack, or a bash when its stamina is low); sprints in when you keep your distance shooting or casting; rushes in (or attacks) when you cast a healing spell. Debug: `Boss 0x..: guard break (target turtling) -> PowerAttack (priority 2.6)`.
+- Not covered: drinking potions (no cheap signal), shouts, left-hand/dual combos.
+
 ## CombatAITree 0.29.2 (2026-10-26)
 
 - **Boss detection for spawned NPCs (placeatme, spawner mods).** A spawned reference has no Boss marker (that lives on the placed dungeon reference), so it is caught by name or by "Boss" in the EditorID of the spawned NPC or leveled list. Its FormID (FF...) is reused by the game once it is gone, so the cached verdict is now checked against the NPC base and redone for a different NPC under an old id.

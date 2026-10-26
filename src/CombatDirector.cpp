@@ -188,7 +188,7 @@ namespace CombatAI
 
         // Gather state and evaluate the decision matrix (the heavy per-actor work)
         ActorStateData state = m_observer.GatherState(a_actor, elapsed);
-        Boss::Get(a_actor); // detection only for now (logs each boss once)
+        Boss::UpdatePhase(a_actor, state.self.healthPercent); // detection (logged once) and health phase
         // A held dual block ends when the swing stops without hitting; a landed blow ends it from the hit event
         // (ModEventSinks). Not on the attacker's recovery state: between combo swings it is set before the next blow,
         // and run 40 dropped 30 blocks ~0.15 s in that way (5 of 73 hits blocked).
@@ -307,7 +307,7 @@ namespace CombatAI
             // Winning the damage race halves both chances: it keeps pressing
             // Personality: careful NPCs back off more (x0.6 .. x1.4)
             const float pressing = (DecisionMatrix::Race(state).winning ? 0.5f : 1.0f) *
-                                   Personality::CautionScale(Personality::Get(a_actor).caution);
+                                   Personality::CautionScale(Personality::Effective(a_actor).caution);
             std::optional<bool> rolled;
             if (ownSwing) {
                 const float swingStart = m_humanizer.Now() - state.temporal.self.timeSinceLastAttack; // constant over one swing
@@ -388,6 +388,12 @@ namespace CombatAI
 
         auto &coordinator = AttackCoordinator::GetSingleton();
         const RE::FormID target = a_state.target.targetFormID;
+        // A boss never waits its turn and takes no minion's slot
+        if (Boss::Get(a_actor).boss) {
+            coordinator.Release(target, a_formID);
+            coordinator.ClearHeld(a_formID);
+            return a_decision;
+        }
         if (pacing.paceTargetPlayerOnly && !a_state.target.isPlayer) {
             coordinator.Release(target, a_formID);
             coordinator.ClearHeld(a_formID);

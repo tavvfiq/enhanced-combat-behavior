@@ -1,6 +1,7 @@
 #include "Humanizer.h"
 #include "ActorUtils.h"
 #include "Config.h"
+#include "Boss.h"
 #include "pch.h"
 #include <algorithm>
 #include <bit>
@@ -122,8 +123,10 @@ namespace CombatAI
                                  const SelfState &a_self) const
     {
         const float level = static_cast<float>(ActorUtils::SafeGetLevel(a_actor));
-        const float skill = (std::clamp)(m_config.skillBase + m_config.skillPerLevel * (level - 1.0f),
-                                         m_config.skillMin, m_config.skillMax);
+        // A boss makes fewer mistakes (+0.15 skill)
+        const float skill = (std::min)(1.0f, (std::clamp)(m_config.skillBase + m_config.skillPerLevel * (level - 1.0f),
+                                                          m_config.skillMin, m_config.skillMax) +
+                                                 (Boss::Get(a_actor).boss ? 0.15f : 0.0f));
         // Fatigue and panic scale the failure chance: x(1 + penalty) at full fatigue/panic.
         // (Dividing skill instead turned a 95% veteran into 63% after three minutes.)
         const float failure = (1.0f - skill) * (1.0f + CalculateStress(a_action, a_combatTime, a_self));
