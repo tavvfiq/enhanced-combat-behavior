@@ -457,3 +457,6 @@
 ## 0.28.0 (2026-10-26) flanking only near the target
 - Untested in game. Pass: Flanking far below run 53's 950 of 1633, more Advancing and Attack; no Flanking beyond ~2.5x reach outside pacing waits (`Pacing ..: slots full`).
 - Run 54 (0.28.0, 4 min; Warrior 0x8E0ED, Berserker 0x8E1A1, Barbarian 0x8E1A0): loads, no warnings. Actions: Advancing 853, Flanking 264 (20%, was 58% in run 53), Attack 35 + PowerAttack 4 (was 6), Strafe 55, Backoff 38, Retreat 24, Dodge 7, TimedBlock 6, Parry 3, Bash 7, Feint 4. In range 217 of 1434 ticks (distance quartiles 182 / 348 / 525). Combo follow-up: 6 triggered, 4 chained; skips: out of reach 48, waiting its turn 27 (pacing gate on the follow-up works), defending 21. Forward dodge: 6 opening lines, all "walk" at 0.35, 0 executions (runs 53+54: no "go" yet). Personality: 0x8E0ED risk 0.75 / caution 0.15 / patience 0.50 (style offense 0.48); 0x8E1A0 0.80 / 0.13 / 0.26 and 0x8E1A1 0.88 / 0.06 / 0.32 (style offense 1.00).
+
+## 0.28.1 (2026-10-26) roll value logging, roll self-test
+- Offline (python, same SplitMix64 + 32-bit salt, keys (0x8E0ED<<32)|(1<<61)|100000+i, 20000 keys): 0.3526 / 0.3460 / 0.3555 / 0.3480 / 0.3520 at chance 0.35. In-game self-test untested.

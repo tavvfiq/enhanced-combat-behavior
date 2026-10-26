@@ -48,6 +48,7 @@ namespace CombatAI
     void CombatDirector::Initialize()
     {
         LOG_INFO("CombatDirector initialized");
+        DecisionMatrix::RollSelfTest();
 
         // Initialize Precision integration (if enabled in config)
         auto &config = Config::GetInstance();

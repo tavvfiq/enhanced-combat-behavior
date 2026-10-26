@@ -105,11 +105,12 @@ namespace CombatAI
         static_assert(SplitMix64(0) == 0xE220A8397B1DCDAFull); // reference first output for seed 0
 
         // A stateless once-per-key roll: every tick of the same swing gets the same answer
-        bool RollOnce(std::uint64_t a_key, float a_chance)
+        float RollValue(std::uint64_t a_key)
         {
             static const std::uint64_t salt = std::random_device{}(); // a new sequence each session
-            return static_cast<float>(SplitMix64(a_key + salt) >> 40) * (1.0f / 16777216.0f) < a_chance;
+            return static_cast<float>(SplitMix64(a_key + salt) >> 40) * (1.0f / 16777216.0f);
         }
+        bool RollOnce(std::uint64_t a_key, float a_chance) { return RollValue(a_key) < a_chance; }
     }
 
     // Per-swing defend roll for parry and timed block (DefendOnSwingChance). Rolled once per swing (bit 30 keeps the
@@ -188,6 +189,26 @@ namespace CombatAI
             return 2.0f;
         }
         return 1.0f;
+    }
+
+    bool DecisionMatrix::RollSelfTest()
+    {
+        // Keys shaped like the forward-dodge roll (actor id high, a flag bit, consecutive time buckets). Runs 53-54
+        // logged 0 "go" in ~10 openings at 0.35; this tells a skewed roll from bad luck.
+        bool ok = true;
+        std::string report;
+        for (const float chance : {0.35f, 0.5f}) {
+            int hits = 0;
+            constexpr int kKeys = 20000;
+            for (int i = 0; i < kKeys; ++i) {
+                hits += RollOnce((0x0008E0EDull << 32) | (1ull << 61) | static_cast<std::uint64_t>(100000 + i), chance);
+            }
+            const float rate = static_cast<float>(hits) / kKeys;
+            ok &= std::fabs(rate - chance) < 0.02f;
+            report += std::format(" {:.2f} -> {:.3f};", chance, rate);
+        }
+        LOG_INFO("Roll self-test{} ({} over 20000 keys each)", ok ? " passed" : " FAILED", report);
+        return ok;
     }
 
     DecisionResult DecisionMatrix::EvaluateRangedPositioning(RE::Actor *a_actor, const ActorStateData &a_state)
@@ -1556,12 +1577,12 @@ namespace CombatAI
                     }
                     const auto bucket = static_cast<std::uint32_t>(
                         std::chrono::duration<float>(std::chrono::steady_clock::now().time_since_epoch()).count() / 1.5f);
-                    canUseForwardDodge = RollOnce((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) | (1ull << 61) | bucket,
-                                                  (std::min)(chance, 1.0f));
+                    const float roll = RollValue((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) | (1ull << 61) | bucket);
+                    canUseForwardDodge = roll < (std::min)(chance, 1.0f);
                     if (a_actor && Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
-                        LOG_DEBUG("ForwardDodge 0x{:08X}: opening ({}) gap {:.0f}, risk {:.2f}{} -> chance {:.2f}: {}",
+                        LOG_DEBUG("ForwardDodge 0x{:08X}: opening ({}) gap {:.0f}, risk {:.2f}{} -> chance {:.2f}, rolled {:.2f} (bucket {}): {}",
                                   a_actor->GetFormID(), counterOpening ? "counter" : "target busy", gap, risk,
-                                  exposed ? " (exposed)" : "", (std::min)(chance, 1.0f), canUseForwardDodge ? "go" : "walk");
+                                  exposed ? " (exposed)" : "", (std::min)(chance, 1.0f), roll, bucket, canUseForwardDodge ? "go" : "walk");
                     }
                 }
                 advancingResult.action = canUseForwardDodge ? ActionType::ForwardDodge : ActionType::Advancing;

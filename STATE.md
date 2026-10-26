@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.28.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.28.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**

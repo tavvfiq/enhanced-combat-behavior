@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.28.1 (2026-10-26)
+
+- **Debug: the forward-dodge roll shows its value.** `ForwardDodge 0x..: ... -> chance 0.35, rolled 0.62 (bucket N): walk`; one bucket is one 1.5 s opening, so repeated lines with the same bucket are one roll.
+- **Roll self-test at load:** `Roll self-test passed ( 0.35 -> 0.35x; 0.50 -> 0.50x; over 20000 keys each)`. Runs 53-54 had no forward-dodge "go"; an offline run of the same roll gave 0.346-0.356 at 0.35 over 5 random salts, so that was luck (or fewer distinct openings than lines), not a skewed roll.
+
 ## CombatAITree 0.28.0 (2026-10-26)
 
 - **NPCs walk in instead of circling from afar.** Flanking now only happens near the target (within 2.5x the attack range) and only when the target isn't facing that NPC; when it is, the NPC is the target's focus and fights instead. Before, flanking won from up to 1500 units over walking in (run 53: Flanking 950 of 1633 actions, Attack 6). NPCs waiting for an attack slot still circle (pacing), unchanged.
