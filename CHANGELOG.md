@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.31.1 (2026-10-26)
+
+- **Bashes right after a swing swing again.** A bash the brain asked for within a moment of the NPC's own attack inherited that attack's "commit", and the attack-kind filter then zeroed every bash candidate (`intent: other kind`). Run 57: the chief's bashes were taken by the Block tree 35 of 35 times with no bash animation at all. Taking a bash now clears the leftover commit.
+
 ## CombatAITree 0.31.0 (2026-10-26)
 
 - **Draugr, falmer and skeletons get the brain too.** The brain used to take only NPCs (`ActorTypeNPC`); draugr, falmer, skeletons and dragon priests are creatures in Skyrim.esm (`ActorTypeCreature`), so a Draugr Deathlord boss was detected but fought fully vanilla. Now a creature carrying a real weapon is taken as well: attacks, blocking, bashes, timed block, pacing, personality and boss logic apply. Never with dodges, jumps or forward dodges (no dodge animations for them). Giants and dragon priests stay vanilla, as do animals, trolls, spiders and dragons (no weapon). Log once per race: `Brain: humanoid creature 0x.. (Draugr Deathlord, race 0x..) - taken, no dodges`. INI: `[DecisionMatrix] IncludeHumanoidCreatures`.

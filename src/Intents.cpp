@@ -160,6 +160,11 @@ namespace CombatAI::Intents
             if (e.defend == a_kind && now < e.defendUntil) {
                 taken = true;
                 e.defend = Defend::None;
+                // A bash right after a swing: drop that swing's commit, or the attack-kind filter zeroes every bash
+                // candidate (run 58: the chief's bashes taken 35/35, no bashStart; "intent: other kind")
+                if (a_kind == Defend::Bash) {
+                    e.committed = Attack::None;
+                }
             }
         });
         if (taken) {
