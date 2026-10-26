@@ -180,7 +180,7 @@ namespace CombatAI::Trees
         Node *Checked(Node *a_node, const char *a_what)
         {
             if (!a_node) {
-                SKSE::stl::report_and_fail(std::format("CombatAITree: could not build tree node '{}'", a_what));
+                SKSE::stl::report_and_fail(std::format("EnhancedCombatBehavior: could not build tree node '{}'", a_what));
             }
             return a_node;
         }

@@ -54,7 +54,7 @@ namespace CombatAI
         // StartAttack handles as a clean failure (SE 48139+0x328).
         // Humanoid creatures mid-swing: their graph refuses a new start for ~2 s (attack state reads idle meanwhile)
         if (a_attacker && a_chance > 0.0f && ActorUtils::IsHumanoidCreature(a_attacker) &&
-            Intents::SinceSwing(a_attacker) < ActorUtils::kCreatureSwingSeconds) {
+            Intents::SinceSwing(a_attacker) < Config::GetInstance().GetDecisionMatrix().creatureSwingSeconds) {
             return Logged(a_attacker, a_data, a_chance, 0.0f, "creature mid-swing");
         }
         if (a_attacker && a_data && a_chance > 0.0f) {

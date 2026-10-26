@@ -1,5 +1,15 @@
 # Changelog
 
+## Enhanced Combat Behavior 0.32.0 (2026-10-26)
+
+- **New name: Enhanced Combat Behavior** (was CombatAITree during development). Files: `SKSE/Plugins/EnhancedCombatBehavior.dll`, `EnhancedCombatBehavior.ini`; log `EnhancedCombatBehavior.log`; menu "Enhanced Combat Behavior". Remove the old `CombatAITree.dll` / `.ini` when updating.
+- **License: GPL-3.0-or-later.** The build links CommonLibSSE-NG, which is GPL-3.0-or-later; MIT notices for the code this builds on are in `THIRD_PARTY.md`, credits in `CREDITS.md`.
+- **Debug log off by default** in the shipped INI (`[General] EnableDebugLog = false`).
+- **New in-game menu tab "Behavior"** and INI keys for what was hard-coded: personality spread (`PersonalityJitter`), tactical-retreat caution (`TacticalRetreatMinCaution`), flanking range (`FlankingMaxReach`), shot-hold cap (`ShotHoldMaxSeconds`), creature swing window (`CreatureSwingSeconds`), combo follow-up reach (`ComboReachMult`), boss phases and skill (`[Boss] EnragedHealth`, `DesperateHealth`, `CautionFloor`, `SkillBonus`, `PowerStaminaMin`, `GuardBreakBlockSeconds`). The tab also holds personality, forward dodge, combo follow-up, humanoid creature and boss toggles.
+- **Removed settings that did nothing:** `EnableEvasionDodge`, `AttackStaminaCost`, `MaxActorsPerFrame`, and the legacy fallback keys `FatigueMistakeBonus` / `PanicMistakeBonus`.
+- **Code cleanup:** removed unused functions (`DisableCPR`, `HasTimedBlockWindow`, `RecoverFromCorruption`, `OnGuardCounterExpired`, `SafeSetGraphVariableInt`, `SafeHasMagicEffect`) and a dead feedback counter; stale TODO/notes rewritten. Dropped the StyyxUtils dependency (one spell-cast helper, now inline; the menu API header is vendored in `include/API`) and the unused clib-util submodule.
+- **Repository:** old design/tuning docs from the parent mod removed (superseded by the README and the commented INI); the design notes moved to `docs/TREE_DESIGN.md`; local workspace notes and tool state are git-ignored; builds can use `-m release`.
+
 ## CombatAITree 0.31.7 (2026-10-26)
 
 - **Draugr wait out their whole swing:** the no-new-attack window after a draugr/falmer/skeleton swing start is 3 s (was 2). Run 61: a Draugr Deathlord's attack events 2-3 s after an accepted start were rejected 20 of 23 times.

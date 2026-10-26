@@ -28,13 +28,13 @@ extern "C" __declspec(dllexport) bool __cdecl SKSEPlugin_Load(const SKSE::LoadIn
     auto logsFolder = SKSE::log::log_directory();
     if (!logsFolder)
         SKSE::stl::report_and_fail("SKSE log_directory not provided, logs disabled.");
-    auto logFilePath = *logsFolder / std::format("{}.log", "CombatAITree");
+    auto logFilePath = *logsFolder / std::format("{}.log", "EnhancedCombatBehavior");
     auto fileLoggerPtr = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFilePath.string(), true);
     auto loggerPtr = std::make_shared<spdlog::logger>("log", std::move(fileLoggerPtr));
     spdlog::set_default_logger(std::move(loggerPtr));
 
     // Initialize logger
-    LOG_INFO("CombatAITree v{} loading...", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string());
+    LOG_INFO("EnhancedCombatBehavior v{} loading...", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string());
 
     // Load configuration
     auto &config = CombatAI::Config::GetInstance();
@@ -42,7 +42,7 @@ extern "C" __declspec(dllexport) bool __cdecl SKSEPlugin_Load(const SKSE::LoadIn
 
     // Check if plugin is enabled
     if (!config.IsEnabled()) {
-        LOG_INFO("CombatAITree is disabled in configuration file");
+        LOG_INFO("EnhancedCombatBehavior is disabled in configuration file");
         return true; // Plugin loaded but disabled
     }
 
@@ -80,7 +80,7 @@ extern "C" __declspec(dllexport) bool __cdecl SKSEPlugin_Load(const SKSE::LoadIn
         logger::error("Failed to register messaging listener");
     }
 
-    LOG_INFO("CombatAITree loaded successfully");
+    LOG_INFO("EnhancedCombatBehavior loaded successfully");
 
     return true;
 }

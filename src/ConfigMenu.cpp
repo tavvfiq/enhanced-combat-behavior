@@ -26,9 +26,9 @@ namespace CombatAI
             LOG_ERROR("SKSE Menu Framework is installed but not loaded (or has no AddSectionItem); runtime config menu disabled");
             return;
         }
-        SKSEMenuFramework::SetSection("Combat AI Tree");
+        SKSEMenuFramework::SetSection("Enhanced Combat Behavior");
         SKSEMenuFramework::AddSectionItem("Config", ConfigMenu::Render);
-        LOG_INFO("Registered runtime config menu (SKSE Menu Framework: Combat AI Tree / Config)");
+        LOG_INFO("Registered runtime config menu (SKSE Menu Framework: Enhanced Combat Behavior / Config)");
     }
 
     void __stdcall ConfigMenu::Render()
@@ -129,7 +129,6 @@ namespace CombatAI
 
             if (ImGuiMCP::BeginTabItem("Decision")) {
                 ImGuiMCP::Checkbox("Enable offense", &config.m_decisionMatrix.enableOffense);
-                ImGuiMCP::Checkbox("Enable evasion dodge", &config.m_decisionMatrix.enableEvasionDodge);
                 ImGuiMCP::Checkbox("Enable survival retreat", &config.m_decisionMatrix.enableSurvivalRetreat);
                 ImGuiMCP::Checkbox("Enable jump evasion", &config.m_decisionMatrix.enableJumpEvasion);
                 ImGuiMCP::Checkbox("Enable sprint attack", &config.m_decisionMatrix.enableSprintAttack);
@@ -169,6 +168,43 @@ namespace CombatAI
                                    &config.m_decisionMatrix.enablePowerAttackStaminaCheck);
                 ImGuiMCP::Checkbox("Sprint attack stamina check",
                                    &config.m_decisionMatrix.enableSprintAttackStaminaCheck);
+                ImGuiMCP::EndTabItem();
+            }
+
+            // Everything added for personality, forward dodge, combo follow-up, bosses and humanoid creatures (live)
+            if (ImGuiMCP::BeginTabItem("Behavior")) {
+                ImGuiMCP::Text("Personality: Confidence, Aggression and combat style scale risky and careful rolls.");
+                ImGuiMCP::Checkbox("Enable personality", &config.m_decisionMatrix.enablePersonality);
+                liveFloat("Per-NPC spread (+-)", &config.m_decisionMatrix.personalityJitter, 0.0f, 0.5f);
+                liveFloat("Tactical retreat: min caution", &config.m_decisionMatrix.tacticalRetreatMinCaution, 0.0f, 1.0f);
+                ImGuiMCP::Separator();
+                ImGuiMCP::Text("Forward dodge: a rolled, risky gap-close (needs TK Dodge).");
+                liveFloat("Forward dodge chance", &config.m_dodgeSystem.forwardDodgeChance, 0.0f, 1.0f);
+                liveFloat("Forward dodge cooldown (s)", &config.m_dodgeSystem.forwardDodgeCooldownSeconds, 0.0f, 60.0f, "%.1f");
+                liveFloat("Forward dodge min stamina", &config.m_dodgeSystem.forwardDodgeMinStamina, 0.0f, 1.0f);
+                ImGuiMCP::Separator();
+                ImGuiMCP::Text("Movement and ranged.");
+                liveFloat("Flank only within x attack range", &config.m_decisionMatrix.flankingMaxReach, 1.0f, 10.0f, "%.1f");
+                liveFloat("Hold fire for an ally at most (s)", &config.m_decisionMatrix.shotHoldMaxSeconds, 0.0f, 30.0f, "%.1f");
+                ImGuiMCP::Separator();
+                ImGuiMCP::Text("Combo follow-up (MCO / BFCO, without SCAR).");
+                ImGuiMCP::Checkbox("Enable combo follow-up", &config.m_modIntegrations.enableComboFollowUp);
+                liveFloat("Normal follow-up chance", &config.m_modIntegrations.comboFollowUpChance, 0.0f, 1.0f);
+                liveFloat("Power follow-up chance", &config.m_modIntegrations.comboPowerChance, 0.0f, 1.0f);
+                liveFloat("Follow-up reach x attack range", &config.m_modIntegrations.comboReachMult, 1.0f, 3.0f);
+                ImGuiMCP::Separator();
+                ImGuiMCP::Text("Humanoid creatures (draugr, falmer, skeletons with a weapon).");
+                ImGuiMCP::Checkbox("Include humanoid creatures", &config.m_decisionMatrix.includeHumanoidCreatures);
+                liveFloat("Creature swing window (s)", &config.m_decisionMatrix.creatureSwingSeconds, 0.0f, 10.0f, "%.1f");
+                ImGuiMCP::Separator();
+                ImGuiMCP::Text("Bosses (names in the INI: [Boss] BossNames).");
+                ImGuiMCP::Checkbox("Enable boss detection", &config.m_boss.enableBossDetection);
+                liveFloat("Enraged below health", &config.m_boss.enragedHealth, 0.0f, 1.0f);
+                liveFloat("Desperate below health", &config.m_boss.desperateHealth, 0.0f, 1.0f);
+                liveFloat("Boss caution floor", &config.m_boss.cautionFloor, 0.0f, 1.0f);
+                liveFloat("Boss skill bonus", &config.m_boss.skillBonus, 0.0f, 1.0f);
+                liveFloat("Boss power attack min stamina", &config.m_boss.powerStaminaMin, 0.0f, 1.0f);
+                liveFloat("Guard break after block (s)", &config.m_boss.guardBreakBlockSeconds, 0.0f, 10.0f, "%.1f");
                 ImGuiMCP::EndTabItem();
             }
 

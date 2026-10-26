@@ -2,7 +2,6 @@
 #include "ActorUtils.h"
 #include "Logger.h"
 #include "pch.h"
-#include <st-magic.h>
 
 namespace CombatAI
 {
@@ -95,18 +94,11 @@ namespace CombatAI
 
         // Apply the spell that creates the timed block window
         // This spell applies the mgef_parry_window effect for 0.33 seconds
-        // Use styyx-util's MagicUtil::ApplySpell which handles both permanent and temporary spells
-        StyyxUtil::MagicUtil::ApplySpell(a_actor, a_actor, m_spellParryWindow);
+        // A timed spell: cast it on the actor (an ability would be added instead; this one is not)
+        if (auto *caster = a_actor->GetMagicCaster(RE::MagicSystem::CastingSource::kInstant)) {
+            caster->CastSpellImmediate(m_spellParryWindow, false, a_actor, 1.0f, false, 0.0f, nullptr);
+        }
         return true;
     }
 
-    bool TimedBlockIntegration::HasTimedBlockWindow(RE::Actor *a_actor) const
-    {
-        if (!m_isAvailable || !m_mgefParryWindow || !a_actor) {
-            return false;
-        }
-
-        // Check if actor has the timed block window effect active
-        return ActorUtils::SafeHasMagicEffect(a_actor, m_mgefParryWindow);
-    }
 } // namespace CombatAI

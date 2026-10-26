@@ -1,14 +1,14 @@
-# In-tree combat AI: design (draft 1, 2026-10-22)
+# Enhanced Combat Behavior: tree design notes
 
-Goal: fork **combat-ai-ng** (D:\Modding\combat-ai-ng, MIT) into a new mod. Keep its decision code
-(observers, `DecisionMatrix`, the level-scaled skill rolls + cooldowns that still live in class
-`Humanizer`, config, menu). Replace its actuator (`ActionExecutor`: raw
-animation events and graph variables) with **our own behavior trees**, built from vanilla node
-classes the way **FenixCombatAI-NG** (D:\Modding\skyrim_mods\FenixCombatAI-NG) does. Vanilla
-leaf nodes then execute every action.
+Design notes from the start of the fork (2026-10-22), kept for the reasoning behind the architecture;
+later versions are in `CHANGELOG.md`. The fork kept Enhanced Combat AI's decision code (observers,
+`DecisionMatrix`, the level-scaled skill rolls and cooldowns in `Humanizer`, config, menu) and replaced
+its actuator (raw animation events and graph variables in `ActionExecutor`) with behavior trees built
+from vanilla node classes, the way FenixCombatAI-NG does. Vanilla leaf nodes execute every action.
 
-Out of scope for now: SCAR/MCO/BFCO/CPR/Precision/TK Dodge compatibility, VR.
-Targets: **SE 1.5.97** and **AE 1.7.104** (1.6.1170 for free, because Fenix-NG is validated there).
+At the time SCAR / MCO / BFCO / CPR / Precision / TK Dodge compatibility and VR were out of scope;
+all but VR are handled since (see the README). Targets: SE 1.5.97 and AE 1.7.104 (1.6.1170 shares
+the AE IDs used here).
 
 Labels: **C** confirmed (binary or runtime), **L** likely, **U** unverified.
 

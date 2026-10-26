@@ -198,7 +198,7 @@ namespace CombatAI::ComboFollowUp
         const auto &matrix = Config::GetInstance().GetDecisionMatrix();
         const float range = StateHelpers::EffectiveAttackRange(a_state.weaponReach, a_state.target.boundRadius,
                                                                matrix.offenseReachMultiplier, matrix.offenseReachSafetyMargin);
-        if (!skip && a_state.target.distance > range * 1.3f) {
+        if (!skip && a_state.target.distance > range * settings.comboReachMult) {
             skip = "target out of reach";
         }
         auto *target = skip ? nullptr : RE::TESForm::LookupByID<RE::Actor>(a_state.target.targetFormID);

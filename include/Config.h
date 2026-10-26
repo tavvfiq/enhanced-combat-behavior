@@ -80,7 +80,6 @@ namespace CombatAI
         {
             float interruptMaxDistance = 150.0f;
             float interruptReachMultiplier = 1.2f;
-            bool enableEvasionDodge = true;
             float evasionMinDistance = 250.0f;
             bool enableJumpEvasion = true;
             float jumpEvasionDistanceMin = 500.0f;
@@ -98,6 +97,11 @@ namespace CombatAI
             float tradeBlowsChance = 0.3f;        // Chance to attack into each of the target's normal swings
             bool enablePersonality = true;          // Confidence / Aggression / combat style scale risky rolls
             bool includeHumanoidCreatures = true;   // draugr, falmer, skeletons with a weapon get the brain (no dodges)
+            float creatureSwingSeconds = 3.0f;      // such a creature starts no new attack this soon after a swing start
+            float personalityJitter = 0.15f;        // fixed per-NPC spread added to risk / caution / patience
+            float tacticalRetreatMinCaution = 0.3f; // retreat from a crowd (not low health) only this careful or more
+            float flankingMaxReach = 2.5f;          // flank only within this x the attack range
+            float shotHoldMaxSeconds = 3.0f;        // longest an archer / caster holds fire for an ally in the way
             float closeDodgeChance = 0.3f;        // Chance to dodge each melee swing aimed at it from within reach
             float defendOnSwingChance = 0.5f;     // Chance to parry / timed block each swing aimed at it (in window)
             bool allowDaggerBlock = true;         // Let daggers block and bash (patches vanilla; applies at game start)
@@ -116,8 +120,6 @@ namespace CombatAI
             float sprintAttackLaunchDistance = 0.0f; // Launch only while sprinting and this close; 0 = 3 x weapon reach
             float sprintAttackMinDistance = 300.0f;
             float sprintAttackMaxDistance = 800.0f;
-            float attackStaminaCost =
-                15.0f; // Stamina cost for normal attacks (not used for decision, only for reference)
             float powerAttackStaminaCost = 20.0f;  // Stamina cost for power attacks
             float sprintAttackStaminaCost = 25.0f; // Stamina cost for sprint attacks (higher due to sprinting + attack)
             bool enablePowerAttackStaminaCheck = true;  // If true, check stamina before allowing power attacks
@@ -155,7 +157,6 @@ namespace CombatAI
         struct PerformanceSettings
         {
             float cleanupInterval = 5.0f;
-            std::uint32_t maxActorsPerFrame = 0;
 
             // Adaptive Processing Interval (LOD) settings
             float processingIntervalMid = 0.2f; // Slower updates for mid-range (1000-3000 units)
@@ -175,6 +176,7 @@ namespace CombatAI
             bool enableComboFollowUp = true;      // MCO/BFCO combo windows: start the next attack (off while SCAR.dll is loaded)
             float comboFollowUpChance = 0.7f;     // per window: chance of a normal follow-up
             float comboPowerChance = 0.3f;        // per power window: chance of a power follow-up (needs power stamina)
+            float comboReachMult = 1.3f;          // a follow-up starts up to this x the attack range (combo steps lunge)
         };
 
         struct ParrySettings
@@ -271,6 +273,12 @@ namespace CombatAI
         {
             bool enableBossDetection = true;
             std::string bossNames = "Bandit Chief, Draugr Deathlord"; // comma-separated display names, case-insensitive
+            float enragedHealth = 0.5f;           // below this health fraction: enraged
+            float desperateHealth = 0.25f;        // below this: desperate (brave: all-in, careful: falls back)
+            float cautionFloor = 0.4f;            // a boss's caution never drops below this (outside the desperate phase)
+            float skillBonus = 0.15f;             // added to its skill roll (fewer mistakes)
+            float powerStaminaMin = 0.4f;         // stamina fraction a boss's power attack needs (if below PowerAttackMinStamina)
+            float guardBreakBlockSeconds = 1.0f;  // the target has held its block this long: guard break
         };
 
         struct TeamworkSettings
@@ -318,10 +326,10 @@ namespace CombatAI
         Config &operator=(const Config &) = delete;
 
         // Load configuration from INI file
-        bool Load(const std::string &a_filePath = "Data/SKSE/Plugins/CombatAITree.ini");
+        bool Load(const std::string &a_filePath = "Data/SKSE/Plugins/EnhancedCombatBehavior.ini");
 
         // Save current configuration back to the INI file (used by the runtime menu)
-        bool Save(const std::string &a_filePath = "Data/SKSE/Plugins/CombatAITree.ini");
+        bool Save(const std::string &a_filePath = "Data/SKSE/Plugins/EnhancedCombatBehavior.ini");
 
         // Humanizer settings are copied into the Humanizer at init, so changes made at
         // runtime must be re-applied on the game thread. The menu marks them dirty;

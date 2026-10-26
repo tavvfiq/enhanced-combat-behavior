@@ -146,7 +146,9 @@ namespace CombatAI::Boss
         if (!a_actor || !Get(a_actor).boss) {
             return Phase::None;
         }
-        const Phase phase = a_healthPercent < 0.25f ? Phase::Desperate : (a_healthPercent < 0.5f ? Phase::Enraged : Phase::Normal);
+        const auto &boss = Config::GetInstance().GetBoss();
+        const Phase phase = a_healthPercent < boss.desperateHealth ? Phase::Desperate
+                            : (a_healthPercent < boss.enragedHealth ? Phase::Enraged : Phase::Normal);
         Phase previous = Phase::None;
         g_phase.ModifyOrCreate(a_actor->GetFormID(), [&](Phase &p) {
             previous = p;
@@ -169,7 +171,7 @@ namespace CombatAI::Boss
     float PowerStaminaMin(RE::Actor *a_actor)
     {
         const float configured = Config::GetInstance().GetDecisionMatrix().powerAttackMinStamina;
-        return a_actor && Get(a_actor).boss ? (std::min)(configured, 0.4f) : configured;
+        return a_actor && Get(a_actor).boss ? (std::min)(configured, Config::GetInstance().GetBoss().powerStaminaMin) : configured;
     }
 
     bool Brave(RE::Actor *a_actor)

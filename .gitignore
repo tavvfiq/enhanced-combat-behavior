@@ -1,8 +1,31 @@
-.xmake
-build
-.vscode
-vsxmake2022
-dist
-.cache
+# Build output and IDE state
+.xmake/
+build/
+vsxmake*/
+.vs/
+.vscode/
+.cache/
 compile_commands.json
+*.pdb
+*.ilk
+*.obj
+
+# Packaged releases (built by scripts/package_release.ps1)
+dist/
 releases/
+
+# Unused local CommonLib copies (the build uses CommonLibSSE-NG from COMMONLIBSSE_NG_DIR)
+lib/
+
+# Local workspace notes, AI tool state and logs (not part of the mod)
+PLAN.md
+STATE.md
+DECISIONS.md
+VALIDATION.md
+CURRENT.txt
+MEMORY/
+.claude/
+.token-optimizer/
+.cbmignore
+*.log
+__pycache__/

@@ -1111,7 +1111,6 @@ namespace CombatAI
             actorTemporal.guardCounterSuccessCount = guardCounterFeedback.guardCounterSuccessCount;
             actorTemporal.guardCounterAttemptCount = guardCounterFeedback.guardCounterAttemptCount;
             actorTemporal.guardCounterFailedCount = guardCounterFeedback.guardCounterFailedCount;
-            actorTemporal.guardCounterMissedOpportunityCount = guardCounterFeedback.guardCounterMissedOpportunityCount;
             actorTemporal.guardCounterSuccessRate = guardCounterFeedback.guardCounterSuccessRate;
 
             // Update attack defense feedback from AttackDefenseFeedbackTracker

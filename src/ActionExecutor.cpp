@@ -225,7 +225,7 @@ namespace CombatAI
         return success;
     }
 
-    bool ActionExecutor::ExecuteBash(RE::Actor *a_actor, const ActorStateData *a_state)
+    bool ActionExecutor::ExecuteBash(RE::Actor *a_actor, [[maybe_unused]] const ActorStateData *a_state)
     {
         if (!a_actor) {
             return false;
@@ -502,8 +502,8 @@ namespace CombatAI
                 a_state.target.isValid ? a_state.target.distance : 600.0f; // Default if no valid target
             float minDist = retreatDistance;
             float maxDist = retreatDistance * 1.5f;
-            float minWait = 1.5f; // TODO: make configurable
-            float maxWait = 3.0f; // TODO: make configurable
+            float minWait = 1.5f; // CPR waits 1.5-3 s at the fallback spot
+            float maxWait = 3.0f;
 
             SetCPRFallback(a_actor, minDist, maxDist, minWait, maxWait);
             return true;
@@ -772,19 +772,6 @@ namespace CombatAI
         ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableBackoff", true);
         ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_BackoffMinDistMult", a_minDistMult);
         ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_BackoffChance", 1.0f); // Always backoff when triggered
-    }
-
-    void ActionExecutor::DisableCPR(RE::Actor *a_actor)
-    {
-        if (!a_actor) {
-            return;
-        }
-
-        // Disable all CPR behaviors
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableCircling", false);
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableAdvanceRadius", false);
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableBackoff", false);
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableFallback", false);
     }
 
     bool ActionExecutor::ExecuteAttack(RE::Actor *a_actor)
@@ -1213,8 +1200,7 @@ namespace CombatAI
         ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_OuterRadiusMid", a_outerRadiusMid);
         ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_OuterRadiusMax", a_outerRadiusMax);
 
-        // NOTE: CPR_InterruptAction removed temporarily to avoid potential crashes
-        // CPR will handle advancing naturally through its behavior tree
+        // No CPR_InterruptAction: CPR advances through its own behavior tree
         // If needed, we can re-enable this later with proper throttling
     }
 

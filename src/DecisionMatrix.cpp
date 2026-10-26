@@ -318,7 +318,8 @@ namespace CombatAI
         // Guard break: the target has held its block for a second, in reach and facing us. A bash only inside bash
         // reach (GMST fCombatBashReach, as SCAR measures it): run 56's 119 guard-break bashes were taken by the Block
         // tree but only 2 swung, the rest failed vanilla's range check at weapon reach.
-        if (a_state.target.isBlocking && a_state.temporal.target.blockingDuration >= 1.0f && cc.isInAttackRange &&
+        if (a_state.target.isBlocking &&
+            a_state.temporal.target.blockingDuration >= Config::GetInstance().GetBoss().guardBreakBlockSeconds && cc.isInAttackRange &&
             a_state.self.isIdle && a_state.target.orientationDot > 0.5f) {
             if (a_state.self.staminaPercent >= Boss::PowerStaminaMin(a_actor)) {
                 return pick(ActionType::PowerAttack, 2.6f, "guard break (target turtling)");
@@ -1599,7 +1600,8 @@ namespace CombatAI
 
         // A tactical retreat (outnumbered or high threat, not health) is a careful NPC's choice: run 58's Foolhardy falmer
         // (caution 0.05) retreated 107 of 162 decisions at 50-70% health. Bosses use their own phases instead.
-        const bool careful = Personality::Effective(a_actor).caution >= 0.3f && Boss::CurrentPhase(a_actor) == Boss::Phase::None;
+        const bool careful = Personality::Effective(a_actor).caution >= config.GetDecisionMatrix().tacticalRetreatMinCaution &&
+                             Boss::CurrentPhase(a_actor) == Boss::Phase::None;
         if (!shouldRetreat && careful && (significantlyOutnumbered || retreatThreatLevel >= ThreatLevel::High)) {
             // Retreat when significantly outnumbered or high threat, but only if health
             // is moderate or low Don't retreat if health is high (might want to fight)
@@ -2019,7 +2021,7 @@ namespace CombatAI
                 constexpr float kMaxAttackAngleCos = 0.259f; // cos 75 deg
             // A draugr's (falmer's, skeleton's) swing runs ~2 s with its attack state reading idle; a new attack
             // inside that is refused by its graph (run 58: 34 of 36 attack events 0.5-2 s after a start)
-            if (ActorUtils::IsHumanoidCreature(a_actor) && Intents::SinceSwing(a_actor) < ActorUtils::kCreatureSwingSeconds) {
+            if (ActorUtils::IsHumanoidCreature(a_actor) && Intents::SinceSwing(a_actor) < config.GetDecisionMatrix().creatureSwingSeconds) {
                 return skip("creature still swinging, s", Intents::SinceSwing(a_actor));
             }
             if (!AttackReady(a_actor)) {
@@ -2875,7 +2877,7 @@ namespace CombatAI
         const auto &dm = Config::GetInstance().GetDecisionMatrix();
         const float reach = EffectiveAttackRange(a_state, a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f,
                                                  dm.offenseReachMultiplier, dm.offenseReachSafetyMargin);
-        if (targetToSelfDist > reach * 2.5f || TargetAimedAtUs(a_actor, a_state)) {
+        if (targetToSelfDist > reach * dm.flankingMaxReach || TargetAimedAtUs(a_actor, a_state)) {
             return result;
         }
 

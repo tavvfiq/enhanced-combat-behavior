@@ -1,24 +1,27 @@
 # Credits
 
-## Inspiration
-- **ProjectGapClose** - For hook patterns, power attack detection, and combat AI insights
-- **Combat Pathing Revolution (CPR)** - For movement control via animation graph variables
-- **BFCO Attack Framework** - For attack animation patterns
+## Built on
+- **EnhancedCombatAI** (Enhanced Combat AI, `CombatAI-NG.dll`): this mod is its successor. The decision
+  code (state observers, decision matrix, skill rolls, config and menu) started there. MIT, see
+  `THIRD_PARTY.md`.
+- **FenixCombatAI-NG** (tavvfiq's port of FenixCombatAI): the approach of building combat behavior
+  trees out of the engine's own node classes, and the node IDs in `include/TreeNodes.h`.
+- **Combat Pathing Revolution** by max-su-2019: behavior-tree structure layouts (via FenixCombatAI-NG).
+  MIT.
+- **SCAR** by max-su-2019: the `SCAR_ActionData` format and range rules, and how SCAR starts an attack.
+  MIT.
 
-## Dependencies
-- **CommonLibSSE-NG** - SKSE plugin framework (MIT License)
-- **SimpleINI** - Configuration file parsing
+## Research references
+- **ProjectGapClose**: hook patterns and sprint-attack rules.
+- **KeyLogicExpansion** (Acook1e): how MCO / BFCO combo windows are read for the player.
+- **MCO**, **ADXP MCO Bug Fixes**, **BFCO** and the **MCO to BFCO Converter** documentation on Nexus:
+  combo window annotation names.
+- **SimpleDualWieldBlock** (WastelPlaster): the player-side dual-wield block idea.
 
-## Mod Integrations
-This plugin integrates with the following mods (all optional):
-- **Combat Pathing Revolution (CPR)** - Enhanced movement control (circling, fallback, advance)
-- **BFCO Attack Framework** - Enhanced attack animations and state management
-- **TK Dodge RE** - NPC dodging/evasion system
-- **Precision** - Accurate weapon reach calculations
+## Libraries
+- CommonLibSSE-NG (alandtse and contributors), spdlog, SimpleIni.
+- SKSE Menu Framework (in-game config menu API).
+- Precision API (Ersh).
 
-## Special Thanks
-- The Skyrim modding community for their excellent tools and frameworks
-- All contributors and testers
-
-- SCAR (Skyrim Combos AI Revolution) by max-su-2019, MIT License: the SCAR_ActionData annotation format and range rules used by src/SCARData.cpp (https://github.com/max-su-2019/SCAR).
-- Combo follow-up (0.25.0) starts the next attack the way SCAR's attack-data path does (CombatAnimation with the attack event). Window annotation names from the MCO and BFCO documentation on Nexus.
+## Thanks
+The Skyrim modding community for its tools, frameworks and reverse-engineering notes.

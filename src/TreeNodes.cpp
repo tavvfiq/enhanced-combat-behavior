@@ -133,7 +133,7 @@ namespace CombatAI::TreeNodes
         RE::BSTArray<Node *> items;
         for (auto *c : a_children) {
             if (!c || c->parent) {
-                SKSE::stl::report_and_fail("CombatAITree: tree child is null or still attached to a parent");
+                SKSE::stl::report_and_fail("EnhancedCombatBehavior: tree child is null or still attached to a parent");
             }
             items.push_back(c);
         }

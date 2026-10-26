@@ -26,9 +26,6 @@ namespace CombatAI
         // Handle successful hit from guard counter attack
         void OnGuardCounterHit(RE::Actor *a_attacker);
 
-        // Handle guard counter window expired without attack (missed opportunity)
-        void OnGuardCounterExpired(RE::Actor *a_actor);
-
         // Update timers and clean up old attempts
         void Update(float a_deltaTime);
 
@@ -40,7 +37,6 @@ namespace CombatAI
             int guardCounterSuccessCount = 0;                // Number of successful guard counters (hit)
             int guardCounterAttemptCount = 0;                // Total number of guard counter attempts
             int guardCounterFailedCount = 0;                 // Number of failed guard counters (missed/blocked)
-            int guardCounterMissedOpportunityCount = 0; // Number of times guard counter window expired without attempt
             float guardCounterSuccessRate = 0.0f;       // Success rate (0.0-1.0)
         };
         GuardCounterFeedback GetFeedback(RE::Actor *a_actor);

@@ -126,7 +126,7 @@ namespace CombatAI
         // A boss makes fewer mistakes (+0.15 skill)
         const float skill = (std::min)(1.0f, (std::clamp)(m_config.skillBase + m_config.skillPerLevel * (level - 1.0f),
                                                           m_config.skillMin, m_config.skillMax) +
-                                                 (Boss::Get(a_actor).boss ? 0.15f : 0.0f));
+                                                 (Boss::Get(a_actor).boss ? Config::GetInstance().GetBoss().skillBonus : 0.0f));
         // Fatigue and panic scale the failure chance: x(1 + penalty) at full fatigue/panic.
         // (Dividing skill instead turned a 95% veteran into 63% after three minutes.)
         const float failure = (1.0f - skill) * (1.0f + CalculateStress(a_action, a_combatTime, a_self));
@@ -207,16 +207,6 @@ namespace CombatAI
         // Get-or-create the actor's cooldown state and record the cooldown atomically.
         m_cooldownStates.ModifyOrCreate(
             a_formID, [&](ActorCooldownState &cooldownState) { cooldownState.cooldowns.Emplace(a_action, cooldown); });
-    }
-
-    void Humanizer::RecoverFromCorruption()
-    {
-        // Emergency recovery: clear all maps if they're corrupted
-        // This is a last resort when maps become unusable
-        // Thread-safe wrappers handle this safely
-        m_reactionStates.Clear();
-        m_skillRolls.Clear();
-        m_cooldownStates.Clear();
     }
 
     void Humanizer::Update(float a_deltaTime)

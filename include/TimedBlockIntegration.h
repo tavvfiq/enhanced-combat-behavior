@@ -26,9 +26,6 @@ namespace CombatAI
         // Apply timed block window spell to actor (creates 0.33s window)
         bool ApplyTimedBlockWindow(RE::Actor *a_actor);
 
-        // Check if actor has timed block window effect active
-        bool HasTimedBlockWindow(RE::Actor *a_actor) const;
-
       private:
         TimedBlockIntegration() = default;
         ~TimedBlockIntegration() = default;

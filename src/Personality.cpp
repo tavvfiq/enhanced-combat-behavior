@@ -24,7 +24,7 @@ namespace CombatAI::Personality
         {
             std::uint32_t h = (a_formID ^ a_salt) * 0x9E3779B1u;
             h ^= h >> 15;
-            return (static_cast<float>(h & 0xFFFF) / 65535.0f - 0.5f) * 0.3f;
+            return (static_cast<float>(h & 0xFFFF) / 65535.0f - 0.5f) * 2.0f * Config::GetInstance().GetDecisionMatrix().personalityJitter;
         }
 
         Traits Compute(RE::Actor *a_actor)
@@ -89,7 +89,7 @@ namespace CombatAI::Personality
         default:
             break;
         }
-        t.caution = (std::max)(t.caution, 0.4f); // a boss still defends well (run 55's chief read caution 0.01)
+        t.caution = (std::max)(t.caution, Config::GetInstance().GetBoss().cautionFloor); // a boss still defends well (run 55's chief read caution 0.01)
         return t;
     }
 } // namespace CombatAI::Personality

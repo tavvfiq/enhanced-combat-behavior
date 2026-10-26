@@ -103,26 +103,6 @@ namespace CombatAI
         });
     }
 
-    void GuardCounterFeedbackTracker::OnGuardCounterExpired(RE::Actor *a_actor)
-    {
-        if (!a_actor) {
-            return;
-        }
-
-        auto actorFormIDOpt = ActorUtils::SafeGetFormID(a_actor);
-        if (!actorFormIDOpt.has_value()) {
-            return;
-        }
-
-        RE::FormID actorFormID = actorFormIDOpt.value();
-
-        // Update feedback - guard counter window expired without attempt
-        m_feedbackData.WithWriteLock([&](auto &feedbackMap) {
-            auto &feedback = feedbackMap[actorFormID];
-            feedback.guardCounterMissedOpportunityCount++;
-        });
-    }
-
     void GuardCounterFeedbackTracker::Update(float a_deltaTime)
     {
         // Update feedback timers

@@ -202,7 +202,8 @@ namespace CombatAI::Intents
             return a_factor;
         }
         // Capped hold: run 48's sorcerer held fire 15 s behind an ally it couldn't step around
-        constexpr auto kMaxHold = std::chrono::seconds(3);
+        const auto kMaxHold = std::chrono::duration_cast<Clock::duration>(
+            std::chrono::duration<float>(Config::GetInstance().GetDecisionMatrix().shotHoldMaxSeconds));
         constexpr auto kRelease = std::chrono::milliseconds(1500);
         const auto now = Clock::now();
         float out = a_factor;

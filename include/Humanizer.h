@@ -51,9 +51,6 @@ namespace CombatAI
         // Cleanup invalid actors (call periodically)
         void Cleanup();
 
-        // Emergency recovery: clear corrupted maps if they become unusable
-        void RecoverFromCorruption();
-
         void Evict(RE::FormID a_formID) { m_skillRolls.Erase(a_formID); }
 
         // Configuration

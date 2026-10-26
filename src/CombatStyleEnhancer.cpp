@@ -189,7 +189,7 @@ namespace CombatAI
 
     DecisionResult CombatStyleEnhancer::EnhanceForFlankingStyle([[maybe_unused]] RE::Actor *a_actor,
                                                                 const DecisionResult &a_decision,
-                                                                const ActorStateData &a_state,
+                                                                [[maybe_unused]] const ActorStateData &a_state,
                                                                 RE::TESCombatStyle *a_style)
     {
         DecisionResult result = a_decision;
@@ -289,8 +289,8 @@ namespace CombatAI
 
     DecisionResult CombatStyleEnhancer::EnhanceForDefensiveStyle([[maybe_unused]] RE::Actor *a_actor,
                                                                  const DecisionResult &a_decision,
-                                                                 const ActorStateData &a_state,
-                                                                 RE::TESCombatStyle *a_style)
+                                                                 [[maybe_unused]] const ActorStateData &a_state,
+                                                                 [[maybe_unused]] RE::TESCombatStyle *a_style)
     {
         DecisionResult result = a_decision;
 
@@ -314,7 +314,7 @@ namespace CombatAI
 
     DecisionResult CombatStyleEnhancer::EnhanceForMagicStyle([[maybe_unused]] RE::Actor *a_actor,
                                                              const DecisionResult &a_decision,
-                                                             const ActorStateData &a_state, RE::TESCombatStyle *a_style)
+                                                             [[maybe_unused]] const ActorStateData &a_state, [[maybe_unused]] RE::TESCombatStyle *a_style)
     {
         DecisionResult result = a_decision;
 
@@ -345,7 +345,7 @@ namespace CombatAI
     DecisionResult CombatStyleEnhancer::EnhanceForRangedStyle([[maybe_unused]] RE::Actor *a_actor,
                                                               const DecisionResult &a_decision,
                                                               [[maybe_unused]] const ActorStateData &a_state,
-                                                              RE::TESCombatStyle *a_style)
+                                                              [[maybe_unused]] RE::TESCombatStyle *a_style)
     {
         DecisionResult result = a_decision;
 

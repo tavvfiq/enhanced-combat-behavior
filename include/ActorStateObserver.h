@@ -141,7 +141,6 @@ namespace CombatAI
             int guardCounterSuccessCount = 0;                // Number of successful guard counters (hit)
             int guardCounterAttemptCount = 0;                // Total number of guard counter attempts
             int guardCounterFailedCount = 0;                 // Number of failed guard counters (missed/blocked)
-            int guardCounterMissedOpportunityCount = 0; // Number of times guard counter window expired without attempt
             float guardCounterSuccessRate = 0.0f;       // Success rate (0.0-1.0)
 
             // Attack defense feedback data (when NPC's attacks are parried/timed

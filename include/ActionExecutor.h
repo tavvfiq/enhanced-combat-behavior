@@ -151,9 +151,6 @@ namespace CombatAI
         void SetCPRAdvancing(RE::Actor *a_actor, float a_innerRadiusMin, float a_innerRadiusMid, float a_innerRadiusMax,
                              float a_outerRadiusMin, float a_outerRadiusMid, float a_outerRadiusMax);
 
-        // Helper: Disable all CPR behaviors
-        void DisableCPR(RE::Actor *a_actor);
-
 
 
         // Helper: Calculate CPR circling angles based on strafe direction

@@ -3,9 +3,9 @@
 #include "pch.h"
 
 // Behavior-tree node layer: builds trees out of the engine's own node classes.
-// Ported from FenixCombatAI-NG (src/CombatBehaviorNodes.h + Offsets.h, the user's port). IDs are
+// Ported from FenixCombatAI-NG (src/CombatBehaviorNodes.h + Offsets.h). IDs are
 // RELOCATION_ID(SE 1.5.97, AE); AE 1.6.1170 and 1.7.104 share them for everything used here
-// (checked with skyrim_re/re/fenixport.py, 2026-10-22). Every vtable ID was RTTI-checked on SE,
+// (checked against both binaries, 2026-10-22). Every vtable ID was RTTI-checked on SE,
 // 1.6.1170 and 1.7.104.
 namespace CombatAI::TreeNodes
 {
