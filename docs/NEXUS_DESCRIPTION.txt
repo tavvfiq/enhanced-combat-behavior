@@ -1,0 +1,76 @@
+SUMMARY (Nexus "brief overview", max 350 chars):
+NPCs that read the fight. A combat brain decides when to attack, block, parry, dodge, flank or back off, and plays it through Skyrim's own combat behavior. Personality, group turn-taking, boss phases, MCO/BFCO combo follow-ups.
+
+==================== DESCRIPTION (BBCode) ====================
+
+[size=5][b]Enhanced Combat Behavior[/b][/size]
+
+NPCs stop flailing. Every NPC in combat gets a brain that watches you and its friends and decides what to do next: swing, block your swing, bash you out of a power attack, step aside, wait its turn, or run when the fight is lost. The moves themselves still come from the game's own combat behavior, so animations, attack data and vanilla rules stay intact.
+
+Successor to [i]Enhanced Combat AI[/i]. Don't run both.
+
+[size=4][b]What changes[/b][/size]
+[list]
+[*][b]Reads your swing.[/b] Parries (timed bash), timed blocks, dodges and counters are rolled per swing aimed at the NPC, not at whoever stands next to it.
+[*][b]Personality.[/b] An NPC's Confidence, Aggression and combat style decide how much it gambles. A berserker dashes in and trades blows; a cautious mage keeps its distance.
+[*][b]Groups take turns.[/b] Only a few enemies attack you at once, the rest circle and wait. Archers and casters hold fire when an ally is in the way and step aside.
+[*][b]Bosses.[/b] Bandit chiefs and draugr deathlords never wait their turn, get angrier as they lose health, and punish turtling, kiting and healing.
+[*][b]Combo follow-ups.[/b] With MCO or BFCO movesets, NPCs chain the next attack inside the combo window. No SCAR needed.
+[*][b]Draugr, falmer and skeletons[/b] with a weapon get the same brain (minus dodges).
+[/list]
+
+[size=4][b]Requirements[/b][/size]
+[list]
+[*]SKSE64
+[*]Address Library for SKSE Plugins
+[/list]
+Supports SE 1.5.97 and AE 1.6.1170 / 1.7.x. Played and tested on AE 1.7.104 only so far.
+
+[size=4][b]Optional[/b][/size]
+[list]
+[*][b]SKSE Menu Framework[/b] - in-game settings menu.
+[*][b]TK Dodge RE[/b] - without it NPCs don't dodge.
+[*][b]MCO or BFCO[/b] - combo follow-ups.
+[*][b]Precision[/b] - exact weapon reach.
+[*][b]EldenParry[/b], [b]Simple Timed Block[/b] - parry and timed-block effects for NPCs. Without them these are just well-timed bashes and blocks.
+[*][b]powerofthree's Tweaks[/b] (Load EditorIDs) - lets more bosses be detected.
+[/list]
+
+[size=4][b]Install / update / uninstall[/b][/size]
+Install with your mod manager. When updating, overwrite; the settings file is rebuilt from defaults if you delete it. Safe to remove mid-playthrough: it adds no plugin and no scripts, it only changes how NPCs decide while the DLL is loaded.
+
+[size=4][b]Compatibility[/b][/size]
+[list]
+[*][b]Not with:[/b] Enhanced Combat AI, FenixCombatAI (they drive the same combat trees).
+[*][b]SCAR:[/b] works. SCAR keeps picking the move; this mod only stops it while an NPC waits its turn or defends. Our own combo follow-up switches off.
+[*][b]Combat Pathing Revolution:[/b] supported, optional.
+[*]Other parry / timed-block mods work if they react to an NPC's block or bash timing. Mods that only look at the player's key press won't apply to NPCs.
+[/list]
+
+[size=4][b]Settings[/b][/size]
+In-game: Mod Control Panel > Enhanced Combat Behavior (needs SKSE Menu Framework). Five tabs, common settings on top, the rest under "Advanced". Presets: Default, Vanilla+ (gentler), Souls-like (sharp duels), Chaos (a swarm).
+Or edit [i]Data/SKSE/Plugins/EnhancedCombatBehavior.ini[/i], every line is commented.
+
+[size=4][b]Known limits[/b][/size]
+[list]
+[*]Vanilla bandits are all Foolhardy, so most of them come out bold. Personality shows more between NPC types than within one camp.
+[*]Draugr refuse some of their own running lunges (vanilla behavior). Falmer rarely block.
+[*]Combo follow-ups use the right hand only.
+[*]Not tested yet: SE 1.5.97, long sessions with many saves and loads.
+[/list]
+
+[size=4][b]Bug reports[/b][/size]
+Turn on [i]Enable debug log[/i] in the General tab, open the console and click the NPC that misbehaves, reproduce it, then post [i]Documents/My Games/Skyrim Special Edition/SKSE/EnhancedCombatBehavior.log[/i] with your game version and which optional mods you use.
+
+[size=4][b]Credits[/b][/size]
+[list]
+[*]Built on Enhanced Combat AI and the behavior-tree work in FenixCombatAI-NG.
+[*]max-su-2019 for Combat Pathing Revolution and SCAR (MIT), whose structure layouts and action-data rules this builds on.
+[*]Ersh for the Precision API.
+[*]CommonLibSSE-NG, spdlog, SimpleIni, SKSE Menu Framework.
+[*]MCO / BFCO documentation and KeyLogicExpansion for how combo windows work.
+[/list]
+
+[size=4][b]Permissions[/b][/size]
+Source code under GPL-3.0-or-later: [url=[SOURCE LINK]]source on GitHub[/url]. Third-party notices are in the source repository.
+[AI DISCLOSURE: fill in how AI tools were used, per Nexus rules]
