@@ -73,6 +73,6 @@ Turn on [i]Enable debug log[/i] in the General tab, open the console and click t
 [/list]
 
 [size=4][b]Permissions[/b][/size]
-Source code under GPL-3.0-or-later: [url=[SOURCE LINK]]source on GitHub[/url]. Third-party notices are in the source repository.
+Source code under GPL-3.0-or-later: [url=https://github.com/tavvfiq/enhanced-combat-behavior]source on GitHub[/url]. The license, third-party notices and credits are in the download, in SKSE/Plugins/EnhancedCombatBehavior.
 [AI DISCLOSURE: fill in how AI tools were used, per Nexus rules]
 This project is made with AI. With human in the loop

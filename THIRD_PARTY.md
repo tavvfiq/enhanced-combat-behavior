@@ -1,7 +1,8 @@
 # Third-party code and notices
 
-Enhanced Combat Behavior is licensed under the GNU General Public License v3.0 or later (see `LICENSE`).
+Enhanced Combat Behavior is licensed under the GNU General Public License v3.0 or later (see `LICENSE`, shipped as `LICENSE.txt`).
 It statically links CommonLibSSE-NG, which is GPL-3.0-or-later, so the built DLL is a GPL-3.0 work.
+Source code: https://github.com/tavvfiq/enhanced-combat-behavior
 The parts below come from or follow MIT-licensed projects; their notices are kept here as the MIT
 license requires.
 
@@ -51,11 +52,12 @@ Ersh; the permission notice above applies.
 
 ## SKSE Menu Framework API header
 
-`include/API/SKSEMenuFramework.h` is the SKSE Menu Framework mod API header (its `ImGuiMCP` API
-matches SKSE Menu Framework 3, https://github.com/QTR-Modding/SKSE-Menu-Framework-3, whose README
-states the API header's license does not require mods using it to share their license). This copy
-came bundled with StyyxUtils (GPL-3.0), which this project no longer uses otherwise. TODO before
-release: replace it with the header from the official API repository and record that license here.
+`include/API/SKSEMenuFramework.h` is an older revision of the SKSE Menu Framework 3 mod API header
+(SKSE Menu Framework 3 by QTR-Modding, https://github.com/QTR-Modding/SKSE-Menu-Framework-3). This copy
+came bundled with StyyxUtils (GPL-3.0), which this project no longer uses otherwise. The current
+official header is published at https://github.com/QTR-Modding/SKSE-Menu-Framework-3-API under the
+GNU LGPL v2.1; the framework's README states the header's license does not require mods using it to
+share their license. Both licenses are compatible with this project's GPL-3.0-or-later.
 
 ## Libraries
 

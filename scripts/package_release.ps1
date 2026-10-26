@@ -6,6 +6,11 @@ $root = Split-Path $PSScriptRoot -Parent
 $rel = Join-Path $root "releases\$Version"; $pkg = Join-Path $rel "EnhancedCombatBehavior $Version"
 New-Item -ItemType Directory -Force (Join-Path $pkg 'SKSE\Plugins'), (Join-Path $rel 'symbols') | Out-Null
 Copy-Item (Join-Path $root 'package\*') $pkg -Recurse -Force
+# GPL-3.0 and the MIT notices require the license texts with the binary; own subfolder so no other mod's LICENSE collides
+$docs = Join-Path $pkg 'SKSE\Plugins\EnhancedCombatBehavior'
+New-Item -ItemType Directory -Force $docs | Out-Null
+Copy-Item (Join-Path $root 'LICENSE') (Join-Path $docs 'LICENSE.txt') -Force
+Copy-Item (Join-Path $root 'THIRD_PARTY.md'), (Join-Path $root 'CREDITS.md') $docs -Force
 $out = Join-Path $root 'build\SkyrimSEAE\skse\plugins'
 Copy-Item (Join-Path $out 'EnhancedCombatBehavior.dll') (Join-Path $pkg 'SKSE\Plugins') -Force
 $pdb = Join-Path $out 'EnhancedCombatBehavior.pdb'

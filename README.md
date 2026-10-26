@@ -78,4 +78,5 @@ Design notes: `docs/TREE_DESIGN.md`. Changes: `CHANGELOG.md`.
 
 ## License
 GPL-3.0-or-later (`LICENSE`); it links CommonLibSSE-NG, which is GPL-3.0-or-later. Third-party notices:
-`THIRD_PARTY.md`. Credits: `CREDITS.md`.
+`THIRD_PARTY.md`. Credits: `CREDITS.md`. The release zip carries all three in
+`SKSE/Plugins/EnhancedCombatBehavior/`.

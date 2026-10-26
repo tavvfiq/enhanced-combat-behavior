@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.0.0 (2026-10-26)
+
+- **First public release.** Same behavior as 0.35.0.
+- **License files ship in the download:** `SKSE/Plugins/EnhancedCombatBehavior/` holds `LICENSE.txt` (GPL-3.0), `THIRD_PARTY.md` (MIT notices of the code this builds on, library licenses, source link) and `CREDITS.md`.
+- `THIRD_PARTY.md`: the SKSE Menu Framework API header's origin and license are recorded (an older revision of the official header, LGPL-2.1 today; compatible with GPL-3.0).
+
 ## Enhanced Combat Behavior 0.35.0 (2026-10-26)
 
 - **Works with FluidMotionNPC.** FluidMotionNPC counts a combat NPC that wants to move but gets no closer to its target as stuck, then routes, vaults or climbs it toward the target. Circling, falling back and backing off get no closer on purpose, so it pulled NPCs out of those moves. While this mod runs one of them, the NPC is now claimed through FluidMotionNPC's API (`FMNPC_Claim`, refreshed every decision for 0.5 s); advancing is left to FluidMotionNPC. Without FluidMotionNPC nothing changes. Log: `FluidMotionNPC found: ...`.
