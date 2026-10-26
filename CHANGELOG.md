@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.31.2 (2026-10-26)
+
+- **Outnumbered NPCs close in instead of circling from afar.** "Outnumbered: reposition" strafing now only happens within 2x weapon reach of the target. Before, it applied at any distance and Advancing drops when outnumbered, so the NPC circled and never engaged. Run 57: a lone falmer against 8 enemies strafed 77 of 107 decisions at 200-400 units; a lone bandit against you and a follower counts as outnumbered too.
+
 ## CombatAITree 0.31.1 (2026-10-26)
 
 - **Bashes right after a swing swing again.** A bash the brain asked for within a moment of the NPC's own attack inherited that attack's "commit", and the attack-kind filter then zeroed every bash candidate (`intent: other kind`). Run 57: the chief's bashes were taken by the Block tree 35 of 35 times with no bash animation at all. Taking a bash now clears the leftover commit.

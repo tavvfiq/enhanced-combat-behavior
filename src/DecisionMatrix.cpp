@@ -1408,6 +1408,12 @@ namespace CombatAI
                 bool outnumbered = (a_state.combatContext.enemyCount > a_state.combatContext.allyCount + 1);
                 bool significantlyOutnumbered =
                     (a_state.combatContext.enemyCount >= (a_state.combatContext.allyCount + 1) * 2);
+                // Only near the target, as the proactive branch below: run 57's lone falmer (8 enemies) strafed 77 of
+                // 107 decisions at 200-400 units and never closed in (Advancing drops to 0.95 when outnumbered)
+                const float nearReach = a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f;
+                if (a_state.target.distance > nearReach * 2.0f) {
+                    outnumbered = false;
+                }
 
                 if (outnumbered) {
                     shouldStrafe = true;
@@ -1434,7 +1440,7 @@ namespace CombatAI
                     // Reposition when outnumbered, especially if close to target
                     bool closeToTarget = (a_state.target.distance <= reachDistance * 2.0f);
 
-                    if (closeToTarget || significantlyOutnumbered) {
+                    if (closeToTarget) { // not from afar even when badly outnumbered (run 57's falmer)
                         shouldStrafe = true;
                         strafePriority = 1.4f; // Good priority for proactive repositioning
 

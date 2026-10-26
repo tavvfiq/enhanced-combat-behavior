@@ -484,3 +484,6 @@
 
 ## 0.31.1 (2026-10-26) bash after a swing
 - Untested in game. Pass: Bash executions followed by `AnimEvent ..: bashStart accepted` (or bashPowerStart).
+
+## 0.31.2 (2026-10-26) outnumbered strafe range
+- Run 57 falmer 0xFF000894 (dagger, Enemies=8 Allies=0): Strafe 77 / 107 executed, 200-400 units, candidates (2,1.95) (1,1.85) (10,0.95); source EvaluateEvasion outnumbered branch (1.25 + 0.3 + 0.4), no distance gate. Untested in game. Pass: an outnumbered NPC advances from range and strafes only near its target.
