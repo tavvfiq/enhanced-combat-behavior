@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.26.0 (2026-10-26)
+
+- **Forward dodge is a risky move now, not a habit.** "Target facing away" no longer counts as an opening (in 1 vs many, every NPC you weren't facing saw one; run 51: all 5 forward dodges of the selected NPCs). Real openings only: casting, drawing a bow, recovering from a swing, knocked down, fleeing, or the counter after evading its swing; never into a raised guard facing it. Then a roll once per opening (`ForwardDodgeChance` 0.25, x2 for a counter), its own 8 s cooldown, and half stamina. Debug: `ForwardDodge 0x..: opening (target busy) gap X, risk R -> chance C: go|walk`.
+- **NPC personality.** From data every NPC already has: Confidence (Cowardly .. Foolhardy) and Aggression (Unaggressive .. Frenzied) actor values, its combat style's offensive/defensive balance and avoid-threat chance, plus a small fixed per-NPC variation. It gives risk, caution and patience (0..1). This version uses risk: forward dodge (x0.25 .. x1.75, halved when outnumbered or hurt unless reckless), sprint attacks (one roll per 2 s, 40% .. 100%) and trading blows (x0.25 .. x1.75). Caution and patience are logged for the next step. Debug: `Personality 0x..: confidence 2, aggression 1, style offense 0.50, avoid threat 0.30 -> risk 0.45, caution 0.42, patience 0.60`. INI: `[DecisionMatrix] EnablePersonality`.
+
 ## CombatAITree 0.25.1 (2026-10-26)
 
 - **The combo follow-up now actually chains.** It sends vanilla's attack event (`attackStart`, or `attackPowerStartInPlace` for power) the way vanilla's Attack node does. In run 51 (BFCO) every combo that chained followed an `attackStart` inside the window, while 0.25.0's bare attack action (it played `BFCOAttackstart_0`) never chained on its own. The MCO NPC idles 0.25.0 looked for don't exist in this setup and are dropped.

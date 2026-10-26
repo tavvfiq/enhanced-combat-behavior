@@ -445,3 +445,6 @@
 
 ## 0.25.1 (2026-10-26) follow-up via attackStart
 - API checked in CommonLibSSE-NG (the build's copy): CombatAnimation : TESActionData, Create(Actor*, ANIM), ANIM::kActionRightAttack / kActionRightPowerAttack, Execute(); SCAR e62b63a uses the same Create + animEvent + Execute for its attack-data actions. Untested in game. Pass: `follow-up started` followed by `AnimEvent ..: attackStart accepted` and a new MCO_WinOpen within ~1.5 s.
+
+## 0.26.0 (2026-10-26) forward dodge rework, personality
+- API: RE::ActorValue::kConfidence / kAggression (CommonLibSSE-NG ActorValues.h), TESCombatStyle generalData offensiveMult / defensiveMult / avoidThreatChance (as CombatStyleEnhancer reads them). RiskScale bounds static_assert. Untested in game. Pass: `Personality 0x..` lines with plausible values per NPC (berserker high risk, mage low); forward dodges only with `opening (...)` lines, none from "facing away", at most one per 8 s per NPC.

@@ -131,6 +131,9 @@ namespace CombatAI
         B("DodgeSystem", "EnableDodgeAttackCancel", m_dodgeSystem.enableDodgeAttackCancel);
         D("DodgeSystem", "ForwardDodgeMaxGap", m_dodgeSystem.forwardDodgeMaxGap);
         D("DodgeSystem", "ForwardDodgeCounterWindowSeconds", m_dodgeSystem.forwardDodgeCounterWindowSeconds);
+        D("DodgeSystem", "ForwardDodgeChance", m_dodgeSystem.forwardDodgeChance);
+        D("DodgeSystem", "ForwardDodgeCooldownSeconds", m_dodgeSystem.forwardDodgeCooldownSeconds);
+        D("DodgeSystem", "ForwardDodgeMinStamina", m_dodgeSystem.forwardDodgeMinStamina);
         S("DodgeSystem", "DodgeEventForward", m_dodgeSystem.eventForward);
         S("DodgeSystem", "DodgeEventBack", m_dodgeSystem.eventBack);
         S("DodgeSystem", "DodgeEventLeft", m_dodgeSystem.eventLeft);
@@ -158,6 +161,7 @@ namespace CombatAI
         D("DecisionMatrix", "BackoffOnSwingChance", m_decisionMatrix.backoffOnSwingChance);
         D("DecisionMatrix", "BackoffAfterSwingChance", m_decisionMatrix.backoffAfterSwingChance);
         D("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance);
+        B("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
         D("DecisionMatrix", "CloseDodgeChance", m_decisionMatrix.closeDodgeChance);
         D("DecisionMatrix", "DefendOnSwingChance", m_decisionMatrix.defendOnSwingChance);
         B("DecisionMatrix", "AllowDaggerBlock", m_decisionMatrix.allowDaggerBlock);
@@ -418,6 +422,13 @@ namespace CombatAI
             static_cast<float>(a_ini.GetDoubleValue("DodgeSystem", "ForwardDodgeCounterWindowSeconds",
                                                     m_dodgeSystem.forwardDodgeCounterWindowSeconds)),
             0.0f, 5.0f);
+        m_dodgeSystem.forwardDodgeChance = (std::clamp)(
+            static_cast<float>(a_ini.GetDoubleValue("DodgeSystem", "ForwardDodgeChance", m_dodgeSystem.forwardDodgeChance)), 0.0f, 1.0f);
+        m_dodgeSystem.forwardDodgeCooldownSeconds = (std::clamp)(
+            static_cast<float>(a_ini.GetDoubleValue("DodgeSystem", "ForwardDodgeCooldownSeconds", m_dodgeSystem.forwardDodgeCooldownSeconds)),
+            0.0f, 60.0f);
+        m_dodgeSystem.forwardDodgeMinStamina = (std::clamp)(
+            static_cast<float>(a_ini.GetDoubleValue("DodgeSystem", "ForwardDodgeMinStamina", m_dodgeSystem.forwardDodgeMinStamina)), 0.0f, 1.0f);
 
         // Empty direction names keep the default; an empty fallback means no second try.
         auto event = [&](const char *a_key, std::string &a_value) {
@@ -478,6 +489,8 @@ namespace CombatAI
         m_decisionMatrix.backoffAfterSwingChance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "BackoffAfterSwingChance", m_decisionMatrix.backoffAfterSwingChance)),
             0.0f, 1.0f);
+        m_decisionMatrix.enablePersonality =
+            a_ini.GetBoolValue("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
         m_decisionMatrix.tradeBlowsChance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance)),
             0.0f, 1.0f);

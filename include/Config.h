@@ -60,6 +60,9 @@ namespace CombatAI
             float forwardDodgeMaxGap = 200.0f;
             // Counter: dodge in when the target is recovering from a swing we evaded this recently
             float forwardDodgeCounterWindowSeconds = 1.5f;
+            float forwardDodgeChance = 0.25f;          // per opening, x personality risk (0.25..1.75), x2 for a counter
+            float forwardDodgeCooldownSeconds = 8.0f;  // min time between forward dodges
+            float forwardDodgeMinStamina = 0.5f;       // stamina fraction needed
             // Animation events sent per dodge direction (TK Dodge RE by default). Another dodge
             // framework's events can go here; the fallback is tried when the graph rejects one.
             std::string eventForward = "TKDodgeForward";
@@ -93,6 +96,7 @@ namespace CombatAI
             float backoffOnSwingChance = 0.35f;   // Chance to back off from each of the target's normal swings
             float backoffAfterSwingChance = 0.4f; // Chance to step out after each of its own swings
             float tradeBlowsChance = 0.3f;        // Chance to attack into each of the target's normal swings
+            bool enablePersonality = true;          // Confidence / Aggression / combat style scale risky rolls
             float closeDodgeChance = 0.3f;        // Chance to dodge each melee swing aimed at it from within reach
             float defendOnSwingChance = 0.5f;     // Chance to parry / timed block each swing aimed at it (in window)
             bool allowDaggerBlock = true;         // Let daggers block and bash (patches vanilla; applies at game start)

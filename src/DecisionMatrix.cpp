@@ -3,6 +3,7 @@
 #include "Config.h"
 #include "BlockRules.h"
 #include "Intents.h"
+#include "Personality.h"
 #include "Logger.h"
 #include "ProjectileAwareness.h"
 #include "SCARIntegration.h"
@@ -1525,19 +1526,42 @@ namespace CombatAI
                 //  - gap-close: target just outside reach and open (dashing at a ready,
                 //    facing target only walks into its swing, and chained on every cooldown)
                 //  - counter: we just evaded and the target is stuck recovering from its swing
+                //  A risky move, so a roll, not a reflex: one roll per opening (1.5 s), scaled by the NPC's risk
+                //  personality, halved when outnumbered or hurt unless reckless; its own cooldown (Humanizer) and
+                //  half stamina. "Target facing away" no longer counts as an opening: in 1 vs many every NPC the
+                //  player isn't facing saw one (run 51: all 5 forward dodges of the selected NPCs).
                 const auto &dodgeCfg = config.GetDodgeSystem();
                 const float gap = a_state.target.distance - maxAttackDistance;
                 const bool targetOpen = a_state.target.isCasting || a_state.target.isDrawingBow ||
                                         a_state.target.isInAttackRecovery || a_state.target.isFleeing ||
-                                        a_state.target.knockState != RE::KNOCK_STATE_ENUM::kNormal ||
-                                        a_state.target.orientationDot < 0.0f;
+                                        a_state.target.knockState != RE::KNOCK_STATE_ENUM::kNormal;
                 const bool counterOpening =
                     a_state.target.isInAttackRecovery &&
                     a_state.temporal.self.timeSinceLastEvasion <= dodgeCfg.forwardDodgeCounterWindowSeconds &&
                     gap <= dodgeCfg.forwardDodgeMaxGap * 1.5f;
-                const bool canUseForwardDodge = config.GetModIntegrations().enableTKDodgeIntegration &&
-                                                a_state.self.currentStamina >= dodgeCfg.RequiredStamina() &&
-                                                ((gap <= dodgeCfg.forwardDodgeMaxGap && targetOpen) || counterOpening);
+                const bool guarded = a_state.target.isBlocking && a_state.target.orientationDot > 0.5f;
+                const bool opening = (gap <= dodgeCfg.forwardDodgeMaxGap && targetOpen) || counterOpening;
+                bool canUseForwardDodge = config.GetModIntegrations().enableTKDodgeIntegration && opening && !guarded &&
+                                          a_state.self.currentStamina >= dodgeCfg.RequiredStamina() &&
+                                          a_state.self.staminaPercent >= dodgeCfg.forwardDodgeMinStamina;
+                if (canUseForwardDodge) {
+                    const float risk = Personality::Get(a_actor).risk;
+                    const bool exposed = a_state.combatContext.enemyCount > a_state.combatContext.allyCount + 1 ||
+                                         a_state.self.healthPercent < 0.5f;
+                    float chance = dodgeCfg.forwardDodgeChance * Personality::RiskScale(risk) * (counterOpening ? 2.0f : 1.0f);
+                    if (exposed && risk < 0.7f) {
+                        chance *= 0.5f;
+                    }
+                    const auto bucket = static_cast<std::uint32_t>(
+                        std::chrono::duration<float>(std::chrono::steady_clock::now().time_since_epoch()).count() / 1.5f);
+                    canUseForwardDodge = RollOnce((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) | (1ull << 61) | bucket,
+                                                  (std::min)(chance, 1.0f));
+                    if (a_actor && Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+                        LOG_DEBUG("ForwardDodge 0x{:08X}: opening ({}) gap {:.0f}, risk {:.2f}{} -> chance {:.2f}: {}",
+                                  a_actor->GetFormID(), counterOpening ? "counter" : "target busy", gap, risk,
+                                  exposed ? " (exposed)" : "", (std::min)(chance, 1.0f), canUseForwardDodge ? "go" : "walk");
+                    }
+                }
                 advancingResult.action = canUseForwardDodge ? ActionType::ForwardDodge : ActionType::Advancing;
 
                 // Base priority for advancing
@@ -1619,6 +1643,14 @@ namespace CombatAI
                 if (a_state.self.currentStamina < sprintAttackCost) {
                     shouldSprintAttack = false; // Not enough stamina
                 }
+            }
+
+            // Personality: a sprint attack is a commitment; one roll per 2 s, 40% (cautious) to 100% (reckless)
+            if (shouldSprintAttack) {
+                const auto bucket = static_cast<std::uint32_t>(
+                    std::chrono::duration<float>(std::chrono::steady_clock::now().time_since_epoch()).count() / 2.0f);
+                shouldSprintAttack = RollOnce((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) | (1ull << 60) | bucket,
+                                              0.4f + 0.6f * Personality::Get(a_actor).risk);
             }
 
             if (shouldSprintAttack) {
@@ -1791,8 +1823,8 @@ namespace CombatAI
             if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && !a_state.target.isInAttackRecovery &&
                 !a_state.target.isRanged && TargetAimedAtUs(a_actor, a_state)) {
                 // Trading blows: one roll per normal swing of the target, twice the chance while winning the race
-                const float trade =
-                    (std::min)(1.0f, config.GetDecisionMatrix().tradeBlowsChance * (race.winning ? 2.0f : 1.0f));
+                const float trade = (std::min)(1.0f, config.GetDecisionMatrix().tradeBlowsChance * (race.winning ? 2.0f : 1.0f) *
+                                                         Personality::RiskScale(Personality::Get(a_actor).risk));
                 const auto swing =
                     (static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) | a_state.temporal.target.swingCount;
                 // A counter (we just blocked its blow) goes in even if it chains the next swing (run 42 lost counters

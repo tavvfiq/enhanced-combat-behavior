@@ -1,5 +1,6 @@
 #include "Humanizer.h"
 #include "ActorUtils.h"
+#include "Config.h"
 #include "pch.h"
 #include <algorithm>
 #include <bit>
@@ -179,6 +180,9 @@ namespace CombatAI
         case ActionType::TimedBlock:
             // Briefly preserve the block animation before a movement decision can release it.
             return 0.15f;
+        case ActionType::ForwardDodge:
+            // A risky gap-close, not a habit (on cooldown the director turns it into a plain advance)
+            return Config::GetInstance().GetDodgeSystem().forwardDodgeCooldownSeconds;
         default:
             // Actions without cooldown return 0
             return 0.0f;
