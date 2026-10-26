@@ -438,5 +438,23 @@ namespace CombatAI
             const float scale = RE::bhkWorld::GetWorldScale();
             charController->SetLinearVelocityImpl(RE::hkVector4(a_velocity.x * scale, a_velocity.y * scale, vz, 0.0f));
         }
-    } // namespace ActorUtils
+        // A creature that fights like an NPC: tagged ActorTypeCreature but carrying a real weapon (draugr, falmer,
+    // skeletons). Giants and dragon priests stay out (Skyrim.esm GiantRace 0x131F9, C00GiantOutsideWhiterunRace
+    // 0xCAE13, DragonPriestRace 0x131EF; FormIDs from a read-only scan of the race records). No dodge animations
+    // exist for them, so the brain never dodges with one.
+    inline bool IsHumanoidCreature(RE::Actor *a_actor)
+    {
+        if (!a_actor || !SafeHasKeywordString(a_actor, "ActorTypeCreature")) {
+            return false;
+        }
+        const auto *race = a_actor->GetRace();
+        const RE::FormID raceID = race ? race->GetFormID() : 0;
+        if (raceID == 0x000131F9 || raceID == 0x000CAE13 || raceID == 0x000131EF) {
+            return false;
+        }
+        auto *object = a_actor->GetEquippedObject(false);
+        const auto *weapon = object ? object->As<RE::TESObjectWEAP>() : nullptr;
+        return weapon && weapon->GetWeaponType() != RE::WEAPON_TYPE::kHandToHandMelee;
+    }
+} // namespace ActorUtils
 } // namespace CombatAI

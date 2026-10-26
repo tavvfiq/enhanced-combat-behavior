@@ -162,6 +162,7 @@ namespace CombatAI
         D("DecisionMatrix", "BackoffAfterSwingChance", m_decisionMatrix.backoffAfterSwingChance);
         D("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance);
         B("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
+        B("DecisionMatrix", "IncludeHumanoidCreatures", m_decisionMatrix.includeHumanoidCreatures);
         D("DecisionMatrix", "CloseDodgeChance", m_decisionMatrix.closeDodgeChance);
         D("DecisionMatrix", "DefendOnSwingChance", m_decisionMatrix.defendOnSwingChance);
         B("DecisionMatrix", "AllowDaggerBlock", m_decisionMatrix.allowDaggerBlock);
@@ -493,6 +494,8 @@ namespace CombatAI
             0.0f, 1.0f);
         m_decisionMatrix.enablePersonality =
             a_ini.GetBoolValue("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
+        m_decisionMatrix.includeHumanoidCreatures =
+            a_ini.GetBoolValue("DecisionMatrix", "IncludeHumanoidCreatures", m_decisionMatrix.includeHumanoidCreatures);
         m_decisionMatrix.tradeBlowsChance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance)),
             0.0f, 1.0f);

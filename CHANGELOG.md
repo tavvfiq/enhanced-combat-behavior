@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.31.0 (2026-10-26)
+
+- **Draugr, falmer and skeletons get the brain too.** The brain used to take only NPCs (`ActorTypeNPC`); draugr, falmer, skeletons and dragon priests are creatures in Skyrim.esm (`ActorTypeCreature`), so a Draugr Deathlord boss was detected but fought fully vanilla. Now a creature carrying a real weapon is taken as well: attacks, blocking, bashes, timed block, pacing, personality and boss logic apply. Never with dodges, jumps or forward dodges (no dodge animations for them). Giants and dragon priests stay vanilla, as do animals, trolls, spiders and dragons (no weapon). Log once per race: `Brain: humanoid creature 0x.. (Draugr Deathlord, race 0x..) - taken, no dodges`. INI: `[DecisionMatrix] IncludeHumanoidCreatures`.
+
 ## CombatAITree 0.30.1 (2026-10-26)
 
 - **Guard-break bashes land.** The boss only bashes your raised guard from inside bash reach (GMST `fCombatBashReach`, logged at first use). In run 56 the Block tree took all 119 guard-break bashes but only 2 swung: the rest failed vanilla's range check at weapon reach.

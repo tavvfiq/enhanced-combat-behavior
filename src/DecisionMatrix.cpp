@@ -442,13 +442,20 @@ namespace CombatAI
             possibleDecisions.push_back(interruptResult);
         }
 
+        // Humanoid creatures (draugr, falmer, skeletons) have no dodge or jump animations
+        const bool canDodge = !ActorUtils::IsHumanoidCreature(a_actor);
+        const auto dodges = [](const DecisionResult &a_result) {
+            return a_result.action == ActionType::Dodge || a_result.action == ActionType::Jump ||
+                   a_result.action == ActionType::ForwardDodge;
+        };
+
         DecisionResult projectileResult = EvaluateProjectileDodge(a_actor, a_state);
-        if (projectileResult.action != ActionType::None) {
+        if (projectileResult.action != ActionType::None && (canDodge || !dodges(projectileResult))) {
             possibleDecisions.push_back(projectileResult);
         }
 
         DecisionResult evasionResult = EvaluateEvasion(a_actor, a_state);
-        if (evasionResult.action != ActionType::None) {
+        if (evasionResult.action != ActionType::None && (canDodge || !dodges(evasionResult))) {
             possibleDecisions.push_back(evasionResult);
         }
 
@@ -1693,6 +1700,7 @@ namespace CombatAI
                 const bool guarded = a_state.target.isBlocking && a_state.target.orientationDot > 0.5f;
                 const bool opening = (gap <= dodgeCfg.forwardDodgeMaxGap && targetOpen) || counterOpening;
                 bool canUseForwardDodge = config.GetModIntegrations().enableTKDodgeIntegration && opening && !guarded &&
+                                          !ActorUtils::IsHumanoidCreature(a_actor) &&
                                           a_state.self.currentStamina >= dodgeCfg.RequiredStamina() &&
                                           a_state.self.staminaPercent >= dodgeCfg.forwardDodgeMinStamina;
                 if (canUseForwardDodge) {

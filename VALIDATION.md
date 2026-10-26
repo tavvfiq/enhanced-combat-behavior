@@ -477,3 +477,6 @@
 
 ## 0.30.1 (2026-10-26) boss bash reach, power stamina, no retreat when raging
 - Untested in game. Pass: `Bash reach X (fCombatBashReach)` line; guard-break bashes followed by `bashStart accepted`; more boss power attacks; few or no Retreat for the boss once enraged.
+
+## 0.31.0 (2026-10-26) humanoid creatures
+- Skyrim.esm (read-only) RACE KWDA: DraugrRace 0xD53 / DraugrMagicRace 0xF71DC Creature+Undead; FalmerRace 0x131F4 Creature; SkeletonRace 0xB7998 Creature+Undead; DragonPriestRace 0x131EF Creature+Undead; GiantRace 0x131F9 Creature; NordRace 0x13746 NPC; NordRaceVampire 0x88794 NPC+Undead; DremoraRace 0x131F0 NPC+Daedra. Untested in game. Pass: `Brain: humanoid creature` for draugr; draugr attack/block/bash events accepted; no Dodge/ForwardDodge executed for them; deathlord Boss line and phases.

@@ -97,6 +97,7 @@ namespace CombatAI
             float backoffAfterSwingChance = 0.4f; // Chance to step out after each of its own swings
             float tradeBlowsChance = 0.3f;        // Chance to attack into each of the target's normal swings
             bool enablePersonality = true;          // Confidence / Aggression / combat style scale risky rolls
+            bool includeHumanoidCreatures = true;   // draugr, falmer, skeletons with a weapon get the brain (no dodges)
             float closeDodgeChance = 0.3f;        // Chance to dodge each melee swing aimed at it from within reach
             float defendOnSwingChance = 0.5f;     // Chance to parry / timed block each swing aimed at it (in window)
             bool allowDaggerBlock = true;         // Let daggers block and bash (patches vanilla; applies at game start)

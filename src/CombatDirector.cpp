@@ -777,22 +777,25 @@ namespace CombatAI
             return false;
         }
 
-        // Only process NPCs, not creatures
-        // Check for ActorTypeNPC keyword (NPCs have this, creatures don't)
-        bool hasNPCCheck = ActorUtils::SafeHasKeywordString(a_actor, "ActorTypeNPC");
-        if (!hasNPCCheck) {
-            return false;
-        }
-
-        // Double-check: explicitly exclude creatures
-        if (ActorUtils::SafeHasKeywordString(a_actor, "ActorTypeCreature")) {
-            return false;
-        }
-
-        // Additional check: use CalculateCachedOwnerIsNPC as fallback
-        // This should match the keyword check, but provides extra safety
-        if (!ActorUtils::SafeCalculateCachedOwnerIsNPC(a_actor)) {
-            return false;
+        // NPCs (ActorTypeNPC, not ActorTypeCreature), plus creatures that fight like them with a weapon (draugr,
+        // falmer, skeletons; IncludeHumanoidCreatures). Animals, trolls, spiders, dragons, giants stay vanilla.
+        const bool creature = ActorUtils::SafeHasKeywordString(a_actor, "ActorTypeCreature");
+        const bool npc = !creature && ActorUtils::SafeHasKeywordString(a_actor, "ActorTypeNPC") &&
+                         ActorUtils::SafeCalculateCachedOwnerIsNPC(a_actor);
+        if (!npc) {
+            if (!creature || !Config::GetInstance().GetDecisionMatrix().includeHumanoidCreatures ||
+                !ActorUtils::IsHumanoidCreature(a_actor)) {
+                return false;
+            }
+            // Once per race: which creature kinds the brain took
+            static ThreadSafeMap<RE::FormID, bool> logged;
+            const auto *race = a_actor->GetRace();
+            const RE::FormID raceID = race ? race->GetFormID() : 0;
+            if (!logged.Find(raceID)) {
+                logged.ModifyOrCreate(raceID, [](bool &b) { b = true; });
+                LOG_INFO("Brain: humanoid creature 0x{:08X} ({}, race 0x{:08X}) - taken, no dodges", a_formID,
+                         a_actor->GetName(), raceID);
+            }
         }
 
         auto &config = Config::GetInstance();
