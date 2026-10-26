@@ -77,8 +77,21 @@ namespace CombatAI
 
     // A bash needs the target in front (vanilla's hit cone) and inside bash reach. Run 58: 21 of 26 bashes of one NPC
     // never swung; StartAttack's hit cone failed them with the target at 135-166 deg, 62-81 units away.
+    // Vanilla's Attack and Bash nodes start nothing unless the graph's IsAttackReady is true (SE 37644 / 37645,
+    // AE 38597 / 38598, FixedStrings +0x320 "IsAttackReady", called right before StartAttack at SE 48147+0x164 /
+    // 46638+0x160). An intent posted while it is false is taken by the tree and wasted: run 59's Marauder Champion
+    // had 9 of 9 bashes taken with no StartAttack. A graph without the variable counts as ready.
+    static bool AttackReady(RE::Actor *a_actor)
+    {
+        bool ready = true;
+        return !a_actor || !a_actor->GetGraphVariableBool("IsAttackReady", ready) || ready;
+    }
+
     static bool CanBashNow(RE::Actor *a_actor, const ActorStateData &a_state)
     {
+        if (!AttackReady(a_actor)) {
+            return false;
+        }
         RE::NiPoint3 toTarget = a_state.target.position - a_state.self.position;
         RE::NiPoint3 forward = a_state.self.forwardVector;
         toTarget.z = forward.z = 0.0f;
@@ -1995,6 +2008,9 @@ namespace CombatAI
             // inside that is refused by its graph (run 58: 34 of 36 attack events 0.5-2 s after a start)
             if (ActorUtils::IsHumanoidCreature(a_actor) && Intents::SinceSwing(a_actor) < 2.0f) {
                 return skip("creature still swinging, s", Intents::SinceSwing(a_actor));
+            }
+            if (!AttackReady(a_actor)) {
+                return skip("graph not attack-ready (IsAttackReady false)");
             }
                 const float facing = forward.Dot(toTarget);
                 if (facing < kMaxAttackAngleCos) {

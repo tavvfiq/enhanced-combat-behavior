@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.31.5 (2026-10-26)
+
+- **The brain waits until the NPC is "attack-ready".** Vanilla's Attack and Bash nodes start nothing unless the animation graph's `IsAttackReady` is true (found by disassembly: they check it right before StartAttack). A bash or attack the brain asked for while it was false was taken by the tree and wasted: run 59's Marauder Champion had 9 of 9 bashes taken and none started. Bash, parry, guard-break bash and attacks now need `IsAttackReady`; until then the brain picks its next option.
+- Run 59 (0.31.4): a Draugr Deathlord's attack events were all accepted (3 of 3; ~1/3 in run 58).
+
 ## CombatAITree 0.31.4 (2026-10-26)
 
 - **Bashes only when they can land.** Bash and parry (a bash) now need the target within 75 deg in front and inside bash reach (`fCombatBashReach`); otherwise the brain may still timed-block. Run 58: one NPC's bashes swung 5 of 26 times; vanilla's hit cone refused the rest with the target at 135-166 deg (beside or behind it). The boss guard-break bash uses the same check.
