@@ -43,7 +43,9 @@ Install with a mod manager. Files: `SKSE/Plugins/EnhancedCombatBehavior.dll` and
 
 ## Configure
 Edit `Data/SKSE/Plugins/EnhancedCombatBehavior.ini` (every key is commented) or use the in-game menu,
-which saves back to the INI. Presets: Default, Vanilla+, Souls-like, Chaos.
+which saves back to the INI. The menu has five tabs (General, Offense, Defense, Groups & Movement, NPC
+Character) with the rarely changed settings under "Advanced" headers. Presets: Default, Vanilla+ (gentle),
+Souls-like (sharp duels), Chaos (a swarm); each resets tuning to the defaults first.
 
 ## Debug log
 `Documents/My Games/Skyrim Special Edition/SKSE/EnhancedCombatBehavior.log`. Off by default

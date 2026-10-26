@@ -915,65 +915,9 @@ namespace CombatAI
             return result;
         }
 
-        // Base priority for parry
-        float priority = parryConfig.parryBasePriority;
-
-        // Timing bonus: perfect timing gets maximum bonus
-        // Optimal timing is in the middle of the window
-        float optimalTime = (parryConfig.parryWindowStart + parryConfig.parryWindowEnd) * 0.5f;
-        float timeDiff = std::abs(timeUntilHit - optimalTime);
-        float windowSize = parryConfig.parryWindowEnd - parryConfig.parryWindowStart;
-        float timingAccuracy = 1.0f - (timeDiff / (windowSize * 0.5f));
-        timingAccuracy = ClampValue(timingAccuracy, 0.0f, 1.0f);
-        float timingBonus = timingAccuracy * parryConfig.timingBonusMax;
-        priority += timingBonus;
-
-        // Penalties for early/late timing
-        if (timeUntilHit < optimalTime) {
-            // Too early
-            priority -= parryConfig.earlyBashPenalty * (1.0f - timingAccuracy);
-        } else {
-            // Too late (but still in window)
-            priority -= parryConfig.lateBashPenalty * (1.0f - timingAccuracy);
-        }
-
-        // Distance modifier: closer is better for parry
-        float optimalDistance = (parryConfig.parryMinDistance + parryConfig.parryMaxDistance) * 0.5f;
-        float distanceDiff = std::abs(a_state.target.distance - optimalDistance);
-        float distanceRange = parryConfig.parryMaxDistance - parryConfig.parryMinDistance;
-        if (distanceRange > 0.0f) {
-            float distanceAccuracy = 1.0f - (distanceDiff / (distanceRange * 0.5f));
-            distanceAccuracy = ClampValue(distanceAccuracy, 0.0f, 1.0f);
-            priority += distanceAccuracy * 0.2f; // Up to 0.2 bonus for optimal distance
-        }
-
-        // Target facing modifier: higher priority if target is facing us (more
-        // dangerous)
-        if (a_state.target.orientationDot > 0.7f) {
-            priority += 0.2f; // Target facing us - more urgent parry
-        }
-
-        // Power attack modifier: higher priority for power attacks (more dangerous)
-        if (a_state.target.isPowerAttacking) {
-            priority += 0.3f; // Power attacks are more dangerous - higher parry priority
-        }
-
-        // Threat level modifier: reduce priority when outnumbered
-        ThreatLevel threatLevel = a_state.combatContext.threatLevel;
-        if (threatLevel >= ThreatLevel::High) {
-            priority -= 0.3f; // High threat - parry is risky
-        } else if (threatLevel == ThreatLevel::Moderate) {
-            priority -= 0.15f; // Moderate threat - slight reduction
-        }
-
-        // Stamina check: need stamina to parry
-        if (a_state.self.staminaPercent < 0.2f) {
-            priority -= 0.3f; // Low stamina - reduce parry priority
-        }
-
-        // The won defend roll decides; the score above only matters if it would rank higher still
+        // The won per-swing defend roll decides (a scored priority could never outrank it)
         result.action = ActionType::Parry;
-        result.priority = (std::max)(priority, kDefendPriority);
+        result.priority = kDefendPriority;
         result.intensity = 1.0f; // Maximum intensity for parry
 
         return result;
@@ -1029,66 +973,9 @@ namespace CombatAI
             return result;
         }
 
-        // Base priority for timed block
-        float priority = timedBlockConfig.timedBlockBasePriority;
-
-        // Timing bonus: perfect timing gets maximum bonus
-        // Optimal timing is in the middle of the window
-        float optimalTime = (timedBlockConfig.timedBlockWindowStart + timedBlockConfig.timedBlockWindowEnd) * 0.5f;
-        float timeDiff = std::abs(timeUntilHit - optimalTime);
-        float windowSize = timedBlockConfig.timedBlockWindowEnd - timedBlockConfig.timedBlockWindowStart;
-        float timingAccuracy = 1.0f - (timeDiff / (windowSize * 0.5f));
-        timingAccuracy = ClampValue(timingAccuracy, 0.0f, 1.0f);
-        float timingBonus = timingAccuracy * timedBlockConfig.timedBlockTimingBonusMax;
-        priority += timingBonus;
-
-        // Penalties for early/late timing
-        if (timeUntilHit < optimalTime) {
-            // Too early
-            priority -= timedBlockConfig.timedBlockEarlyPenalty * (1.0f - timingAccuracy);
-        } else {
-            // Too late (but still in window)
-            priority -= timedBlockConfig.timedBlockLatePenalty * (1.0f - timingAccuracy);
-        }
-
-        // Distance modifier: closer is better for timed block
-        float optimalDistance =
-            (timedBlockConfig.timedBlockMinDistance + timedBlockConfig.timedBlockMaxDistance) * 0.5f;
-        float distanceDiff = std::abs(a_state.target.distance - optimalDistance);
-        float distanceRange = timedBlockConfig.timedBlockMaxDistance - timedBlockConfig.timedBlockMinDistance;
-        if (distanceRange > 0.0f) {
-            float distanceAccuracy = 1.0f - (distanceDiff / (distanceRange * 0.5f));
-            distanceAccuracy = ClampValue(distanceAccuracy, 0.0f, 1.0f);
-            priority += distanceAccuracy * 0.2f; // Up to 0.2 bonus for optimal distance
-        }
-
-        // Target facing modifier: higher priority if target is facing us (more
-        // dangerous)
-        if (a_state.target.orientationDot > 0.7f) {
-            priority += 0.2f; // Target facing us - more urgent timed block
-        }
-
-        // Power attack modifier: higher priority for power attacks (more dangerous)
-        if (a_state.target.isPowerAttacking) {
-            priority += 0.3f; // Power attacks are more dangerous - higher timed block priority
-        }
-
-        // Threat level modifier: reduce priority when outnumbered
-        ThreatLevel threatLevel = a_state.combatContext.threatLevel;
-        if (threatLevel >= ThreatLevel::High) {
-            priority -= 0.3f; // High threat - timed block is risky
-        } else if (threatLevel == ThreatLevel::Moderate) {
-            priority -= 0.15f; // Moderate threat - slight reduction
-        }
-
-        // Stamina check: need stamina to timed block
-        if (a_state.self.staminaPercent < 0.2f) {
-            priority -= 0.3f; // Low stamina - reduce timed block priority
-        }
-
-        // The won defend roll decides; the score above only matters if it would rank higher still
+        // The won per-swing defend roll decides (a scored priority could never outrank it)
         result.action = ActionType::TimedBlock;
-        result.priority = (std::max)(priority, kDefendPriority);
+        result.priority = kDefendPriority;
         result.intensity = 1.0f; // Maximum intensity for timed block
 
         return result;

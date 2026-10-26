@@ -159,8 +159,9 @@ namespace CombatAI
         ActorUtils::SafeGetGraphVariableBool(a_actor, "Val_GuardCounter", guardCounterActive);
         const auto blockedAt = m_counterUntil.Find(a_actor->GetFormID());
         const auto sinceBlock = blockedAt ? std::chrono::steady_clock::now() - *blockedAt : std::chrono::hours(1);
-        state.isGuardCounterActive = guardCounterActive || (sinceBlock >= std::chrono::milliseconds(200) &&
-                                                            sinceBlock <= std::chrono::milliseconds(1000));
+        state.isGuardCounterActive = Config::GetInstance().GetDecisionMatrix().enableCounter &&
+                                     (guardCounterActive || (sinceBlock >= std::chrono::milliseconds(200) &&
+                                                             sinceBlock <= std::chrono::milliseconds(1000)));
 
         // Movement state - sprinting/walking - use safe wrappers
         state.isSprinting = ActorUtils::SafeIsSprinting(a_actor);

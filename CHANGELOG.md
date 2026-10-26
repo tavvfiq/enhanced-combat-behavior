@@ -1,5 +1,13 @@
 # Changelog
 
+## Enhanced Combat Behavior 0.33.0 (2026-10-26)
+
+- **In-game menu: 5 tabs instead of 14.** General (master switches, debug, integrations, performance), Offense, Defense, Groups & Movement, NPC Character. Each tab shows the few settings people change; everything else sits under collapsed "Advanced" headers. Nothing was dropped from the menu.
+- **Presets rewritten for the current systems.** Each still resets tuning to the defaults first, then: **Vanilla+** gentle (one attacker at a time, defend chance 0.3, forward dodge 0.1, shorter combos, mild bosses); **Souls-like** sharp duels (defend 0.7, close dodge 0.4, longer combos, bosses with +0.25 skill, enraged at 60% and guard-breaking after 0.7 s); **Chaos** a swarm (no pacing, reckless dodges and combos, little defense). They now set defend, dodge, trade-blow, forward-dodge, combo and boss values; before they predated those systems.
+- **Counter toggle:** `[DecisionMatrix] EnableCounter` (the power attack after blocking a hit; was always on).
+- **Removed 8 settings that did nothing:** `ParryBasePriority`, `TimingBonusMax`, `EarlyBashPenalty`, `LateBashPenalty` and the four `TimedBlock...` counterparts. Since the per-swing defend roll, a won roll always ranks at 6 and those only shifted a score of ~1.5-2.5 that was discarded (the old Souls-like preset set two of them).
+- INI: parry / timed block notes corrected (they work with a shield or a weapon, not only a shield; what EldenParry and Simple Timed Block add).
+
 ## Enhanced Combat Behavior 0.32.0 (2026-10-26)
 
 - **New name: Enhanced Combat Behavior** (was CombatAITree during development). Files: `SKSE/Plugins/EnhancedCombatBehavior.dll`, `EnhancedCombatBehavior.ini`; log `EnhancedCombatBehavior.log`; menu "Enhanced Combat Behavior". Remove the old `CombatAITree.dll` / `.ini` when updating.

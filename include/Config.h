@@ -104,6 +104,7 @@ namespace CombatAI
             float shotHoldMaxSeconds = 3.0f;        // longest an archer / caster holds fire for an ally in the way
             float closeDodgeChance = 0.3f;        // Chance to dodge each melee swing aimed at it from within reach
             float defendOnSwingChance = 0.5f;     // Chance to parry / timed block each swing aimed at it (in window)
+            bool enableCounter = true;            // Power attack in the window after blocking a hit (guard counter)
             bool allowDaggerBlock = true;         // Let daggers block and bash (patches vanilla; applies at game start)
             bool enableRangedPositioning = true;  // Archers and mages keep their distance from melee attackers
             float rangedKeepAwayDistance = 450.0f; // Fall back when a melee attacker is closer than this
@@ -186,10 +187,6 @@ namespace CombatAI
             float parryWindowEnd = 0.25f;    // Latest time to start bash before attack hits (maximum)
             float parryMinDistance = 0.0f;   // Minimum distance for parry (run 38: you hit from 42-47 units)
             float parryMaxDistance = 200.0f; // Maximum distance for parry
-            float parryBasePriority = 1.5f;  // Base priority for parry opportunity
-            float timingBonusMax = 0.3f;     // Maximum bonus for perfect timing
-            float earlyBashPenalty = 0.5f;   // Penalty if bash too early
-            float lateBashPenalty = 0.5f;    // Penalty if bash too late
         };
 
         struct TimedBlockSettings
@@ -199,10 +196,6 @@ namespace CombatAI
             float timedBlockWindowEnd = 0.33f;     // End of timing window (matches mod's 0.33s window)
             float timedBlockMinDistance = 0.0f;    // Minimum distance for timed block (run 38: hits from 42-47 units)
             float timedBlockMaxDistance = 200.0f;  // Maximum distance for timed block
-            float timedBlockBasePriority = 1.5f;   // Base priority for timed block opportunity
-            float timedBlockTimingBonusMax = 0.3f; // Maximum bonus for perfect timing
-            float timedBlockEarlyPenalty = 0.5f;   // Penalty if block too early
-            float timedBlockLatePenalty = 0.5f;    // Penalty if block too late
         };
 
         // Attack-slot pacing ("Wait Your Turn"): cap concurrent attackers per target.

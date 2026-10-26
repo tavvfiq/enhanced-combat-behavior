@@ -161,6 +161,7 @@ namespace CombatAI
         D("DecisionMatrix", "BackoffAfterSwingChance", m_decisionMatrix.backoffAfterSwingChance);
         D("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance);
         B("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
+        B("DecisionMatrix", "EnableCounter", m_decisionMatrix.enableCounter);
         B("DecisionMatrix", "IncludeHumanoidCreatures", m_decisionMatrix.includeHumanoidCreatures);
         D("DecisionMatrix", "CreatureSwingSeconds", m_decisionMatrix.creatureSwingSeconds);
         D("DecisionMatrix", "PersonalityJitter", m_decisionMatrix.personalityJitter);
@@ -232,10 +233,6 @@ namespace CombatAI
         D("Parry", "ParryWindowEnd", m_parry.parryWindowEnd);
         D("Parry", "ParryMinDistance", m_parry.parryMinDistance);
         D("Parry", "ParryMaxDistance", m_parry.parryMaxDistance);
-        D("Parry", "ParryBasePriority", m_parry.parryBasePriority);
-        D("Parry", "TimingBonusMax", m_parry.timingBonusMax);
-        D("Parry", "EarlyBashPenalty", m_parry.earlyBashPenalty);
-        D("Parry", "LateBashPenalty", m_parry.lateBashPenalty);
 
         // Timed block
         B("TimedBlock", "EnableTimedBlock", m_timedBlock.enableTimedBlock);
@@ -243,10 +240,6 @@ namespace CombatAI
         D("TimedBlock", "TimedBlockWindowEnd", m_timedBlock.timedBlockWindowEnd);
         D("TimedBlock", "TimedBlockMinDistance", m_timedBlock.timedBlockMinDistance);
         D("TimedBlock", "TimedBlockMaxDistance", m_timedBlock.timedBlockMaxDistance);
-        D("TimedBlock", "TimedBlockBasePriority", m_timedBlock.timedBlockBasePriority);
-        D("TimedBlock", "TimedBlockTimingBonusMax", m_timedBlock.timedBlockTimingBonusMax);
-        D("TimedBlock", "TimedBlockEarlyPenalty", m_timedBlock.timedBlockEarlyPenalty);
-        D("TimedBlock", "TimedBlockLatePenalty", m_timedBlock.timedBlockLatePenalty);
 
         // Combat pacing (Wait Your Turn)
         B("CombatPacing", "EnableCombatPacing", m_combatPacing.enableCombatPacing);
@@ -499,6 +492,7 @@ namespace CombatAI
             0.0f, 1.0f);
         m_decisionMatrix.enablePersonality =
             a_ini.GetBoolValue("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
+        m_decisionMatrix.enableCounter = a_ini.GetBoolValue("DecisionMatrix", "EnableCounter", m_decisionMatrix.enableCounter);
         m_decisionMatrix.includeHumanoidCreatures =
             a_ini.GetBoolValue("DecisionMatrix", "IncludeHumanoidCreatures", m_decisionMatrix.includeHumanoidCreatures);
         const auto dmFloat = [&](const char *a_key, float &a_value, float a_min, float a_max) {
@@ -687,24 +681,12 @@ namespace CombatAI
             static_cast<float>(a_ini.GetDoubleValue("Parry", "ParryMinDistance", m_parry.parryMinDistance));
         m_parry.parryMaxDistance =
             static_cast<float>(a_ini.GetDoubleValue("Parry", "ParryMaxDistance", m_parry.parryMaxDistance));
-        m_parry.parryBasePriority =
-            static_cast<float>(a_ini.GetDoubleValue("Parry", "ParryBasePriority", m_parry.parryBasePriority));
-        m_parry.timingBonusMax =
-            static_cast<float>(a_ini.GetDoubleValue("Parry", "TimingBonusMax", m_parry.timingBonusMax));
-        m_parry.earlyBashPenalty =
-            static_cast<float>(a_ini.GetDoubleValue("Parry", "EarlyBashPenalty", m_parry.earlyBashPenalty));
-        m_parry.lateBashPenalty =
-            static_cast<float>(a_ini.GetDoubleValue("Parry", "LateBashPenalty", m_parry.lateBashPenalty));
 
         // Clamp values
         m_parry.parryWindowStart = (std::max)(0.0f, m_parry.parryWindowStart);
         m_parry.parryWindowEnd = (std::max)(m_parry.parryWindowStart, m_parry.parryWindowEnd);
         m_parry.parryMinDistance = (std::max)(0.0f, m_parry.parryMinDistance);
         m_parry.parryMaxDistance = (std::max)(m_parry.parryMinDistance, m_parry.parryMaxDistance);
-        m_parry.parryBasePriority = (std::max)(0.0f, m_parry.parryBasePriority);
-        m_parry.timingBonusMax = ClampValue(m_parry.timingBonusMax, 0.0f, 1.0f);
-        m_parry.earlyBashPenalty = ClampValue(m_parry.earlyBashPenalty, 0.0f, 1.0f);
-        m_parry.lateBashPenalty = ClampValue(m_parry.lateBashPenalty, 0.0f, 1.0f);
     }
 
     void Config::ReadTimedBlockSettings(CSimpleIniA &a_ini)
@@ -719,14 +701,6 @@ namespace CombatAI
             a_ini.GetDoubleValue("TimedBlock", "TimedBlockMinDistance", m_timedBlock.timedBlockMinDistance));
         m_timedBlock.timedBlockMaxDistance = static_cast<float>(
             a_ini.GetDoubleValue("TimedBlock", "TimedBlockMaxDistance", m_timedBlock.timedBlockMaxDistance));
-        m_timedBlock.timedBlockBasePriority = static_cast<float>(
-            a_ini.GetDoubleValue("TimedBlock", "TimedBlockBasePriority", m_timedBlock.timedBlockBasePriority));
-        m_timedBlock.timedBlockTimingBonusMax = static_cast<float>(
-            a_ini.GetDoubleValue("TimedBlock", "TimedBlockTimingBonusMax", m_timedBlock.timedBlockTimingBonusMax));
-        m_timedBlock.timedBlockEarlyPenalty = static_cast<float>(
-            a_ini.GetDoubleValue("TimedBlock", "TimedBlockEarlyPenalty", m_timedBlock.timedBlockEarlyPenalty));
-        m_timedBlock.timedBlockLatePenalty = static_cast<float>(
-            a_ini.GetDoubleValue("TimedBlock", "TimedBlockLatePenalty", m_timedBlock.timedBlockLatePenalty));
 
         // Clamp values
         m_timedBlock.timedBlockWindowStart = (std::max)(0.0f, m_timedBlock.timedBlockWindowStart);
@@ -735,10 +709,6 @@ namespace CombatAI
         m_timedBlock.timedBlockMinDistance = (std::max)(0.0f, m_timedBlock.timedBlockMinDistance);
         m_timedBlock.timedBlockMaxDistance =
             (std::max)(m_timedBlock.timedBlockMinDistance, m_timedBlock.timedBlockMaxDistance);
-        m_timedBlock.timedBlockBasePriority = (std::max)(0.0f, m_timedBlock.timedBlockBasePriority);
-        m_timedBlock.timedBlockTimingBonusMax = ClampValue(m_timedBlock.timedBlockTimingBonusMax, 0.0f, 1.0f);
-        m_timedBlock.timedBlockEarlyPenalty = ClampValue(m_timedBlock.timedBlockEarlyPenalty, 0.0f, 1.0f);
-        m_timedBlock.timedBlockLatePenalty = ClampValue(m_timedBlock.timedBlockLatePenalty, 0.0f, 1.0f);
     }
 
     void Config::ReadCombatPacingSettings(CSimpleIniA &a_ini)
@@ -927,28 +897,46 @@ namespace CombatAI
         m_vanillaAttacks = {};
         m_projectileAwareness = {};
 
+        // Combo follow-up chances live with the integrations (not reset above), so every preset sets them
+        m_modIntegrations.comboFollowUpChance = 0.7f;
+        m_modIntegrations.comboPowerChance = 0.3f;
+
         switch (a_preset) {
         case Preset::Default:
             break;
         case Preset::VanillaPlus:
-            // Subtle: slower, sloppier, one attacker at a time, little jumping.
+            // Gentle: slower and sloppier, one attacker at a time, few dodges, short combos, mild bosses.
             m_humanizer.baseReactionDelayMs = 300.0f;
-            m_humanizer.skillBase = 0.5f;
+            m_humanizer.skillBase = 0.6f;
             m_humanizer.skillPerLevel = 0.006f;
-            m_decisionMatrix.evasionJumpChance = 0.2f;
-            m_scoringWeights.evasionDodgeBase = 1.1f;
-            m_scoringWeights.flankingBase = 1.1f;
             m_combatPacing.maxSimultaneousAttackers = 1;
+            m_decisionMatrix.defendOnSwingChance = 0.3f;
+            m_decisionMatrix.closeDodgeChance = 0.15f;
+            m_decisionMatrix.tradeBlowsChance = 0.15f;
+            m_decisionMatrix.evasionJumpChance = 0.2f;
+            m_dodgeSystem.forwardDodgeChance = 0.1f;
+            m_modIntegrations.comboFollowUpChance = 0.5f;
+            m_modIntegrations.comboPowerChance = 0.15f;
+            m_boss.skillBonus = 0.05f;
+            m_boss.cautionFloor = 0.3f;
             m_targetSwitching.retaliateChance = 0.3f;
             m_targetSwitching.finisherChance = 0.15f;
             break;
         case Preset::Soulslike:
-            // Sharp duelists: fast reactions, punish openings, respect the player's guard.
+            // Sharp duels: fast reactions, read the swing, punish openings, long combos, hard bosses.
             m_humanizer.baseReactionDelayMs = 120.0f;
             m_humanizer.skillBase = 0.85f;
             m_humanizer.skillPerLevel = 0.01f;
-            m_parry.parryBasePriority = 1.8f;
-            m_timedBlock.timedBlockBasePriority = 1.8f;
+            m_decisionMatrix.defendOnSwingChance = 0.7f;
+            m_decisionMatrix.closeDodgeChance = 0.4f;
+            m_decisionMatrix.tradeBlowsChance = 0.2f;
+            m_decisionMatrix.backoffAfterSwingChance = 0.5f;
+            m_dodgeSystem.forwardDodgeChance = 0.3f;
+            m_modIntegrations.comboFollowUpChance = 0.85f;
+            m_modIntegrations.comboPowerChance = 0.4f;
+            m_boss.skillBonus = 0.25f;
+            m_boss.enragedHealth = 0.6f;
+            m_boss.guardBreakBlockSeconds = 0.7f;
             m_scoringWeights.targetRecoveryBonus = 0.8f;
             m_scoringWeights.targetStaggeredBonus = 0.8f;
             m_scoringWeights.openingRiskPenalty = 0.6f;
@@ -958,14 +946,21 @@ namespace CombatAI
             m_projectileAwareness.dodgeChance = 0.8f;
             break;
         case Preset::Chaos:
-            // Everyone swings at once and never stops moving.
+            // A swarm: no turns, reckless gap-closing and long combos, little defense.
             m_humanizer.baseReactionDelayMs = 80.0f;
             m_humanizer.skillBase = 0.8f;
             m_humanizer.enableFatigue = false;
+            m_combatPacing.enableCombatPacing = false;
+            m_decisionMatrix.defendOnSwingChance = 0.2f;
+            m_decisionMatrix.closeDodgeChance = 0.2f;
+            m_decisionMatrix.tradeBlowsChance = 0.6f;
             m_decisionMatrix.evasionJumpChance = 0.7f;
+            m_dodgeSystem.forwardDodgeChance = 0.5f;
+            m_dodgeSystem.forwardDodgeCooldownSeconds = 4.0f;
+            m_modIntegrations.comboFollowUpChance = 0.9f;
+            m_modIntegrations.comboPowerChance = 0.5f;
             m_scoringWeights.attackBase = 1.3f;
             m_scoringWeights.sprintAttackBase = 1.6f;
-            m_combatPacing.enableCombatPacing = false;
             m_damageMomentum.offensiveBonusMax = 0.8f;
             m_targetSwitching.retaliateChance = 0.8f;
             m_targetSwitching.finisherChance = 0.6f;
