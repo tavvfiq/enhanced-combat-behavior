@@ -1,5 +1,6 @@
 #include "Hooks.h"
 #include "SCARData.h"
+#include "ComboFollowUp.h"
 #include "ActorUtils.h"
 #include "CombatDirector.h"
 #include "Config.h"
@@ -116,6 +117,7 @@ namespace CombatAI
 
             EngineProbes::Install();
             SCARData::InstallGate(trampoline); // after SCAR's kPostLoad hooks, so the gate runs first
+            ComboFollowUp::Install();          // only without SCAR.dll (same anim event slot as the gate)
 
             LOG_INFO("Hooks installed successfully");
         }

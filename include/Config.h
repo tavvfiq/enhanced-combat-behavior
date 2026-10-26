@@ -167,6 +167,9 @@ namespace CombatAI
             bool enableSCARIntegration = true;
             float scarComboWindowSeconds = 20.0f; // A SCAR_ComboStart this recent marks the moveset as SCAR-driven
             float scarStallSeconds = 3.0f;        // SCAR actor wanting to attack this long without one: we attack
+            bool enableComboFollowUp = true;      // MCO/BFCO combo windows: start the next attack (off while SCAR.dll is loaded)
+            float comboFollowUpChance = 0.7f;     // per window: chance of a normal follow-up
+            float comboPowerChance = 0.3f;        // per power window: chance of a power follow-up (needs power stamina)
         };
 
         struct ParrySettings

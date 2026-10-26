@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.25.0 (2026-10-26)
+
+- **Our own combo follow-up for MCO and BFCO movesets, for use without SCAR.** The movesets mark the combo windows with annotation events (MCO_WinOpen / MCO_WinClose, MCO_PowerWinOpen / MCO_PowerWinClose, BFCO_NextWinStart / BFCO_NextPowerWinStart / BFCO_DIY_EndLoop). Inside an open window the NPC rolls once to start the next attack (normal 70%, power 30% when its window is open and stamina allows); the moveset's behavior already knows which attack comes next. No follow-up while it waits for an attack slot, defends, or the target is out of reach. It plays MCO's NPC attack idles (`ADXP_NPCNormalAttack` / `ADXP_NPCPowerAttack`) the way SCAR does, or the bare attack action when they are missing. Off while SCAR.dll is loaded. INI: `[ModIntegrations] EnableComboFollowUp`, `ComboFollowUpChance`, `ComboPowerChance`.
+- Log at load: `Combo follow-up: MCO/BFCO window events hooked; MCO NPC idles ... found (event X)`. Debug (selected NPC): `Combo 0x..: MCO_WinOpen`, `window open (normal true, power false) -> normal follow-up`, `normal follow-up started` / `FAILED (graph refused)`.
+
 ## CombatAITree 0.24.0 (2026-10-26)
 
 - **SCAR attacks now follow the brain (SCAR stays installed and still picks the move).** While an NPC waits for an attack slot, holds a block, or the brain is dodging, blocking, backing off or retreating, SCAR can no longer start an attack or continue a combo for it. Before, pacing only reached vanilla attacks; SCAR's bypassed it. Debug: `SCAR gate 0x..: attack start refused (waiting its turn)` / `combo refused (...)`. Log at load: `SCAR gate installed`. Only when SCAR.dll is loaded and the SCAR integration setting is on.

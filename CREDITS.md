@@ -21,3 +21,4 @@ This plugin integrates with the following mods (all optional):
 - All contributors and testers
 
 - SCAR (Skyrim Combos AI Revolution) by max-su-2019, MIT License: the SCAR_ActionData annotation format and range rules used by src/SCARData.cpp (https://github.com/max-su-2019/SCAR).
+- Combo follow-up (0.25.0) starts the next attack the way SCAR's PerformSpecialIdle does (TESActionData with the moveset's idle). Window annotation names from the MCO and BFCO documentation on Nexus.

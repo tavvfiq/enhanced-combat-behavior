@@ -9,6 +9,7 @@
 #include "GuardCounterFeedbackTracker.h"
 #include "Intents.h"
 #include "SCARData.h"
+#include "ComboFollowUp.h"
 #include "Trees.h"
 #include "Logger.h"
 #include "ModEventSinks.h"
@@ -215,6 +216,7 @@ namespace CombatAI
         }
 
         decision = ApplyCombatPacing(a_actor, formID, state, decision);
+        ComboFollowUp::Update(a_actor, state, decision); // MCO/BFCO: the next attack inside an open combo window
 
         // A dodge, bash or sprint change that cuts an attack's windup can leave the engine
         // in kDraw with no attack playing. Vanilla AI then never starts another swing until

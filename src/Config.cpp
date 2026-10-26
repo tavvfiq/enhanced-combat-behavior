@@ -206,6 +206,9 @@ namespace CombatAI
         B("ModIntegrations", "EnableSCARIntegration", m_modIntegrations.enableSCARIntegration);
         D("ModIntegrations", "SCARComboWindowSeconds", m_modIntegrations.scarComboWindowSeconds);
         D("ModIntegrations", "SCARStallSeconds", m_modIntegrations.scarStallSeconds);
+        B("ModIntegrations", "EnableComboFollowUp", m_modIntegrations.enableComboFollowUp);
+        D("ModIntegrations", "ComboFollowUpChance", m_modIntegrations.comboFollowUpChance);
+        D("ModIntegrations", "ComboPowerChance", m_modIntegrations.comboPowerChance);
 
         // Performance
         D("Performance", "CleanupInterval", m_performance.cleanupInterval);
@@ -635,6 +638,14 @@ namespace CombatAI
             static_cast<float>(
                 a_ini.GetDoubleValue("ModIntegrations", "SCARStallSeconds", m_modIntegrations.scarStallSeconds)),
             0.5f, 30.0f);
+        m_modIntegrations.enableComboFollowUp =
+            a_ini.GetBoolValue("ModIntegrations", "EnableComboFollowUp", m_modIntegrations.enableComboFollowUp);
+        m_modIntegrations.comboFollowUpChance = (std::clamp)(
+            static_cast<float>(a_ini.GetDoubleValue("ModIntegrations", "ComboFollowUpChance", m_modIntegrations.comboFollowUpChance)),
+            0.0f, 1.0f);
+        m_modIntegrations.comboPowerChance = (std::clamp)(
+            static_cast<float>(a_ini.GetDoubleValue("ModIntegrations", "ComboPowerChance", m_modIntegrations.comboPowerChance)),
+            0.0f, 1.0f);
     }
 
     void Config::ReadParrySettings(CSimpleIniA &a_ini)
