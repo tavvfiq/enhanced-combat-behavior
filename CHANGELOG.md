@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.27.0 (2026-10-26)
+
+- **Personality reaches the careful and patient choices.** Caution scales backing off after its own swing and on the target's swing, the per-swing parry / timed block roll and the close dodge, gently (x0.6 .. x1.4) so a Foolhardy bandit still blocks and backs off, just less. Patience gates feints: one roll per 2 s, 40% (impatient) to 100% (patient).
+- **More spread between NPCs of one template.** Confidence and Aggression now weigh more than the combat style's attack/defend balance (all-offense for vanilla bandits), and the fixed per-NPC variation is +-0.15 (was +-0.1). Run 52's bandits read risk 0.84 and 0.90 from identical data.
+- **Combo follow-ups reach a bit farther:** up to 1.3x the attack range, since a combo step lunges forward (run 52: 81 windows skipped as out of reach, the Berserker's median at 160 against a range of about 144).
+
 ## CombatAITree 0.26.0 (2026-10-26)
 
 - **Forward dodge is a risky move now, not a habit.** "Target facing away" no longer counts as an opening (in 1 vs many, every NPC you weren't facing saw one; run 51: all 5 forward dodges of the selected NPCs). Real openings only: casting, drawing a bow, recovering from a swing, knocked down, fleeing, or the counter after evading its swing; never into a raised guard facing it. Then a roll once per opening (`ForwardDodgeChance` 0.25, x2 for a counter), its own 8 s cooldown, and half stamina. Debug: `ForwardDodge 0x..: opening (target busy) gap X, risk R -> chance C: go|walk`.

@@ -18,12 +18,12 @@ namespace CombatAI::Personality
         };
         ThreadSafeMap<RE::FormID, Cached> g_cache;
 
-        // Fixed per-NPC offset in [-0.1, 0.1]
+        // Fixed per-NPC offset in [-0.15, 0.15] (run 52: one template's bandits read the same data, the offset is the spread)
         float Jitter(RE::FormID a_formID, std::uint32_t a_salt)
         {
             std::uint32_t h = (a_formID ^ a_salt) * 0x9E3779B1u;
             h ^= h >> 15;
-            return (static_cast<float>(h & 0xFFFF) / 65535.0f - 0.5f) * 0.2f;
+            return (static_cast<float>(h & 0xFFFF) / 65535.0f - 0.5f) * 0.3f;
         }
 
         Traits Compute(RE::Actor *a_actor)
@@ -40,9 +40,10 @@ namespace CombatAI::Personality
             }
             const RE::FormID id = a_actor->GetFormID();
             Traits t;
-            t.risk = std::clamp(0.4f * confidence + 0.3f * aggression + 0.3f * offense + Jitter(id, 1), 0.0f, 1.0f);
-            t.caution = std::clamp(0.4f * (1.0f - confidence) + 0.3f * (1.0f - offense) + 0.3f * avoid + Jitter(id, 2), 0.0f, 1.0f);
-            t.patience = std::clamp(0.6f * (1.0f - aggression) + 0.4f * (1.0f - offense) + Jitter(id, 3), 0.0f, 1.0f);
+            // The actor values weigh more than the style's balance, which is all-offense for many vanilla styles
+            t.risk = std::clamp(0.45f * confidence + 0.35f * aggression + 0.2f * offense + Jitter(id, 1), 0.0f, 1.0f);
+            t.caution = std::clamp(0.45f * (1.0f - confidence) + 0.2f * (1.0f - offense) + 0.35f * avoid + Jitter(id, 2), 0.0f, 1.0f);
+            t.patience = std::clamp(0.7f * (1.0f - aggression) + 0.3f * (1.0f - offense) + Jitter(id, 3), 0.0f, 1.0f);
             if (Config::GetInstance().IsDebugTarget(id)) {
                 LOG_DEBUG("Personality 0x{:08X}: confidence {:.0f}, aggression {:.0f}, style offense {:.2f}, avoid threat {:.2f} -> risk {:.2f}, caution {:.2f}, patience {:.2f}",
                           id, confidence * 4.0f, aggression * 3.0f, offense, avoid, t.risk, t.caution, t.patience);

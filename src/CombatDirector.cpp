@@ -9,6 +9,7 @@
 #include "GuardCounterFeedbackTracker.h"
 #include "Intents.h"
 #include "SCARData.h"
+#include "Personality.h"
 #include "ComboFollowUp.h"
 #include "Trees.h"
 #include "Logger.h"
@@ -301,7 +302,9 @@ namespace CombatAI
             const bool targetSwing = state.target.isAttacking && !state.target.isPowerAttacking &&
                                      state.temporal.target.attackStartTime >= 0.0f;
             // Winning the damage race halves both chances: it keeps pressing
-            const float pressing = DecisionMatrix::Race(state).winning ? 0.5f : 1.0f;
+            // Personality: careful NPCs back off more (x0.6 .. x1.4)
+            const float pressing = (DecisionMatrix::Race(state).winning ? 0.5f : 1.0f) *
+                                   Personality::CautionScale(Personality::Get(a_actor).caution);
             std::optional<bool> rolled;
             if (ownSwing) {
                 const float swingStart = m_humanizer.Now() - state.temporal.self.timeSinceLastAttack; // constant over one swing

@@ -192,7 +192,12 @@ namespace CombatAI::ComboFollowUp
         if (!skip && AttackCoordinator::GetSingleton().IsHeld(formID)) {
             skip = "waiting its turn";
         }
-        if (!skip && !a_state.combatContext.isInAttackRange) {
+        // A combo step lunges forward, so up to 1.3x the attack range (run 52: 81 skips, the Berserker's median
+        // at 160 against a range of ~144)
+        const auto &matrix = Config::GetInstance().GetDecisionMatrix();
+        const float range = StateHelpers::EffectiveAttackRange(a_state.weaponReach, a_state.target.boundRadius,
+                                                               matrix.offenseReachMultiplier, matrix.offenseReachSafetyMargin);
+        if (!skip && a_state.target.distance > range * 1.3f) {
             skip = "target out of reach";
         }
         auto *target = skip ? nullptr : RE::TESForm::LookupByID<RE::Actor>(a_state.target.targetFormID);

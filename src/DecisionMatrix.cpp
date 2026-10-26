@@ -120,7 +120,8 @@ namespace CombatAI
     {
         const auto swing = ((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) |
                             a_state.temporal.target.swingCount) ^ (1ull << 30);
-        const bool won = RollOnce(swing, Config::GetInstance().GetDecisionMatrix().defendOnSwingChance);
+        const bool won = RollOnce(swing, (std::min)(1.0f, Config::GetInstance().GetDecisionMatrix().defendOnSwingChance *
+                                                            Personality::CautionScale(Personality::Get(a_actor).caution)));
         if (Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
             LOG_DEBUG("Defend 0x{:08X}: swing in the {} window (hit in {:.2f}s) -> {}", a_actor->GetFormID(), a_what,
                       a_timeUntilHit, won ? a_what : "no (roll)");
@@ -1099,7 +1100,8 @@ namespace CombatAI
                 // Own key per swing: bit 31 keeps it apart from the trade-blows roll on the same swing
                 const auto swing = ((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) |
                                     a_state.temporal.target.swingCount) ^ (1ull << 31);
-                closeDodge = RollOnce(swing, config.GetDecisionMatrix().closeDodgeChance);
+                closeDodge = RollOnce(swing, (std::min)(1.0f, config.GetDecisionMatrix().closeDodgeChance *
+                                                            Personality::CautionScale(Personality::Get(a_actor).caution)));
                 conditionsMet = closeDodge;
             }
             const bool closeSwing = closeDodge || (!conditionsMet && !a_state.target.isRanged &&
@@ -2855,6 +2857,13 @@ namespace CombatAI
             goodFeintOpportunity = true; // Repeated recent blocks make a feint a useful bait
         }
 
+        // Personality: feinting is patience; one roll per 2 s, 40% (impatient) to 100% (patient)
+        if (goodFeintOpportunity && inFeintRange) {
+            const auto bucket = static_cast<std::uint32_t>(
+                std::chrono::duration<float>(std::chrono::steady_clock::now().time_since_epoch()).count() / 2.0f);
+            goodFeintOpportunity = RollOnce((static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) | (1ull << 59) | bucket,
+                                            0.4f + 0.6f * Personality::Get(a_actor).patience);
+        }
         if (goodFeintOpportunity && inFeintRange) {
             result.action = ActionType::Feint;
 
