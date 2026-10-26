@@ -208,7 +208,6 @@ namespace CombatAI
         D("ScoringWeights", "AllyCoverBonus", w.allyCoverBonus);
 
         // Mod integrations
-        B("ModIntegrations", "EnableCPRIntegration", m_modIntegrations.enableCPRIntegration);
         B("ModIntegrations", "EnablePrecisionIntegration", m_modIntegrations.enablePrecisionIntegration);
         B("ModIntegrations", "EnableTKDodgeIntegration", m_modIntegrations.enableTKDodgeIntegration);
         B("ModIntegrations", "EnableSCARIntegration", m_modIntegrations.enableSCARIntegration);
@@ -638,8 +637,6 @@ namespace CombatAI
 
     void Config::ReadModIntegrationSettings(CSimpleIniA &a_ini)
     {
-        m_modIntegrations.enableCPRIntegration =
-            a_ini.GetBoolValue("ModIntegrations", "EnableCPRIntegration", m_modIntegrations.enableCPRIntegration);
         m_modIntegrations.enablePrecisionIntegration = a_ini.GetBoolValue(
             "ModIntegrations", "EnablePrecisionIntegration", m_modIntegrations.enablePrecisionIntegration);
         m_modIntegrations.enableTKDodgeIntegration = a_ini.GetBoolValue("ModIntegrations", "EnableTKDodgeIntegration",

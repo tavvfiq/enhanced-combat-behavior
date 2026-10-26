@@ -77,24 +77,17 @@ namespace CombatAI
         }
 
 
-        // Don't interrupt a block for movement actions that have no movement backend.
-        // Their executors return false when CPR cannot handle the action, so stopping
-        // the block first only lets vanilla combat AI immediately start blocking again.
+        // Moves run through our movement tree nodes, which don't need the block dropped first: stopping it only lets
+        // vanilla combat AI start blocking again at once. A forward dodge does need it released.
         bool movementCanRun = true;
         switch (a_decision.action) {
         case ActionType::Strafe:
         case ActionType::Flanking:
-            movementCanRun = a_state.target.isValid && IsCPRAvailable(a_actor) && IsMeleeOnlyActor(a_actor);
-            break;
         case ActionType::Retreat:
         case ActionType::Backoff:
-            movementCanRun = IsCPRAvailable(a_actor);
+        case ActionType::Advancing:
+            movementCanRun = false;
             break;
-        case ActionType::Advancing: {
-            const bool meleeWithTarget = IsMeleeOnlyActor(a_actor) && a_state.target.isValid;
-            movementCanRun = IsCPRAvailable(a_actor) && meleeWithTarget;
-            break;
-        }
         case ActionType::ForwardDodge:
             movementCanRun = a_state.target.isValid;
             break;
@@ -379,33 +372,9 @@ namespace CombatAI
         // Get movement direction from decision (could be normal strafe or flanking)
         RE::NiPoint3 movementDir = a_decision.direction;
 
-        // Our CloseMovement tree runs the vanilla Circle node on the brain's side; CPR (below) only
-        // shapes it if present
+        // Our CloseMovement tree runs the vanilla Circle node on the brain's side
         Intents::PostMove(a_actor, Intents::Move::Circle, CircleSide(a_state, movementDir));
 
-        // Try CPR circling if available
-        // NOTE: CPR only works for melee-only actors (no ranged weapons or magic)
-        // If actor has ranged/magic, CPR won't work, so we fall back to direct movement
-        bool isMeleeOnly = IsMeleeOnlyActor(a_actor);
-        if (IsCPRAvailable(a_actor) && isMeleeOnly) {
-            // Calculate circling parameters based on distance and direction
-            // Make ranges more aggressive to ensure circling triggers
-            float minDist = (std::max)(50.0f, a_state.target.distance * 0.7f); // More aggressive min distance
-            float maxDist = a_state.target.distance * 1.3f;                    // Wider max distance for better circling
-
-            // Calculate circling angles based on strafe direction
-            // CPR angles are relative to target's facing direction (0° = front, 90° = side, 180° = back)
-            float minAngle, maxAngle;
-            CalculateCPRCirclingAngles(movementDir, a_state, minAngle, maxAngle);
-
-            SetCPRCircling(a_actor, minDist, maxDist, minAngle, maxAngle);
-
-            // Set movement direction to guide CPR circling (works for both normal strafe and flanking)
-            if (movementDir.x != 0.0f || movementDir.y != 0.0f) {
-                SetMovementDirection(a_actor, movementDir, a_decision.intensity);
-            }
-            return true;
-        }
 
         // No direct velocity nudge (it fights the engine and moves unpathed): the Circle node moves it
         return true;
@@ -427,61 +396,22 @@ namespace CombatAI
         // Use the calculated flanking direction from decision (perpendicular to target, away from ally)
         RE::NiPoint3 flankDir = a_decision.direction;
 
-        // Flanking circles like Strafe (vanilla Circle node, brain's side); CPR below shapes the ring
+        // Flanking circles like Strafe (vanilla Circle node, brain's side)
         Intents::PostMove(a_actor, Intents::Move::Circle, CircleSide(a_state, flankDir));
 
-        // Try CPR circling if available and actor is melee-only
-        bool isMeleeOnly = IsMeleeOnlyActor(a_actor);
-        if (IsCPRAvailable(a_actor) && isMeleeOnly) {
-            // Calculate circling parameters for flanking movement
-            float minDist = (std::max)(50.0f, a_state.target.distance * 0.7f);
-            float maxDist = a_state.target.distance * 1.3f;
-            if (a_decision.holdDistance > 0.0f) {
-                // Pacing: wait on a ring outside reach
-                minDist = a_decision.holdDistance;
-                maxDist = (std::max)(maxDist, a_decision.holdDistance + 150.0f);
-            }
-
-            // Calculate circling angles based on flanking direction
-            float minAngle, maxAngle;
-            CalculateCPRCirclingAngles(flankDir, a_state, minAngle, maxAngle);
-
-            SetCPRCircling(a_actor, minDist, maxDist, minAngle, maxAngle);
-
-            // Apply flanking direction to guide CPR circling (creates pincer movement)
-            if (flankDir.x != 0.0f || flankDir.y != 0.0f) {
-                SetMovementDirection(a_actor, flankDir, a_decision.intensity);
-            }
-            return true;
-        }
 
         return true; // the Circle node moves it
     }
 
     bool ActionExecutor::ExecuteRetreat(RE::Actor *a_actor, [[maybe_unused]] const DecisionResult &a_decision,
-                                        const ActorStateData &a_state)
+                                        [[maybe_unused]] const ActorStateData &a_state)
     {
         if (!a_actor) {
             return false;
         }
 
-        // Our CloseMovement tree runs the vanilla Fallback node; CPR (below) only shapes it if present
+        // Our CloseMovement tree runs the vanilla Fallback node
         Intents::PostMove(a_actor, Intents::Move::Fallback);
-
-        // Try CPR fallback if available
-        // NOTE: CPR fallback works for all actors (not just melee-only)
-        if (IsCPRAvailable(a_actor)) {
-            // Calculate fallback parameters
-            float retreatDistance =
-                a_state.target.isValid ? a_state.target.distance : 600.0f; // Default if no valid target
-            float minDist = retreatDistance;
-            float maxDist = retreatDistance * 1.5f;
-            float minWait = 1.5f; // CPR waits 1.5-3 s at the fallback spot
-            float maxWait = 3.0f;
-
-            SetCPRFallback(a_actor, minDist, maxDist, minWait, maxWait);
-            return true;
-        }
 
         return true; // the Fallback node moves it
     }
@@ -538,12 +468,6 @@ namespace CombatAI
     {
         if (Intents::WantsMove(a_actor, Intents::Move::Fallback) || Intents::WantsMove(a_actor, Intents::Move::Backoff)) {
             Intents::ClearMove(a_actor);
-        }
-        for (const char *var : {"CPR_EnableFallback", "CPR_EnableBackoff"}) {
-            bool enabled = false;
-            if (ActorUtils::SafeGetGraphVariableBool(a_actor, var, enabled) && enabled) {
-                ActorUtils::SafeSetGraphVariableBool(a_actor, var, false);
-            }
         }
     }
 
@@ -618,114 +542,6 @@ namespace CombatAI
         ActorUtils::SafeApplyHorizontalVelocity(a_actor, flatDir * physicsSpeed);
 
         return true;
-    }
-
-    bool ActionExecutor::IsCPRAvailable(RE::Actor *a_actor) const
-    {
-        if (!a_actor) {
-            return false;
-        }
-
-        // Check config first
-        auto &config = Config::GetInstance();
-        if (!config.GetModIntegrations().enableCPRIntegration) {
-            return false;
-        }
-
-        // Check if CPR graph variables are available by trying to read one
-        // If the variable exists, CPR is likely available
-        bool enableCircling = false;
-        return ActorUtils::SafeGetGraphVariableBool(a_actor, "CPR_EnableCircling", enableCircling);
-    }
-
-    bool ActionExecutor::IsMeleeOnlyActor(RE::Actor *a_actor) const
-    {
-        if (!a_actor) {
-            return false;
-        }
-
-        // Check if actor has ranged weapon or magic equipped
-        // CPR only works for melee-only actors
-        auto rightHand = ActorUtils::SafeGetEquippedObject(a_actor, false);
-
-        // Check right hand for ranged weapon
-        if (rightHand) {
-            if (rightHand->IsWeapon()) {
-                auto weapon = rightHand->As<RE::TESObjectWEAP>();
-                if (weapon) {
-                    if (weapon->IsBow() || weapon->IsCrossbow()) {
-                        return false; // Has ranged weapon
-                    }
-                }
-            }
-        }
-
-        // Check if actor is currently casting magic
-        // This is more reliable than checking left hand (which could be shield)
-        if (ActorUtils::SafeWhoIsCasting(a_actor) != 0) {
-            return false; // Actor is casting magic
-        }
-
-        return true; // Melee-only actor
-    }
-
-    void ActionExecutor::SetCPRCircling(RE::Actor *a_actor, float a_minDist, float a_maxDist, float a_minAngle,
-                                        float a_maxAngle)
-    {
-        if (!a_actor) {
-            return;
-        }
-
-        // IMPORTANT: Disable other CPR behaviors first to avoid conflicts
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableFallback", false);
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableAdvanceRadius", false);
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableBackoff", false);
-
-        // Enable CPR circling
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableCircling", true);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_CirclingDistMin", a_minDist);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_CirclingDistMax", a_maxDist);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_CirclingAngleMin", a_minAngle);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_CirclingAngleMax", a_maxAngle);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_CirclingViewConeAngle", 360.0f); // Full view cone
-    }
-
-    void ActionExecutor::SetCPRFallback(RE::Actor *a_actor, float a_minDist, float a_maxDist, float a_minWait,
-                                        float a_maxWait)
-    {
-        if (!a_actor) {
-            return;
-        }
-
-        // IMPORTANT: Disable other CPR behaviors first to avoid conflicts
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableCircling", false);
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableAdvanceRadius", false);
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableBackoff", false);
-
-        // Enable CPR fallback
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableFallback", true);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_FallbackDistMin", a_minDist);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_FallbackDistMax", a_maxDist);
-        // Reduce wait times to make fallback more responsive (less waiting around)
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_FallbackWaitTimeMin", a_minWait * 0.5f); // Faster recovery
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_FallbackWaitTimeMax", a_maxWait * 0.5f); // Faster recovery
-    }
-
-    void ActionExecutor::SetCPRBackoff(RE::Actor *a_actor, float a_minDistMult)
-    {
-        if (!a_actor) {
-            return;
-        }
-
-        // IMPORTANT: Disable other CPR behaviors first to avoid conflicts
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableCircling", false);
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableAdvanceRadius", false);
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableFallback", false);
-
-        // Enable CPR backoff
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableBackoff", true);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_BackoffMinDistMult", a_minDistMult);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_BackoffChance", 1.0f); // Always backoff when triggered
     }
 
     bool ActionExecutor::ExecuteAttack(RE::Actor *a_actor)
@@ -991,66 +807,6 @@ namespace CombatAI
         });
     }
 
-    void ActionExecutor::CalculateCPRCirclingAngles(const RE::NiPoint3 &a_strafeDirection,
-                                                    const ActorStateData &a_state, float &a_outMinAngle,
-                                                    float &a_outMaxAngle)
-    {
-        // Default angles (both sides) if we can't determine direction
-        a_outMinAngle = 45.0f;
-        a_outMaxAngle = 135.0f;
-
-        if (!a_state.target.isValid) {
-            return;
-        }
-
-        // Calculate direction from target to actor (target's perspective)
-        RE::NiPoint3 toActor = a_state.self.position - a_state.target.position;
-        toActor.z = 0.0f; // Keep on horizontal plane
-        toActor.Unitize();
-
-        // Get target's forward vector
-        RE::NiPoint3 targetForward = a_state.target.forwardVector;
-        targetForward.z = 0.0f;
-        targetForward.Unitize();
-
-        // Calculate perpendicular to target forward (right side)
-        RE::NiPoint3 targetRight(-targetForward.y, targetForward.x, 0.0f);
-        targetRight.Unitize();
-
-        // Determine if strafe direction is to the right or left relative to target
-        // Dot product with target's right vector: positive = right side, negative = left side
-        float strafeDotRight = a_strafeDirection.Dot(targetRight);
-
-        // Also check the direction from target to actor to determine which side we're on
-        float actorDotRight = toActor.Dot(targetRight);
-
-        // Use both strafe direction and actor position to determine circling side
-        // If both indicate same side, use that side; otherwise use wider range
-        bool strafeRight = strafeDotRight > 0.0f;
-        bool actorRight = actorDotRight > 0.0f;
-
-        if (strafeRight && actorRight) {
-            // Both indicate right side - circle to the right (30-90 degrees)
-            a_outMinAngle = 30.0f;
-            a_outMaxAngle = 90.0f;
-        } else if (!strafeRight && !actorRight) {
-            // Both indicate left side - circle to the left (90-150 degrees)
-            a_outMinAngle = 90.0f;
-            a_outMaxAngle = 150.0f;
-        } else {
-            // Mixed signals - use wider range but favor the strafe direction
-            if (strafeRight) {
-                // Strafe right but actor on left - use right side but wider range
-                a_outMinAngle = 30.0f;
-                a_outMaxAngle = 105.0f;
-            } else {
-                // Strafe left but actor on right - use left side but wider range
-                a_outMinAngle = 75.0f;
-                a_outMaxAngle = 150.0f;
-            }
-        }
-    }
-
     bool ActionExecutor::ExecuteBackoff(RE::Actor *a_actor, [[maybe_unused]] const DecisionResult &a_decision,
                                         [[maybe_unused]] const ActorStateData &a_state)
     {
@@ -1058,16 +814,8 @@ namespace CombatAI
             return false;
         }
 
-        // Our CloseMovement tree runs the vanilla Backoff node; CPR (below) only shapes it if present
+        // Our CloseMovement tree runs the vanilla Backoff node
         Intents::PostMove(a_actor, Intents::Move::Backoff);
-
-        // Try CPR backoff if available
-        // NOTE: CPR backoff works for all actors (not just melee-only)
-        if (IsCPRAvailable(a_actor)) {
-            // Enable CPR backoff
-            SetCPRBackoff(a_actor, 1.5f);
-            return true;
-        }
 
         return true; // the Backoff node moves it
     }
@@ -1132,32 +880,6 @@ namespace CombatAI
         return true;
     }
 
-    void ActionExecutor::SetCPRAdvancing(RE::Actor *a_actor, float a_innerRadiusMin, float a_innerRadiusMid,
-                                         float a_innerRadiusMax, float a_outerRadiusMin, float a_outerRadiusMid,
-                                         float a_outerRadiusMax)
-    {
-        if (!a_actor) {
-            return;
-        }
-
-        // IMPORTANT: Disable other CPR behaviors first to avoid conflicts
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableCircling", false);
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableBackoff", false);
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableFallback", false);
-
-        // Enable CPR advance radius override
-        ActorUtils::SafeSetGraphVariableBool(a_actor, "CPR_EnableAdvanceRadius", true);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_InnerRadiusMin", a_innerRadiusMin);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_InnerRadiusMid", a_innerRadiusMid);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_InnerRadiusMax", a_innerRadiusMax);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_OuterRadiusMin", a_outerRadiusMin);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_OuterRadiusMid", a_outerRadiusMid);
-        ActorUtils::SafeSetGraphVariableFloat(a_actor, "CPR_OuterRadiusMax", a_outerRadiusMax);
-
-        // No CPR_InterruptAction: CPR advances through its own behavior tree
-        // If needed, we can re-enable this later with proper throttling
-    }
-
     bool ActionExecutor::ExecuteAdvancing(RE::Actor *a_actor, const DecisionResult &a_decision,
                                           const ActorStateData &a_state)
     {
@@ -1165,14 +887,9 @@ namespace CombatAI
             return false;
         }
 
-        auto &config = Config::GetInstance();
-        const auto &matrix = config.GetDecisionMatrix();
-        float desiredMaxDist = matrix.sprintAttackMaxDistance;
+        const auto &matrix = Config::GetInstance().GetDecisionMatrix();
 
-        bool isMeleeOnly = IsMeleeOnlyActor(a_actor);
-        bool cprAvailable = IsCPRAvailable(a_actor);
-
-        // Our CloseMovement tree runs the vanilla Advance node (CPR below only shapes it if present). It stops
+        // Our CloseMovement tree runs the vanilla Advance node. It stops
         // a little inside the brain's attack range, not at the engine's longer melee range (run 16: a reach-82
         // bandit parked at 125-175 units, outside its own range, and the brain never attacked).
         // A ranged fighter's advance gives its own stop distance (EvaluateRangedPositioning)
@@ -1185,34 +902,6 @@ namespace CombatAI
 
         // The tree's Advance node moves the NPC (vanilla pathing and speed). The old forced sprint "charge" (raw sprint
         // flag + heading) was removed: NPCs sometimes ran in place with it.
-
-        if (cprAvailable && isMeleeOnly) {
-            // Inner radius = where CPR stops advancing. It must be melee range: taking it
-            // from the sprint-attack band parked NPCs just outside their reach.
-            const float meleeRange = StateHelpers::EffectiveAttackRange(
-                a_state.weaponReach, a_state.target.boundRadius, matrix.offenseReachMultiplier,
-                matrix.offenseReachSafetyMargin);
-            float innerRadiusMin = meleeRange * 0.6f;
-            float innerRadiusMid = meleeRange * 0.8f;
-            float innerRadiusMax = meleeRange;
-
-            // Outer radius: beyond it CPR sprints. An offensive NPC uses OuterMin..OuterMid,
-            // so keep that at the sprint-attack launch distance (as ProjectGapClose does):
-            // the NPC is still sprinting when it reaches launch range. Taking it from the
-            // sprint band slowed NPCs to a run ~150 units before they could launch.
-            // CPR requires each outer value to exceed the matching inner one.
-            // Offensive NPCs stop sprinting at 60-85% of the launch distance, so they cross
-            // the launch line still sprinting (0.8-1.0 left a window one tick wide).
-            const float launchDist = SprintAttackLaunchDistance(a_state);
-            float outerRadiusMin = (std::max)(launchDist * 0.6f, innerRadiusMax + 20.0f);
-            float outerRadiusMid = (std::max)(launchDist * 0.85f, outerRadiusMin + 1.0f);
-            float outerRadiusMax = (std::max)(desiredMaxDist * 1.1f, outerRadiusMid + 1.0f);
-
-            // Enable CPR advancing
-            SetCPRAdvancing(a_actor, innerRadiusMin, innerRadiusMid, innerRadiusMax, outerRadiusMin, outerRadiusMid,
-                            outerRadiusMax);
-            return true;
-        }
 
         return true; // the Advance node moves it
     }

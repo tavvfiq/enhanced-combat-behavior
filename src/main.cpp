@@ -19,6 +19,21 @@ extern "C" __declspec(dllexport) void *__cdecl RequestPluginAPI(ECA_API::Interfa
     return nullptr;
 }
 
+namespace
+{
+    // Combat Pathing Revolution patches the same combat movement code this mod drives (the CloseMovement tree, the
+    // Circle node, the Backoff / Fallback starts), so the two are not supported together. CPR may not be loaded yet
+    // when we are (plugins load in name order), hence the file check as well.
+    bool CPRInstalled()
+    {
+        if (GetModuleHandleW(L"CombatPathingRevolution.dll")) {
+            return true;
+        }
+        std::error_code ec;
+        return std::filesystem::exists("Data/SKSE/Plugins/CombatPathingRevolution.dll", ec);
+    }
+} // namespace
+
 extern "C" __declspec(dllexport) bool __cdecl SKSEPlugin_Load(const SKSE::LoadInterface *a_skse)
 {
     // Initialize SKSE
@@ -44,6 +59,18 @@ extern "C" __declspec(dllexport) bool __cdecl SKSEPlugin_Load(const SKSE::LoadIn
     if (!config.IsEnabled()) {
         LOG_INFO("EnhancedCombatBehavior is disabled in configuration file");
         return true; // Plugin loaded but disabled
+    }
+
+    // Refuse to run next to CPR, before installing anything (SKSE unloads a plugin that returns false)
+    if (CPRInstalled()) {
+        LOG_ERROR("Combat Pathing Revolution (CombatPathingRevolution.dll) is installed: Enhanced Combat Behavior is not "
+                  "compatible with it and does not load this session");
+        MessageBoxW(nullptr,
+                    L"Enhanced Combat Behavior is not compatible with Combat Pathing Revolution "
+                    L"(CombatPathingRevolution.dll).\n\nBoth change how NPCs move in combat. Enhanced Combat Behavior "
+                    L"will not load this session. Disable one of the two mods.",
+                    L"Enhanced Combat Behavior", MB_OK | MB_ICONWARNING | MB_TOPMOST);
+        return false;
     }
 
     // The engine builds its behavior trees before kDataLoaded, so the tree builders are replaced

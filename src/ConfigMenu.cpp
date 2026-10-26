@@ -82,8 +82,7 @@ namespace CombatAI
                 }
                 ImGuiMCP::Checkbox("Include humanoid creatures (draugr, falmer, skeletons)", &config.m_decisionMatrix.includeHumanoidCreatures);
                 if (ImGuiMCP::CollapsingHeader("Integrations")) {
-                    ImGuiMCP::Text("CPR, Precision and TK Dodge are detected on game load (restart to re-detect).");
-                    ImGuiMCP::Checkbox("CPR integration", &config.m_modIntegrations.enableCPRIntegration);
+                    ImGuiMCP::Text("Precision and TK Dodge are detected on game load (restart to re-detect).");
                     ImGuiMCP::Checkbox("Precision integration", &config.m_modIntegrations.enablePrecisionIntegration);
                     ImGuiMCP::Checkbox("TK Dodge integration (dodges)", &config.m_modIntegrations.enableTKDodgeIntegration);
                     ImGuiMCP::Checkbox("SCAR integration (when SCAR.dll is loaded)", &config.m_modIntegrations.enableSCARIntegration);

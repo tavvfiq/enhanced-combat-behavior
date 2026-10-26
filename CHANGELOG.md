@@ -1,5 +1,10 @@
 # Changelog
 
+## Enhanced Combat Behavior 0.34.0 (2026-10-26)
+
+- **Not compatible with Combat Pathing Revolution.** CPR patches the same combat movement code (the CloseMovement tree, the Circle node, the Backoff / Fallback starts); at the Fallback distance call it replaces our rule outright when its fallback is on. When `CombatPathingRevolution.dll` is loaded or present in `Data/SKSE/Plugins`, the mod now shows a warning dialog at startup and does not load (nothing is hooked). Log: `Combat Pathing Revolution ... is installed: Enhanced Combat Behavior is not compatible with it and does not load this session`.
+- **CPR integration removed:** the graph-variable shaping of circling, fallback, backoff and advance radii, the `EnableCPRIntegration` setting and the per-tick `CPR 0x..` debug line. Without CPR those branches never ran, so behavior is unchanged.
+
 ## Enhanced Combat Behavior 0.33.1 (2026-10-26)
 
 - **Removed the sprint "charge" gap-close** (`EnableSprintCharge`). It forced the sprint flag and a raw heading while advancing, and NPCs sometimes ran in place. Advancing now only uses the behavior tree's Advance move (vanilla pathing and speed; the NPC sprints when vanilla decides to). Sprint attacks still launch only from a real sprint.

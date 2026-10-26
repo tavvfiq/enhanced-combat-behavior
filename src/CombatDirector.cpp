@@ -166,26 +166,6 @@ namespace CombatAI
             return; // can't react yet
         }
 
-        if (debugEnabled) {
-            // What CPR is actually told, and whether the NPC is sprinting, each tick
-            auto gb = [&](const char *a_var) {
-                bool v = false;
-                return a_actor->GetGraphVariableBool(a_var, v) && v;
-            };
-            auto gf = [&](const char *a_var) {
-                float v = -1.0f;
-                a_actor->GetGraphVariableFloat(a_var, v);
-                return v;
-            };
-            LOG_DEBUG("CPR 0x{:08X}: advance={} inner=({:.0f},{:.0f},{:.0f}) outer=({:.0f},{:.0f},{:.0f}) circling={} "
-                      "fallback={} backoff={} | sprinting={} Speed={:.0f}",
-                      static_cast<std::uint32_t>(formID), gb("CPR_EnableAdvanceRadius"), gf("CPR_InnerRadiusMin"),
-                      gf("CPR_InnerRadiusMid"), gf("CPR_InnerRadiusMax"), gf("CPR_OuterRadiusMin"),
-                      gf("CPR_OuterRadiusMid"), gf("CPR_OuterRadiusMax"), gb("CPR_EnableCircling"),
-                      gb("CPR_EnableFallback"), gb("CPR_EnableBackoff"), ActorUtils::SafeIsSprinting(a_actor),
-                      gf("Speed"));
-        }
-
         // Gather state and evaluate the decision matrix (the heavy per-actor work)
         ActorStateData state = m_observer.GatherState(a_actor, elapsed);
         Boss::UpdatePhase(a_actor, state.self.healthPercent); // detection (logged once) and health phase

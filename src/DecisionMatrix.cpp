@@ -594,7 +594,7 @@ namespace CombatAI
             return result; // nothing to circle
         }
         // Circle/flank the target while waiting for an attack slot. ExecuteFlanking uses
-        // CPR circling when available and falls back to strafe movement otherwise.
+        // the Circle node on the brain's side.
         result.action = ActionType::Flanking;
         result.direction = CalculateFlankingDirection(a_state);
         result.priority = 1.0f;
@@ -1719,7 +1719,7 @@ namespace CombatAI
         // --- 2. Evaluate Sprint Attack ---
         // Valid in specific range, competes with Advancing
         DecisionResult sprintAttackResult;
-        // Only from a real sprint (ProjectGapClose's rule). Where NPCs never sprint (vanilla/CPR
+        // Only from a real sprint (ProjectGapClose's rule). Where NPCs never sprint (vanilla
         // can leave combat movement at a run), a sprint-attack decision could never launch,
         // yet it won the whole band and starved Advancing/ForwardDodge.
         bool checkSprintAttack = a_state.self.isSprinting && a_state.target.distance > sprintAttackMinDist &&

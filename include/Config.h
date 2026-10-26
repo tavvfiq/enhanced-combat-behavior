@@ -167,7 +167,6 @@ namespace CombatAI
 
         struct ModIntegrationSettings
         {
-            bool enableCPRIntegration = true;
             bool enablePrecisionIntegration = true;
             bool enableTKDodgeIntegration = true;
             bool enableSCARIntegration = true;

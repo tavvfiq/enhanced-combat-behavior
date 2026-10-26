@@ -5,8 +5,8 @@ bashes, parries, dodges, flanks, backs off or retreats, and executes those choic
 own combat behavior trees (vanilla leaf nodes), so animations, attack data and vanilla checks stay in
 charge of how each move plays out.
 
-Successor of **Enhanced Combat AI** (`CombatAI-NG.dll`). Do not install both, and do not combine it with
-FenixCombatAI.
+Successor of **Enhanced Combat AI** (`CombatAI-NG.dll`). Not compatible with Enhanced Combat AI, FenixCombatAI
+or Combat Pathing Revolution (with CPR installed it shows a warning and does not load).
 
 ## What it does
 - **Decisions every tick per NPC:** offense (attack, power attack, sprint attack, feint, combo
@@ -35,7 +35,6 @@ FenixCombatAI.
   this mod only gates them (pacing, defending).
 - **Simple Timed Block**, **EldenParry**: timed block / parry windows.
 - **powerofthree's Tweaks** with "Load EditorIDs": the "Boss in the EditorID" boss rule.
-- **Combat Pathing Revolution**: shapes some movement when present.
 
 ## Install
 Install with a mod manager. Files: `SKSE/Plugins/EnhancedCombatBehavior.dll` and

@@ -25,7 +25,7 @@ namespace CombatAI
         // advances (the NPC sprints there on its own or not at all).
         bool CanLaunchSprintAttack(RE::Actor *a_actor, const ActorStateData &a_state);
 
-        // Drop CPR fallback/backoff so a swing in progress isn't dragged backward
+        // Drop a pending Fallback/Backoff so a swing in progress isn't dragged backward
         void SuspendRetreat(RE::Actor *a_actor);
 
         // Sprint-attack launch distance: the INI value, or 3 x weapon reach when it is 0
@@ -81,13 +81,13 @@ namespace CombatAI
 
         void ConfigureDodgeSystem();
 
-        // Execute strafe movement (with CPR support)
+        // Execute strafe movement (Circle node on the brain's side)
         bool ExecuteStrafe(RE::Actor *a_actor, const DecisionResult &a_decision, const ActorStateData &a_state);
 
-        // Execute flanking movement (tactical positioning with allies, uses CPR)
+        // Execute flanking movement (Circle node toward the target's side)
         bool ExecuteFlanking(RE::Actor *a_actor, const DecisionResult &a_decision, const ActorStateData &a_state);
 
-        // Execute retreat movement (with CPR support)
+        // Execute retreat movement (Fallback node)
         bool ExecuteRetreat(RE::Actor *a_actor, const DecisionResult &a_decision, const ActorStateData &a_state);
 
         // Execute attack
@@ -126,33 +126,15 @@ namespace CombatAI
         // Helper: Set movement via animation graph (if possible)
         bool SetMovementDirection(RE::Actor *a_actor, const RE::NiPoint3 &a_direction, float a_intensity);
 
-        // Helper: Check if CPR is available (check for graph variable support)
-        bool IsCPRAvailable(RE::Actor *a_actor) const;
-
-        // Helper: Check if actor is melee-only (no ranged weapons or magic)
-        // CPR circling and advancing only work for melee-only actors
-        bool IsMeleeOnlyActor(RE::Actor *a_actor) const;
-
-
-        // Helper: Set CPR circling parameters
-        void SetCPRCircling(RE::Actor *a_actor, float a_minDist, float a_maxDist, float a_minAngle, float a_maxAngle);
-
-        // Helper: Set CPR fallback parameters
-        void SetCPRFallback(RE::Actor *a_actor, float a_minDist, float a_maxDist, float a_minWait, float a_maxWait);
-
-        // Helper: Set CPR backoff parameters
-        void SetCPRBackoff(RE::Actor *a_actor, float a_minDistMult);
-
-        // Helper: Set CPR advancing parameters
-        void SetCPRAdvancing(RE::Actor *a_actor, float a_innerRadiusMin, float a_innerRadiusMid, float a_innerRadiusMax,
-                             float a_outerRadiusMin, float a_outerRadiusMid, float a_outerRadiusMax);
 
 
 
-        // Helper: Calculate CPR circling angles based on strafe direction
-        // CPR angles are relative to target's facing direction (0° = front, 90° = side, 180° = back)
-        void CalculateCPRCirclingAngles(const RE::NiPoint3 &a_strafeDirection, const ActorStateData &a_state,
-                                        float &a_outMinAngle, float &a_outMaxAngle);
+
+
+
+
+
+
 
         // Dodge system
         DodgeSystem m_dodgeSystem;

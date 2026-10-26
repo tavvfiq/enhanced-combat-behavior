@@ -43,7 +43,7 @@ namespace CombatAI
 
         // Held-back action for combat pacing: when an actor is denied an attack slot it
         // should stay engaged (circle/flank the target) instead of committing. Returns a
-        // ready Flanking decision (execution falls back to strafe if CPR is unavailable).
+        // ready Flanking decision.
         DecisionResult EvaluateHeldBack(RE::Actor *a_actor, const ActorStateData &a_state);
 
       private:
