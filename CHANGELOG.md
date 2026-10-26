@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.29.1 (2026-10-26)
+
+- **Boss detection: "Boss" in the EditorID** of the NPC record, its template chain, or (leveled actors) the leveled list it came from and the NPC it picked. Vanilla names its boss NPCs that way (Skyrim.esm: 357 NPC records and 80 leveled lists, e.g. `LvlBanditBossMelee2HNordM`, `LCharDraugrBossNoDragonPriest`). The game drops most EditorIDs at load, so this rule only works when a mod keeps them (powerofthree's Tweaks "Load EditorIDs"); the log says so once: `Boss detection: EditorIDs loaded / not kept in memory`. Boss lines name the match: `Boss 0x..: Bandit Chief (boss marker, EditorID LvlBanditBossMelee2HNordM) level ..`.
+
 ## CombatAITree 0.29.0 (2026-10-26)
 
 - **Boss detection (step 1 of boss handling, logging only; no behavior change yet).** An NPC is a boss when its placed reference carries vanilla's "Boss" location ref type (Skyrim.esm `Boss`, 0x000130F7, on dungeon bosses such as bandit chiefs) or its name is in `[Boss] BossNames` (default `Bandit Chief, Draugr Deathlord`; deathlords also appear as plain elites without the marker). Log: `Boss 0x..: Bandit Chief (boss marker, name) level 28 vs player 20` once per boss; selecting an NPC in the console adds `Boss check 0x..: BOSS|not a boss (boss marker X, listed name Y, level Z)`.

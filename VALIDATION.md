@@ -463,3 +463,6 @@
 
 ## 0.29.0 (2026-10-26) boss detection
 - Skyrim.esm (read-only) LCRT scan: 0x000130F7 Boss, 0x000130F8 BossContainer, 0x000130F9 BossTreasureMarker. CommonLibSSE-NG: ExtraLocationRefType::locRefType (ExtraDataType::kLocationRefType), BGSLocationRefType : BGSKeyword, TESObjectREFR::extraList, Actor::GetLevel. Untested in game. Pass: `Boss 0x..` info lines for a bandit chief (boss marker) and a deathlord (name), none for ordinary bandits.
+
+## 0.29.1 (2026-10-26) boss EditorID rule
+- Skyrim.esm (read-only) scan: EditorIDs containing "boss": NPC_ 357, LVLN 80 (0x0E1646 LvlBanditBossMelee2HNordM, 0x0DD9D8 LCharDraugrBossNoDragonPriest, 0x0F31E2 LvlBanditBossAmbush ...). CommonLibSSE-NG: TESForm::GetFormEditorID is virtual { return ""; } (TESNPC does not override), ExtraLeveledCreature originalBase / templateBase, TESActorBaseData::baseTemplateForm. Untested in game. Pass: the "EditorIDs loaded/not kept" line; with them loaded, chiefs/deathlords flagged by EditorID.

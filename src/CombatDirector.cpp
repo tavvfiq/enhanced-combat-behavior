@@ -644,9 +644,9 @@ namespace CombatAI
                              static_cast<std::uint32_t>(current), selected->GetDisplayFullName());
                     if (auto *actor = selected->As<RE::Actor>()) {
                         const auto boss = Boss::Get(actor);
-                        LOG_INFO("Boss check 0x{:08X}: {} (boss marker {}, listed name {}, level {})",
+                        LOG_INFO("Boss check 0x{:08X}: {} (boss marker {}, listed name {}, EditorID {}, level {})",
                                  static_cast<std::uint32_t>(current), boss.boss ? "BOSS" : "not a boss", boss.marker,
-                                 boss.named, actor->GetLevel());
+                                 boss.named, boss.editorID ? boss.match : std::string("no"), actor->GetLevel());
                     }
                 } else {
                     LOG_INFO("Debug log: no console selection - per-actor logs are off");
