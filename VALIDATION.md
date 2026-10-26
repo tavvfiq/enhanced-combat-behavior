@@ -460,3 +460,6 @@
 
 ## 0.28.1 (2026-10-26) roll value logging, roll self-test
 - Offline (python, same SplitMix64 + 32-bit salt, keys (0x8E0ED<<32)|(1<<61)|100000+i, 20000 keys): 0.3526 / 0.3460 / 0.3555 / 0.3480 / 0.3520 at chance 0.35. In-game self-test untested.
+
+## 0.29.0 (2026-10-26) boss detection
+- Skyrim.esm (read-only) LCRT scan: 0x000130F7 Boss, 0x000130F8 BossContainer, 0x000130F9 BossTreasureMarker. CommonLibSSE-NG: ExtraLocationRefType::locRefType (ExtraDataType::kLocationRefType), BGSLocationRefType : BGSKeyword, TESObjectREFR::extraList, Actor::GetLevel. Untested in game. Pass: `Boss 0x..` info lines for a bandit chief (boss marker) and a deathlord (name), none for ordinary bandits.

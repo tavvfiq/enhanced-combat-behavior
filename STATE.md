@@ -5,7 +5,7 @@ nodes through our own behavior trees, instead of raw animation events. Design: `
 
 **Owner folder:** D:\Modding\combat-ai-tree (git). Research and tools: D:\Modding\skyrim_re.
 
-**Active version:** 0.28.1 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
+**Active version:** 0.29.0 (CURRENT.txt). Releases: `releases\<version>\CombatAITree-<version>.zip`, one per
 version so any step can be rolled back.
 
 **Runtime status:**
@@ -116,7 +116,8 @@ SCAR research (subagent, source e62b63a, MIT): data = clip annotations `SCAR_Act
 - 0.26.0: Personality (include/Personality.h, src/Personality.cpp): risk/caution/patience from kConfidence, kAggression, CombatStyle offensive/(offensive+defensive) and avoidThreatChance, FormID jitter +-0.1, cached 10 s; RiskScale = 0.25 + 1.5 risk. Forward dodge (DecisionMatrix advancing block): facing-away opening dropped, guard check, RollOnce per 1.5 s bucket with ForwardDodgeChance x RiskScale (x2 counter, x0.5 exposed unless risk >= 0.7), ForwardDodgeMinStamina 0.5, Humanizer cooldown ForwardDodgeCooldownSeconds 8. Sprint attack: RollOnce per 2 s at 0.4 + 0.6 risk. Trade blows x RiskScale. Build-validated only.
 - 0.27.0: CautionScale = 0.6 + 0.8 caution on backoffAfterSwing/OnSwing (CombatDirector "pressing"), DefendRoll, close dodge; feint RollOnce per 2 s at 0.4 + 0.6 patience; weights risk 0.45 conf + 0.35 aggr + 0.2 offense, caution 0.45 (1-conf) + 0.2 (1-offense) + 0.35 avoid, patience 0.7 (1-aggr) + 0.3 (1-offense), jitter +-0.15; combo follow-up range 1.3x EffectiveAttackRange. Build-validated only.
 - 0.28.0: EvaluateFlanking returns none beyond 2.5x EffectiveAttackRange or when TargetAimedAtUs (the target faces us); reach computed once above. Pacing's EvaluateHeldBack (waiting NPCs) unchanged. Build-validated only.
-Next: melee-heavy log run: Flanking vs Advancing/Attack share, caution effect on blocks/back-offs, a forward-dodge "go".
+- 0.29.0: Boss (include/Boss.h, src/Boss.cpp): marker = actor->extraList ExtraLocationRefType == LookupByID<BGSLocationRefType>(0x000130F7) (Skyrim.esm LCRT EDID "Boss", verified by parsing Skyrim.esm read-only; BossContainer 0x130F8, BossTreasureMarker 0x130F9); named = GetName() in [Boss] BossNames (case-insensitive, comma list); cached per FormID; called each brain tick (cached) and on console selection. No behavior change. Build-validated only.
+Next: log run at a bandit camp/dungeon with a chief, and a draugr crypt with a deathlord: check the Boss lines (marker vs name) and levels; then step 2 (pacing exemption, health phases, skill, anti-cheese).
 Next (if accepted): custom block leaf (TREE_DESIGN 6, Idle clone) in the Melee tree for dual wield, then the Magic tree (needs its builder hook, SE/AE RE).
 Finding (#4, RE notes COMBAT_AI_RE.md ActionEquipmentSelector): the Block tree (bash, block, parry, timed block) is linked only for equipment type 3 Shield. NPCs without a shield never run it, so their bash/block/parry/timed-block intents can't be taken (0x8E1A4 with a dagger, archers). DefendUnavailable (0.11.1) stops the requests after 3. Whether two-handed or one-handed weapon blocking goes through another path is unknown.
 Open (run 29): selected-NPC attacks fired 44 of 74 taken; 12 refused before vanilla checks, mostly within 0-3 s of the previous attack (per-attack cooldown suspected, not probed); range/path FAIL 16.

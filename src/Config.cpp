@@ -290,6 +290,8 @@ namespace CombatAI
 
         B("Teamwork", "EnableFollowerPincer", m_teamwork.enableFollowerPincer);
         D("Teamwork", "FollowerPincerBonus", m_teamwork.followerPincerBonus);
+        B("Boss", "EnableBossDetection", m_boss.enableBossDetection);
+        S("Boss", "BossNames", m_boss.bossNames);
 
         // Vanilla attacks
         B("VanillaAttacks", "EnableVanillaAttackShaping", m_vanillaAttacks.enable);
@@ -847,6 +849,9 @@ namespace CombatAI
         m_teamwork.followerPincerBonus = ClampValue(
             static_cast<float>(a_ini.GetDoubleValue("Teamwork", "FollowerPincerBonus", m_teamwork.followerPincerBonus)),
             0.0f, 1.0f);
+        // [Boss] is read here too (no separate reader for two keys)
+        m_boss.enableBossDetection = a_ini.GetBoolValue("Boss", "EnableBossDetection", m_boss.enableBossDetection);
+        m_boss.bossNames = a_ini.GetValue("Boss", "BossNames", m_boss.bossNames.c_str());
     }
 
     void Config::ReadProjectileAwarenessSettings(CSimpleIniA &a_ini)
@@ -896,6 +901,7 @@ namespace CombatAI
         m_targetSwitching = {};
         m_armorStyle = {};
         m_teamwork = {};
+        m_boss = {};
         m_vanillaAttacks = {};
         m_projectileAwareness = {};
 

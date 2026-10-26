@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.29.0 (2026-10-26)
+
+- **Boss detection (step 1 of boss handling, logging only; no behavior change yet).** An NPC is a boss when its placed reference carries vanilla's "Boss" location ref type (Skyrim.esm `Boss`, 0x000130F7, on dungeon bosses such as bandit chiefs) or its name is in `[Boss] BossNames` (default `Bandit Chief, Draugr Deathlord`; deathlords also appear as plain elites without the marker). Log: `Boss 0x..: Bandit Chief (boss marker, name) level 28 vs player 20` once per boss; selecting an NPC in the console adds `Boss check 0x..: BOSS|not a boss (boss marker X, listed name Y, level Z)`.
+- Debug: the roll self-test from 0.28.1 still logs at load.
+
 ## CombatAITree 0.28.1 (2026-10-26)
 
 - **Debug: the forward-dodge roll shows its value.** `ForwardDodge 0x..: ... -> chance 0.35, rolled 0.62 (bucket N): walk`; one bucket is one 1.5 s opening, so repeated lines with the same bucket are one roll.

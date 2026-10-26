@@ -9,6 +9,7 @@
 #include "GuardCounterFeedbackTracker.h"
 #include "Intents.h"
 #include "SCARData.h"
+#include "Boss.h"
 #include "Personality.h"
 #include "ComboFollowUp.h"
 #include "Trees.h"
@@ -187,6 +188,7 @@ namespace CombatAI
 
         // Gather state and evaluate the decision matrix (the heavy per-actor work)
         ActorStateData state = m_observer.GatherState(a_actor, elapsed);
+        Boss::Get(a_actor); // detection only for now (logs each boss once)
         // A held dual block ends when the swing stops without hitting; a landed blow ends it from the hit event
         // (ModEventSinks). Not on the attacker's recovery state: between combo swings it is set before the next blow,
         // and run 40 dropped 30 blocks ~0.15 s in that way (5 of 73 hits blocked).
@@ -640,6 +642,12 @@ namespace CombatAI
                 if (current) {
                     LOG_INFO("Debug log now follows console selection 0x{:08X} ({})",
                              static_cast<std::uint32_t>(current), selected->GetDisplayFullName());
+                    if (auto *actor = selected->As<RE::Actor>()) {
+                        const auto boss = Boss::Get(actor);
+                        LOG_INFO("Boss check 0x{:08X}: {} (boss marker {}, listed name {}, level {})",
+                                 static_cast<std::uint32_t>(current), boss.boss ? "BOSS" : "not a boss", boss.marker,
+                                 boss.named, actor->GetLevel());
+                    }
                 } else {
                     LOG_INFO("Debug log: no console selection - per-actor logs are off");
                 }

@@ -265,6 +265,13 @@ namespace CombatAI
         };
 
         // Followers treat the player as their flanking partner.
+        // Boss detection (logging only for now): the Boss location ref type, or a listed name
+        struct BossSettings
+        {
+            bool enableBossDetection = true;
+            std::string bossNames = "Bandit Chief, Draugr Deathlord"; // comma-separated display names, case-insensitive
+        };
+
         struct TeamworkSettings
         {
             bool enableFollowerPincer = true;
@@ -347,6 +354,7 @@ namespace CombatAI
         const TargetSwitchingSettings &GetTargetSwitching() const { return m_targetSwitching; }
         const ArmorStyleSettings &GetArmorStyle() const { return m_armorStyle; }
         const TeamworkSettings &GetTeamwork() const { return m_teamwork; }
+        const BossSettings &GetBoss() const { return m_boss; }
         const VanillaAttackSettings &GetVanillaAttacks() const { return m_vanillaAttacks; }
         const ProjectileAwarenessSettings &GetProjectileAwareness() const { return m_projectileAwareness; }
 
@@ -395,6 +403,7 @@ namespace CombatAI
         TargetSwitchingSettings m_targetSwitching;
         ArmorStyleSettings m_armorStyle;
         TeamworkSettings m_teamwork;
+        BossSettings m_boss;
         VanillaAttackSettings m_vanillaAttacks;
         ProjectileAwarenessSettings m_projectileAwareness;
 
