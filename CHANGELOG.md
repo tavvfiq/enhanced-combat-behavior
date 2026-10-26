@@ -1,5 +1,9 @@
 # Changelog
 
+## Enhanced Combat Behavior 0.34.2 (2026-10-26)
+
+- **Feints only inside bash reach.** A feint is a bash, but it was chosen out to 1.5x weapon reach (about 170 units). Bash reach is `fCombatBashReach` (61) plus the target's size, so feints at 143-164 units never bashed and were a plain sidestep. Feint range is now the same bash reach the bash itself uses.
+
 ## Enhanced Combat Behavior 0.34.1 (2026-10-26)
 
 - **The CPR warning asks what to do:** Yes continues the game without Enhanced Combat Behavior, No exits the game so you can disable one of the two mods. The log records the choice.

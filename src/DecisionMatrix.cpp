@@ -2926,8 +2926,9 @@ namespace CombatAI
         // was just standing there
         bool targetIsDefensive = targetIsBlocking;
 
-        // Relaxed range: allow feinting when approaching melee range, not just in it
-        float reachDistance = a_state.weaponReach * 1.5f; // Extended range for feinting
+        // A feint is a bash, so only inside bash reach: at weapon reach x1.5 (~170) it fired at 143-164 units, where
+        // the bash never starts and the feint was a bare sidestep (SE run, 2026-10-26)
+        float reachDistance = BashReach() * a_actor->GetScale() + a_state.target.boundRadius;
         bool inFeintRange = (a_state.target.distance <= reachDistance);
 
         // Feinting is effective when:
