@@ -486,8 +486,16 @@ namespace CombatAI
             possibleDecisions.push_back(projectileResult);
         }
 
+        // Our Circle just failed to start (animation-driven after a jump or dodge, not facing, no path): asking again
+        // left the NPC standing still, 14 ticks at 384 units (AE run, 2026-10-26). Melee picks something else for 2 s.
+        const auto circles = [](const DecisionResult &a_result) {
+            return a_result.action == ActionType::Strafe || a_result.action == ActionType::Flanking;
+        };
+        const bool circleRefused = !ranged && Intents::CircleRefusedRecently(a_actor);
+
         DecisionResult evasionResult = EvaluateEvasion(a_actor, a_state);
-        if (evasionResult.action != ActionType::None && (canDodge || !dodges(evasionResult))) {
+        if (evasionResult.action != ActionType::None && (canDodge || !dodges(evasionResult)) &&
+            !(circleRefused && circles(evasionResult))) {
             possibleDecisions.push_back(evasionResult);
         }
 
@@ -497,7 +505,7 @@ namespace CombatAI
         }
 
         DecisionResult flankingResult = ranged ? EvaluateRangedPositioning(a_actor, a_state) : EvaluateFlanking(a_actor, a_state);
-        if (flankingResult.action != ActionType::None) {
+        if (flankingResult.action != ActionType::None && !(circleRefused && circles(flankingResult))) {
             possibleDecisions.push_back(flankingResult);
         }
 
@@ -1316,13 +1324,19 @@ namespace CombatAI
 
             bool shouldStrafe = false;
             float strafePriority = 1.3f;
+            const float nearReach = a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f;
+            // A drawn bow counts as attacking for as long as it is held: with no distance limit a melee NPC circled
+            // an archer 300-1200 units away instead of closing in (AE run, 2026-10-26). Shots are the projectile
+            // dodge / jump rules' job; strafing answers a swing or a guard up close.
+            const bool nearTarget = a_state.target.distance <= nearReach * 2.0f;
 
             // Strong reasons to strafe. A swing at someone else is no reason (1 vs many: you swing at one bandit,
             // the one beside it sidestepped)
-            if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && TargetAimedAtUs(a_actor, a_state)) {
+            if (nearTarget && (a_state.target.isAttacking || a_state.target.isPowerAttacking) &&
+                TargetAimedAtUs(a_actor, a_state)) {
                 shouldStrafe = true;
                 strafePriority = 1.6f; // Higher priority when target is attacking (evasion)
-            } else if (a_state.target.isBlocking && !a_state.target.isAttacking) {
+            } else if (nearTarget && a_state.target.isBlocking && !a_state.target.isAttacking) {
                 shouldStrafe = true;
                 strafePriority = 1.4f; // Good time to reposition for better angle
             } else if (a_state.self.attackState == RE::ATTACK_STATE_ENUM::kFollowThrough) {
@@ -1339,8 +1353,7 @@ namespace CombatAI
                     (a_state.combatContext.enemyCount >= (a_state.combatContext.allyCount + 1) * 2);
                 // Only near the target, as the proactive branch below: run 57's lone falmer (8 enemies) strafed 77 of
                 // 107 decisions at 200-400 units and never closed in (Advancing drops to 0.95 when outnumbered)
-                const float nearReach = a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f;
-                if (a_state.target.distance > nearReach * 2.0f) {
+                if (!nearTarget) {
                     outnumbered = false;
                 }
 

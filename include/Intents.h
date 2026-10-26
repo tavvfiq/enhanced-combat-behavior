@@ -69,6 +69,8 @@ namespace CombatAI::Intents
     float SinceSwing(RE::Actor *a_actor);
     bool AttackVetoed(RE::Actor *a_actor);
     bool CircleRefused(RE::Actor *a_actor, float a_side);
+    // Our Circle failed on either side under 2 s ago
+    bool CircleRefusedRecently(RE::Actor *a_actor);
     // Distance the brain wants the running Advance to stop at (0 = vanilla's own).
     float AdvanceDistance(RE::Actor *a_actor);
 

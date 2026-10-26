@@ -1,6 +1,10 @@
 # Changelog
 
-## Enhanced Combat Behavior 1.0.0 (2026-10-26)
+## Enhanced Combat Behavior 1.0.1 (2026-10-26)
+
+- **Melee NPCs close in on archers instead of circling them.** The "target is attacking me" sidestep had no distance limit, and a drawn bow counts as attacking for as long as it is held. A Thalmor Justiciar circled a wounded archer from 300 to 1200 units away (267 times in one fight). That sidestep, and the one against a raised guard, now only happen within twice weapon reach. Arrows are still dodged by the jump and projectile-dodge rules.
+- **No more standing still when circling can't start.** When the NPC's Circle is refused (still in a dodge or jump animation, not facing the target, no path), melee NPCs don't ask for Circle or Flanking again for 2 s and pick another move. Before, the brain kept asking and the NPC stood in place (14 decisions at the same spot).
+- **Debug log: Backoff start checks.** With the debug log on, MoveNode lines for the selected NPC now say why a Backoff refused to start (animation-driven, too far, or no straight path), as Circle and Fallback lines already did. Backoffs failed at once 17 of 24 times in the same fight.
 
 - **First public release.** Same behavior as 0.35.0.
 - **License files ship in the download:** `SKSE/Plugins/EnhancedCombatBehavior/` holds `LICENSE.txt` (GPL-3.0), `THIRD_PARTY.md` (MIT notices of the code this builds on, library licenses, source link) and `CREDITS.md`.

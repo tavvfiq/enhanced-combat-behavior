@@ -368,8 +368,8 @@ namespace CombatAI::Intents
         }
         const auto now = Clock::now();
         g_board.Modify(a_actor->GetFormID(), [&](Entry &e) {
-            if (e.move == Move::Circle && e.param != 0.0f) {
-                e.refusedSide = e.param;
+            if (e.move == Move::Circle) {
+                e.refusedSide = e.param; // 0 = vanilla's side: CircleRefused never flips it, CircleRefusedRecently counts it
                 e.refusedAt = now;
             }
         });
@@ -417,6 +417,12 @@ namespace CombatAI::Intents
         }
         const auto e = g_board.Find(a_actor->GetFormID());
         return e && e->refusedSide == a_side && Clock::now() - e->refusedAt < std::chrono::seconds(2);
+    }
+
+    bool CircleRefusedRecently(RE::Actor *a_actor)
+    {
+        const auto e = a_actor ? g_board.Find(a_actor->GetFormID()) : std::nullopt;
+        return e && Clock::now() - e->refusedAt < std::chrono::seconds(2);
     }
 
     float AdvanceDistance(RE::Actor *a_actor)
