@@ -466,3 +466,6 @@
 
 ## 0.29.1 (2026-10-26) boss EditorID rule
 - Skyrim.esm (read-only) scan: EditorIDs containing "boss": NPC_ 357, LVLN 80 (0x0E1646 LvlBanditBossMelee2HNordM, 0x0DD9D8 LCharDraugrBossNoDragonPriest, 0x0F31E2 LvlBanditBossAmbush ...). CommonLibSSE-NG: TESForm::GetFormEditorID is virtual { return ""; } (TESNPC does not override), ExtraLeveledCreature originalBase / templateBase, TESActorBaseData::baseTemplateForm. Untested in game. Pass: the "EditorIDs loaded/not kept" line; with them loaded, chiefs/deathlords flagged by EditorID.
+
+## 0.29.2 (2026-10-26) spawned bosses
+- Skyrim.esm (read-only) bandit/draugr boss records: LCharBanditBoss 0x03DF16 (LVLN), LvlBanditBoss 0x03DF17, LvlBanditBossNordM 0x01B0E1 (NPC_), LCharDraugrBoss 0x042480 (LVLN), LvlDraugrBossMale 0x0B7988; no NPC_/LVLN EditorID contains "Deathlord" (deathlords are caught by name only). Untested in game. Test: player.placeatme 3DF16 / 42480 / a deathlord.

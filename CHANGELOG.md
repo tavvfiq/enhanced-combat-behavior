@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.29.2 (2026-10-26)
+
+- **Boss detection for spawned NPCs (placeatme, spawner mods).** A spawned reference has no Boss marker (that lives on the placed dungeon reference), so it is caught by name or by "Boss" in the EditorID of the spawned NPC or leveled list. Its FormID (FF...) is reused by the game once it is gone, so the cached verdict is now checked against the NPC base and redone for a different NPC under an old id.
+
 ## CombatAITree 0.29.1 (2026-10-26)
 
 - **Boss detection: "Boss" in the EditorID** of the NPC record, its template chain, or (leveled actors) the leveled list it came from and the NPC it picked. Vanilla names its boss NPCs that way (Skyrim.esm: 357 NPC records and 80 leveled lists, e.g. `LvlBanditBossMelee2HNordM`, `LCharDraugrBossNoDragonPriest`). The game drops most EditorIDs at load, so this rule only works when a mod keeps them (powerofthree's Tweaks "Load EditorIDs"); the log says so once: `Boss detection: EditorIDs loaded / not kept in memory`. Boss lines name the match: `Boss 0x..: Bandit Chief (boss marker, EditorID LvlBanditBossMelee2HNordM) level ..`.

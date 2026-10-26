@@ -10,7 +10,14 @@ namespace CombatAI::Boss
 {
     namespace
     {
-        ThreadSafeMap<RE::FormID, Info> g_cache;
+        // Keyed by FormID and checked against the base: spawned references (placeatme, spawners) get FF FormIDs the
+        // game reuses once the actor is gone, so a new NPC under an old id is checked again
+        struct Cached
+        {
+            Info info;
+            const RE::TESNPC *base = nullptr;
+        };
+        ThreadSafeMap<RE::FormID, Cached> g_cache;
 
         RE::BGSLocationRefType *BossRefType()
         {
@@ -99,8 +106,9 @@ namespace CombatAI::Boss
             return {};
         }
         const RE::FormID id = a_actor->GetFormID();
-        if (const auto cached = g_cache.Find(id)) {
-            return *cached;
+        const RE::TESNPC *base = a_actor->GetActorBase();
+        if (const auto cached = g_cache.Find(id); cached && cached->base == base) {
+            return cached->info;
         }
         Info info;
         const auto *extra = a_actor->extraList.GetByType<RE::ExtraLocationRefType>();
@@ -109,7 +117,7 @@ namespace CombatAI::Boss
         info.named = name && NameListed(name);
         info.editorID = EditorIDsLoaded() && EditorIDBoss(a_actor, info.match);
         info.boss = info.marker || info.named || info.editorID;
-        g_cache.ModifyOrCreate(id, [&](Info &i) { i = info; });
+        g_cache.ModifyOrCreate(id, [&](Cached &c) { c = {info, base}; });
 
         auto *player = RE::PlayerCharacter::GetSingleton();
         const int playerLevel = player ? player->GetLevel() : 0;
