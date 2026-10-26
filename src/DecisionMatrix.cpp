@@ -1554,7 +1554,10 @@ namespace CombatAI
         // This specific debug log can be removed if LogActorState provides sufficient
         // detail
 
-        if (!shouldRetreat && (significantlyOutnumbered || retreatThreatLevel >= ThreatLevel::High)) {
+        // A tactical retreat (outnumbered or high threat, not health) is a careful NPC's choice: run 58's Foolhardy falmer
+        // (caution 0.05) retreated 107 of 162 decisions at 50-70% health. Bosses use their own phases instead.
+        const bool careful = Personality::Effective(a_actor).caution >= 0.3f && Boss::CurrentPhase(a_actor) == Boss::Phase::None;
+        if (!shouldRetreat && careful && (significantlyOutnumbered || retreatThreatLevel >= ThreatLevel::High)) {
             // Retreat when significantly outnumbered or high threat, but only if health
             // is moderate or low Don't retreat if health is high (might want to fight)
             // Exception: If we're outnumbering the target, don't retreat unless very

@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.31.3 (2026-10-26)
+
+- **Fearless NPCs no longer run from a crowd.** The tactical retreat (badly outnumbered or high threat, health under 70%) now needs a careful personality (caution 0.3 or more) and never applies to bosses (they have their own phases). Health-based survival retreat is unchanged. Run 58: a Foolhardy falmer (caution 0.05) retreated 107 of 162 decisions at 50-70% health.
+
 ## CombatAITree 0.31.2 (2026-10-26)
 
 - **Outnumbered NPCs close in instead of circling from afar.** "Outnumbered: reposition" strafing now only happens within 2x weapon reach of the target. Before, it applied at any distance and Advancing drops when outnumbered, so the NPC circled and never engaged. Run 57: a lone falmer against 8 enemies strafed 77 of 107 decisions at 200-400 units; a lone bandit against you and a follower counts as outnumbered too.
