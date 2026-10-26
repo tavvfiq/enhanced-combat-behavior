@@ -1,5 +1,9 @@
 # Changelog
 
+## Enhanced Combat Behavior 0.35.0 (2026-10-26)
+
+- **Works with FluidMotionNPC.** FluidMotionNPC counts a combat NPC that wants to move but gets no closer to its target as stuck, then routes, vaults or climbs it toward the target. Circling, falling back and backing off get no closer on purpose, so it pulled NPCs out of those moves. While this mod runs one of them, the NPC is now claimed through FluidMotionNPC's API (`FMNPC_Claim`, refreshed every decision for 0.5 s); advancing is left to FluidMotionNPC. Without FluidMotionNPC nothing changes. Log: `FluidMotionNPC found: ...`.
+
 ## Enhanced Combat Behavior 0.34.2 (2026-10-26)
 
 - **Feints only inside bash reach.** A feint is a bash, but it was chosen out to 1.5x weapon reach (about 170 units). Bash reach is `fCombatBashReach` (61) plus the target's size, so feints at 143-164 units never bashed and were a plain sidestep. Feint range is now the same bash reach the bash itself uses.

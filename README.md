@@ -51,6 +51,11 @@ or Combat Pathing Revolution (with CPR installed a startup dialog lets you conti
   or defends, and its own combo follow-up switches off.
 - **Other parry / timed-block mods:** work if they judge an NPC's vanilla block or bash timing; mods that
   only read the player's key press don't reach NPCs.
+- **FluidMotionNPC:** works. While an NPC circles, falls back or backs off (and during its jumps) this mod
+  claims it through FluidMotionNPC's API, so FluidMotionNPC doesn't take a deliberate distance for being stuck and
+  route, vault or climb it toward its target. Its traversal while an NPC advances is unchanged.
+- **Fluid Motion (original, by megakuutti):** not integrated. Its `[Combat] bSwing` auto-attack starts swings
+  on its own and overrides this mod's attack timing; set `bSwing = false`.
 - **VR:** not supported.
 
 ## Configure

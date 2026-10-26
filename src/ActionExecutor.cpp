@@ -33,7 +33,13 @@ namespace CombatAI
 
             HMODULE Module()
             {
-                static const HMODULE module = GetModuleHandleA("FluidMotionNPC.dll");
+                static const HMODULE module = [] {
+                    const HMODULE m = GetModuleHandleA("FluidMotionNPC.dll");
+                    if (m) {
+                        LOG_INFO("FluidMotionNPC found: NPCs are claimed during our jumps and while they circle, fall back or back off");
+                    }
+                    return m;
+                }();
                 return module;
             }
 
@@ -52,6 +58,17 @@ namespace CombatAI
             }
         } // namespace FluidMotionNPC
     } // namespace
+
+    // FluidMotionNPC treats a combat NPC that wants to move but gets no closer to its target as stuck and then routes,
+    // vaults or climbs it toward the target. Circle / Fallback / Backoff get no closer on purpose, so the actor stays
+    // claimed while the brain refreshes one (every decision, under 0.5 s). Our own jump already holds a longer claim.
+    void ActionExecutor::PostSpacingMove(RE::Actor *a_actor, Intents::Move a_kind, float a_param)
+    {
+        Intents::PostMove(a_actor, a_kind, a_param);
+        if (!m_activeJumps.Contains(a_actor->GetFormID())) {
+            FluidMotionNPC::Claim(a_actor->GetFormID(), 0.5f);
+        }
+    }
 
     // Circle side of a strafe direction: +1 when it turns left (counter-clockwise, z up) from the line
     // to the target, -1 right, 0 when there is no direction.
@@ -373,7 +390,7 @@ namespace CombatAI
         RE::NiPoint3 movementDir = a_decision.direction;
 
         // Our CloseMovement tree runs the vanilla Circle node on the brain's side
-        Intents::PostMove(a_actor, Intents::Move::Circle, CircleSide(a_state, movementDir));
+        PostSpacingMove(a_actor, Intents::Move::Circle, CircleSide(a_state, movementDir));
 
 
         // No direct velocity nudge (it fights the engine and moves unpathed): the Circle node moves it
@@ -397,7 +414,7 @@ namespace CombatAI
         RE::NiPoint3 flankDir = a_decision.direction;
 
         // Flanking circles like Strafe (vanilla Circle node, brain's side)
-        Intents::PostMove(a_actor, Intents::Move::Circle, CircleSide(a_state, flankDir));
+        PostSpacingMove(a_actor, Intents::Move::Circle, CircleSide(a_state, flankDir));
 
 
         return true; // the Circle node moves it
@@ -411,7 +428,7 @@ namespace CombatAI
         }
 
         // Our CloseMovement tree runs the vanilla Fallback node
-        Intents::PostMove(a_actor, Intents::Move::Fallback);
+        PostSpacingMove(a_actor, Intents::Move::Fallback);
 
         return true; // the Fallback node moves it
     }
@@ -815,7 +832,7 @@ namespace CombatAI
         }
 
         // Our CloseMovement tree runs the vanilla Backoff node
-        Intents::PostMove(a_actor, Intents::Move::Backoff);
+        PostSpacingMove(a_actor, Intents::Move::Backoff);
 
         return true; // the Backoff node moves it
     }

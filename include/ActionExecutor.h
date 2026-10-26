@@ -3,6 +3,7 @@
 #include "ActorStateData.h"
 #include "DecisionResult.h"
 #include "DodgeSystem.h"
+#include "Intents.h"
 #include "ThreadSafeMap.h"
 #include "pch.h"
 #include <chrono>
@@ -119,6 +120,9 @@ namespace CombatAI
 
         // +1 if a_direction circles the target counter-clockwise (left), -1 clockwise, 0 none
         static float CircleSide(const ActorStateData &a_state, const RE::NiPoint3 &a_direction);
+
+        // Post Circle / Fallback / Backoff: a move that keeps the distance on purpose
+        void PostSpacingMove(RE::Actor *a_actor, Intents::Move a_kind, float a_param = 0.0f);
 
         // Helper: Trigger animation graph event
         bool NotifyAnimation(RE::Actor *a_actor, const char *a_eventName);
