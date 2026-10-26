@@ -1,5 +1,10 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.0.2 (2026-10-27)
+
+- **Circle, back off and fall back wait for the NPC's animation to end.** The game refuses to start these moves while an animation drives the NPC's movement (mid-swing, stagger, dodge recovery). That was most of the failed starts: 10 of 15 Circles and 2 of 5 Backoffs in one fight. The brain no longer asks for them while the animation runs, and asks again at the next decision once it ends. Before, the request was lost, and a refused Circle also blocked circling for 2 s.
+- Debug log (selected NPC): `Hold 0x...: N spacing move(s) held (movement animation-driven)` when this happens.
+
 ## Enhanced Combat Behavior 1.0.1 (2026-10-26)
 
 - **Melee NPCs close in on archers instead of circling them.** The "target is attacking me" sidestep had no distance limit, and a drawn bow counts as attacking for as long as it is held. A Thalmor Justiciar circled a wounded archer from 300 to 1200 units away (267 times in one fight). That sidestep, and the one against a raised guard, now only happen within twice weapon reach. Arrows are still dodged by the jump and projectile-dodge rules.

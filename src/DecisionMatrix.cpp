@@ -486,16 +486,8 @@ namespace CombatAI
             possibleDecisions.push_back(projectileResult);
         }
 
-        // Our Circle just failed to start (animation-driven after a jump or dodge, not facing, no path): asking again
-        // left the NPC standing still, 14 ticks at 384 units (AE run, 2026-10-26). Melee picks something else for 2 s.
-        const auto circles = [](const DecisionResult &a_result) {
-            return a_result.action == ActionType::Strafe || a_result.action == ActionType::Flanking;
-        };
-        const bool circleRefused = !ranged && Intents::CircleRefusedRecently(a_actor);
-
         DecisionResult evasionResult = EvaluateEvasion(a_actor, a_state);
-        if (evasionResult.action != ActionType::None && (canDodge || !dodges(evasionResult)) &&
-            !(circleRefused && circles(evasionResult))) {
+        if (evasionResult.action != ActionType::None && (canDodge || !dodges(evasionResult))) {
             possibleDecisions.push_back(evasionResult);
         }
 
@@ -505,7 +497,7 @@ namespace CombatAI
         }
 
         DecisionResult flankingResult = ranged ? EvaluateRangedPositioning(a_actor, a_state) : EvaluateFlanking(a_actor, a_state);
-        if (flankingResult.action != ActionType::None && !(circleRefused && circles(flankingResult))) {
+        if (flankingResult.action != ActionType::None) {
             possibleDecisions.push_back(flankingResult);
         }
 
@@ -527,6 +519,26 @@ namespace CombatAI
         }
         if (offenseResult.action != ActionType::None) {
             possibleDecisions.push_back(offenseResult);
+        }
+
+        // Moves the tree can't start right now. The Circle, Backoff and Fallback starts all refuse while the NPC's
+        // movement is animation-driven (mid-swing, stagger, dodge recovery): 10 of 15 Circle and 2 of 5 Backoff
+        // refusals (Somnium run, 2026-10-27). Those wait until the animation lets go; the brain asks again next
+        // decision. Our Circle failed for another reason under 2 s ago: asking again left the NPC standing still,
+        // 14 ticks at 384 units (AE run, 2026-10-26), so melee picks something else.
+        const bool animDriven = a_actor->IsMovementAnimationDriven();
+        const bool circleRefused = !ranged && Intents::CircleRefusedRecently(a_actor);
+        if (animDriven || circleRefused) {
+            const auto before = possibleDecisions.size();
+            std::erase_if(possibleDecisions, [&](const DecisionResult &a_result) {
+                const bool circles = a_result.action == ActionType::Strafe || a_result.action == ActionType::Flanking;
+                const bool spacing = circles || a_result.action == ActionType::Backoff || a_result.action == ActionType::Retreat;
+                return (animDriven && spacing) || (circleRefused && circles);
+            });
+            if (possibleDecisions.size() != before && Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+                LOG_DEBUG("Hold 0x{:08X}: {} spacing move(s) held ({})", a_actor->GetFormID(), before - possibleDecisions.size(),
+                          animDriven ? "movement animation-driven" : "Circle refused under 2 s ago");
+            }
         }
 
         // If no decisions, return None
