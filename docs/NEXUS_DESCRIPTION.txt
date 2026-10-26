@@ -37,7 +37,7 @@ Supports SE 1.5.97 and AE 1.6.1170 / 1.7.x. Played and tested on AE 1.7.104 only
 [/list]
 
 [size=4][b]Install / update / uninstall[/b][/size]
-Install with your mod manager. When updating, overwrite; the settings file is rebuilt from defaults if you delete it. Safe to remove mid-playthrough: it adds no plugin and no scripts, it only changes how NPCs decide while the DLL is loaded.
+Install with your mod manager. When updating, overwrite. Missing settings fall back to the defaults. Safe to remove mid-playthrough: it adds no plugin and no scripts, it only changes how NPCs decide while the DLL is loaded.
 
 [size=4][b]Compatibility[/b][/size]
 [list]
@@ -48,7 +48,7 @@ Install with your mod manager. When updating, overwrite; the settings file is re
 [/list]
 
 [size=4][b]Settings[/b][/size]
-In-game: Mod Control Panel > Enhanced Combat Behavior (needs SKSE Menu Framework). Five tabs, common settings on top, the rest under "Advanced". Presets: Default, Vanilla+ (gentler), Souls-like (sharp duels), Chaos (a swarm).
+In-game: open the SKSE Menu Framework menu, then Enhanced Combat Behavior > Config. Five tabs, common settings on top, the rest under "Advanced". Presets: Default, Vanilla+ (gentler), Souls-like (sharp duels), Chaos (a swarm).
 Or edit [i]Data/SKSE/Plugins/EnhancedCombatBehavior.ini[/i], every line is commented.
 
 [size=4][b]Known limits[/b][/size]
