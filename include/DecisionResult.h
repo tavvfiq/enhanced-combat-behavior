@@ -42,7 +42,6 @@ namespace CombatAI
         float priority = 0.0f;                                   // Higher = more important (float for granular control)
         RE::NiPoint3 direction = RE::NiPoint3(0.0f, 0.0f, 0.0f); // For movement actions
         float intensity = 1.0f;                                  // 0.0 to 1.0, for movement speed/intensity
-        bool sprint = false; // Advancing: sprint toward the target (sprint-attack run-up)
         float holdDistance = 0.0f; // Strafe/Flanking: circle no closer than this (pacing wait ring)
         bool reflex = false;       // Projectile sidestep: has its own roll, skips the skill roll
         bool paced = false;        // A pacing wait ("waiting its turn"), not the brain's own choice

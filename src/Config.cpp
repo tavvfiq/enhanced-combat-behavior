@@ -181,7 +181,6 @@ namespace CombatAI
         D("DecisionMatrix", "OffenseReachMultiplier", m_decisionMatrix.offenseReachMultiplier);
         D("DecisionMatrix", "OffenseReachSafetyMargin", m_decisionMatrix.offenseReachSafetyMargin);
         B("DecisionMatrix", "EnableSprintAttack", m_decisionMatrix.enableSprintAttack);
-        B("DecisionMatrix", "EnableSprintCharge", m_decisionMatrix.enableSprintCharge);
         D("DecisionMatrix", "SprintAttackLaunchDistance", m_decisionMatrix.sprintAttackLaunchDistance);
         D("DecisionMatrix", "SprintAttackMinDistance", m_decisionMatrix.sprintAttackMinDistance);
         D("DecisionMatrix", "SprintAttackMaxDistance", m_decisionMatrix.sprintAttackMaxDistance);
@@ -542,8 +541,6 @@ namespace CombatAI
             0.0f, 250.0f);
         m_decisionMatrix.enableSprintAttack =
             a_ini.GetBoolValue("DecisionMatrix", "EnableSprintAttack", m_decisionMatrix.enableSprintAttack);
-        m_decisionMatrix.enableSprintCharge =
-            a_ini.GetBoolValue("DecisionMatrix", "EnableSprintCharge", m_decisionMatrix.enableSprintCharge);
         m_decisionMatrix.sprintAttackLaunchDistance = (std::clamp)(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "SprintAttackLaunchDistance",
                                                     m_decisionMatrix.sprintAttackLaunchDistance)),

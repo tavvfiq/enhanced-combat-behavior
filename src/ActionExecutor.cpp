@@ -91,10 +91,8 @@ namespace CombatAI
             movementCanRun = IsCPRAvailable(a_actor);
             break;
         case ActionType::Advancing: {
-            auto &config = Config::GetInstance();
             const bool meleeWithTarget = IsMeleeOnlyActor(a_actor) && a_state.target.isValid;
-            movementCanRun = (IsCPRAvailable(a_actor) && meleeWithTarget) ||
-                             (config.GetDecisionMatrix().enableSprintCharge && meleeWithTarget);
+            movementCanRun = IsCPRAvailable(a_actor) && meleeWithTarget;
             break;
         }
         case ActionType::ForwardDodge:
@@ -116,30 +114,6 @@ namespace CombatAI
                 blockReleased = NotifyAnimation(a_actor, "blockStop");
                 break;
             }
-        }
-
-        // Sprint-charge (from advancing) must stop before a standing attack so the NPC
-        // plants to swing. SprintAttack manages its own sprint; leave it alone.
-        switch (a_decision.action) {
-        case ActionType::Attack:
-        case ActionType::PowerAttack:
-        case ActionType::Bash:
-        case ActionType::Parry:
-        case ActionType::TimedBlock:
-        case ActionType::ForwardDodge:
-            ReleaseSprint(a_actor);
-            if (ActorUtils::SafeIsSprinting(a_actor)) {
-                ActorUtils::SafeSetSprinting(a_actor, false);
-            }
-            break;
-        case ActionType::Advancing:
-        case ActionType::SprintAttack:
-            break;
-        default:
-            // A forced sprint left on while backing off/strafing plays the forward sprint
-            // animation while the controller moves the actor elsewhere (running backward)
-            ReleaseSprint(a_actor);
-            break;
         }
 
         bool success = false;
@@ -551,22 +525,13 @@ namespace CombatAI
 
     bool ActionExecutor::ExecuteSprintAttack(RE::Actor *a_actor, const ActorStateData &a_state)
     {
-        // The caller runs up first; this only fires from a real sprint. A plain
+        // Only from a real sprint (the caller advances until then). A plain
         // "attackStart" here would play a standing swing from sprint distance.
         if (!CanLaunchSprintAttack(a_actor, a_state)) {
             return false;
         }
 
         return NotifyAnimation(a_actor, "attackStartSprint");
-    }
-
-    void ActionExecutor::ForceSprint(RE::Actor *a_actor)
-    {
-        if (!ActorUtils::SafeIsSprinting(a_actor)) {
-            NotifyAnimation(a_actor, "SprintStart");
-            ActorUtils::SafeSetSprinting(a_actor, true);
-        }
-        m_forcedSprint.Insert(a_actor->GetFormID());
     }
 
     void ActionExecutor::SuspendRetreat(RE::Actor *a_actor)
@@ -579,17 +544,6 @@ namespace CombatAI
             if (ActorUtils::SafeGetGraphVariableBool(a_actor, var, enabled) && enabled) {
                 ActorUtils::SafeSetGraphVariableBool(a_actor, var, false);
             }
-        }
-    }
-
-    void ActionExecutor::ReleaseSprint(RE::Actor *a_actor)
-    {
-        if (!a_actor || m_forcedSprint.Erase(a_actor->GetFormID()) == 0) {
-            return;
-        }
-        if (ActorUtils::SafeIsSprinting(a_actor)) {
-            ActorUtils::SafeSetSprinting(a_actor, false);
-            NotifyAnimation(a_actor, "SprintStop");
         }
     }
 
@@ -1229,16 +1183,8 @@ namespace CombatAI
                                                             matrix.offenseReachMultiplier, matrix.offenseReachSafetyMargin);
         Intents::PostMove(a_actor, Intents::Move::Advance, stopDistance);
 
-        // Sprint-charge: CPR (like ProjectGapClose) only shapes movement while the actor
-        // is already advancing; it won't move a standing NPC. So actively put a melee
-        // NPC into a sprint toward the target and give it a heading, then let vanilla +
-        // CPR path/shape the charge. Reuses the sprint primitive from ExecuteSprintAttack.
-        if (config.GetDecisionMatrix().enableSprintCharge && isMeleeOnly && a_state.target.isValid) {
-            ForceSprint(a_actor);
-            SetMovementDirection(a_actor, a_decision.direction, a_decision.intensity);
-        } else {
-            ReleaseSprint(a_actor);
-        }
+        // The tree's Advance node moves the NPC (vanilla pathing and speed). The old forced sprint "charge" (raw sprint
+        // flag + heading) was removed: NPCs sometimes ran in place with it.
 
         if (cprAvailable && isMeleeOnly) {
             // Inner radius = where CPR stops advancing. It must be melee range: taking it

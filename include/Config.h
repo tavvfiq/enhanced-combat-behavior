@@ -117,7 +117,6 @@ namespace CombatAI
             float offenseReachMultiplier = 1.0f;
             float offenseReachSafetyMargin = 20.0f;
             bool enableSprintAttack = true; // Master toggle for NPC sprint (gap-closer) attacks
-            bool enableSprintCharge = true; // Sprint toward target while advancing (gap-close)
             float sprintAttackLaunchDistance = 0.0f; // Launch only while sprinting and this close; 0 = 3 x weapon reach
             float sprintAttackMinDistance = 300.0f;
             float sprintAttackMaxDistance = 800.0f;

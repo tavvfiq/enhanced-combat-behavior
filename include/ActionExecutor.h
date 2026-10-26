@@ -22,7 +22,7 @@ namespace CombatAI
 
         // True when a sprint attack can launch now: sprinting for a moment (so the graph is
         // in its sprint state), not attacking, inside launch range. Otherwise the caller
-        // runs up (Advancing with sprint).
+        // advances (the NPC sprints there on its own or not at all).
         bool CanLaunchSprintAttack(RE::Actor *a_actor, const ActorStateData &a_state);
 
         // Drop CPR fallback/backoff so a swing in progress isn't dragged backward
@@ -31,11 +31,8 @@ namespace CombatAI
         // Sprint-attack launch distance: the INI value, or 3 x weapon reach when it is 0
         static float SprintAttackLaunchDistance(const ActorStateData &a_state);
 
-        // Drop a sprint this mod forced (no-op for vanilla/CPR sprints)
-        void ReleaseSprint(RE::Actor *a_actor);
         void EvictActor(RE::FormID a_formID)
         {
-            m_forcedSprint.Erase(a_formID);
             m_sprintSince.Erase(a_formID);
         }
 
@@ -102,7 +99,6 @@ namespace CombatAI
         // Execute sprint attack
         bool ExecuteSprintAttack(RE::Actor *a_actor, const ActorStateData &a_state);
         bool ExecuteDirectionalDodge(RE::Actor *a_actor, RE::NiPoint3 a_direction);
-        void ForceSprint(RE::Actor *a_actor);
 
         // Execute jump: a planned ballistic arc driven per frame, with the graph's jump start/land events
         bool ExecuteJump(RE::Actor *a_actor, const ActorStateData &a_state);
@@ -162,8 +158,6 @@ namespace CombatAI
         DodgeSystem m_dodgeSystem;
 
         ThreadSafeMap<RE::FormID, ActiveJump> m_activeJumps;
-        // Actors this mod put into a sprint (raw sprint flag); released when they stop advancing
-        ThreadSafeSet<RE::FormID> m_forcedSprint;
         // When each actor's current sprint started (sprint-attack launch gate)
         ThreadSafeMap<RE::FormID, std::chrono::steady_clock::time_point> m_sprintSince;
     };

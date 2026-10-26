@@ -176,18 +176,6 @@ namespace CombatAI
             return false;
         }
 
-        // Safe SetSprinting
-        inline void SafeSetSprinting(RE::Actor *a_actor, bool a_sprinting)
-        {
-            if (!a_actor) {
-                return;
-            }
-            RE::ActorState *state = SafeAsActorState(a_actor);
-                if (state) {
-                state->actorState1.sprinting = a_sprinting ? 1 : 0;
-            }
-        }
-
         // Safe GetPosition
         inline std::optional<RE::NiPoint3> SafeGetPosition(RE::Actor *a_actor)
         {

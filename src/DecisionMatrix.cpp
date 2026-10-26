@@ -310,7 +310,6 @@ namespace CombatAI
             }
             if (dist < 1200.0f) {
                 pick(ActionType::Advancing, 2.2f, "target healing, rushes in");
-                result.sprint = true;
                 return result;
             }
         }
@@ -330,11 +329,10 @@ namespace CombatAI
             }
         }
 
-        // Anti-kite: the target keeps its distance shooting or casting; close it at a sprint
+        // Anti-kite: the target keeps its distance shooting or casting; close the gap
         const bool kiting = a_state.target.isRanged || a_state.target.isCasting || a_state.target.isDrawingBow;
         if (kiting && dist > reach * 2.0f && dist < 1500.0f && !a_state.self.isSprinting) {
             pick(ActionType::Advancing, 1.9f, "target kiting, closes the gap");
-            result.sprint = true;
             return result;
         }
         return result;

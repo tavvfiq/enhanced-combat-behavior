@@ -114,7 +114,6 @@ namespace CombatAI
                     liveFloat("Offense reach multiplier", &config.m_decisionMatrix.offenseReachMultiplier, 0.5f, 3.0f);
                     liveFloat("Offense reach safety margin", &config.m_decisionMatrix.offenseReachSafetyMargin, 0.0f, 100.0f, "%.0f");
                     liveFloat("Combo follow-up reach x attack range", &config.m_modIntegrations.comboReachMult, 1.0f, 3.0f);
-                    ImGuiMCP::Checkbox("Enable sprint charge (gap-close)", &config.m_decisionMatrix.enableSprintCharge);
                     liveFloat("Sprint attack min dist", &config.m_decisionMatrix.sprintAttackMinDistance, 0.0f, 800.0f, "%.0f");
                     liveFloat("Sprint attack max dist", &config.m_decisionMatrix.sprintAttackMaxDistance, 0.0f, 1200.0f, "%.0f");
                     liveFloat("Sprint attack launch dist (0 = 3x reach)", &config.m_decisionMatrix.sprintAttackLaunchDistance, 0.0f, 1000.0f, "%.0f");

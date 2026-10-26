@@ -374,7 +374,6 @@ namespace CombatAI
         if (decision.action != ActionType::None) {
             ExecuteDecision(a_actor, formID, decision, state);
         } else {
-            m_executor.ReleaseSprint(a_actor); // don't leave a forced sprint running in place
         }
     }
 
@@ -573,11 +572,10 @@ namespace CombatAI
                 executedDecision.action = ActionType::Advancing;
             }
         }
-        // A sprint attack starts with a run-up: sprint at the target until actually
-        // sprinting and inside launch range, then launch.
+        // A sprint attack launches only from a real sprint inside launch range; until then the NPC advances (the tree's
+        // Advance node, which sprints when vanilla decides to)
         if (executedDecision.action == ActionType::SprintAttack && !m_executor.CanLaunchSprintAttack(a_actor, a_state)) {
             executedDecision.action = ActionType::Advancing;
-            executedDecision.sprint = true;
             executedDecision.intensity = 1.0f;
             executedDecision.direction = a_state.target.position - a_state.self.position;
             executedDecision.direction.z = 0.0f;
@@ -596,9 +594,8 @@ namespace CombatAI
         }
 
         if (Config::GetInstance().IsDebugTarget(a_formID)) {
-            LOG_DEBUG("Executed 0x{:08X}: {}{} (priority {:.2f}) target 0x{:08X} dist {:.0f} hp {:.0f}%/{:.0f}%",
+            LOG_DEBUG("Executed 0x{:08X}: {} (priority {:.2f}) target 0x{:08X} dist {:.0f} hp {:.0f}%/{:.0f}%",
                       static_cast<std::uint32_t>(a_formID), ActionName(executedDecision.action),
-                      executedDecision.sprint ? " (sprint-attack run-up)" : "",
                       executedDecision.priority, static_cast<std::uint32_t>(a_state.target.targetFormID),
                       a_state.target.distance, a_state.self.healthPercent * 100.0f,
                       a_state.target.healthPercent * 100.0f);

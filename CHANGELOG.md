@@ -1,5 +1,10 @@
 # Changelog
 
+## Enhanced Combat Behavior 0.33.1 (2026-10-26)
+
+- **Removed the sprint "charge" gap-close** (`EnableSprintCharge`). It forced the sprint flag and a raw heading while advancing, and NPCs sometimes ran in place. Advancing now only uses the behavior tree's Advance move (vanilla pathing and speed; the NPC sprints when vanilla decides to). Sprint attacks still launch only from a real sprint.
+- Note: the boss "close the gap" (anti-kite) and "rush in" (heal punish) moves never sprinted either; the sprint flag they set was not read. They are plain advances, as before.
+
 ## Enhanced Combat Behavior 0.33.0 (2026-10-26)
 
 - **In-game menu: 5 tabs instead of 14.** General (master switches, debug, integrations, performance), Offense, Defense, Groups & Movement, NPC Character. Each tab shows the few settings people change; everything else sits under collapsed "Advanced" headers. Nothing was dropped from the menu.
