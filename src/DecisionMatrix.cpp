@@ -75,6 +75,20 @@ namespace CombatAI
         return cost;
     }
 
+    // A bash needs the target in front (vanilla's hit cone) and inside bash reach. Run 58: 21 of 26 bashes of one NPC
+    // never swung; StartAttack's hit cone failed them with the target at 135-166 deg, 62-81 units away.
+    static bool CanBashNow(RE::Actor *a_actor, const ActorStateData &a_state)
+    {
+        RE::NiPoint3 toTarget = a_state.target.position - a_state.self.position;
+        RE::NiPoint3 forward = a_state.self.forwardVector;
+        toTarget.z = forward.z = 0.0f;
+        if (toTarget.Unitize() > 1.0f && forward.Unitize() > 0.01f && forward.Dot(toTarget) < 0.259f) { // cos 75 deg
+            return false;
+        }
+        return a_state.target.distance <= BashReach() * a_actor->GetScale() + a_state.target.boundRadius;
+    }
+
+
     static float EffectiveAttackRange(const ActorStateData &a_state, float a_weaponReach, float a_multiplier,
                                       float a_safetyMargin = 0.0f)
     {
@@ -291,7 +305,7 @@ namespace CombatAI
                 return pick(ActionType::PowerAttack, 2.6f, "guard break (target turtling)");
             }
             if (BlockRules::CanRunBlockTree(a_actor) && a_state.self.currentStamina >= BashStaminaCost() &&
-                dist <= BashReach() * a_actor->GetScale() + a_state.target.boundRadius) {
+                CanBashNow(a_actor, a_state)) {
                 return pick(ActionType::Bash, 2.4f, "guard break with a bash (low stamina)");
             }
         }
@@ -605,6 +619,9 @@ namespace CombatAI
         if (a_state.self.currentStamina < BashStaminaCost()) {
             return EvaluateTimedBlock(a_actor, a_state); // a block costs no stamina: a timed block can still go
         }
+        if (!CanBashNow(a_actor, a_state)) {
+            return EvaluateTimedBlock(a_actor, a_state); // turned away or out of bash reach: no bash, maybe a block
+        }
 
         // Get interrupt distance - use actual weapon reach from state
         // Fallback to config value if weapon reach not available
@@ -846,7 +863,7 @@ namespace CombatAI
         }
 
         // A parry is a bash from the Block tree
-        if (!BlockRules::CanRunBlockTree(a_actor)) {
+        if (!BlockRules::CanRunBlockTree(a_actor) || !CanBashNow(a_actor, a_state)) {
             return result;
         }
 
@@ -1974,6 +1991,11 @@ namespace CombatAI
             toTarget.z = forward.z = 0.0f;
             if (toTarget.Unitize() > 1.0f && forward.Unitize() > 0.01f) {
                 constexpr float kMaxAttackAngleCos = 0.259f; // cos 75 deg
+            // A draugr's (falmer's, skeleton's) swing runs ~2 s with its attack state reading idle; a new attack
+            // inside that is refused by its graph (run 58: 34 of 36 attack events 0.5-2 s after a start)
+            if (ActorUtils::IsHumanoidCreature(a_actor) && Intents::SinceSwing(a_actor) < 2.0f) {
+                return skip("creature still swinging, s", Intents::SinceSwing(a_actor));
+            }
                 const float facing = forward.Dot(toTarget);
                 if (facing < kMaxAttackAngleCos) {
                     return skip("not facing the target, dot", facing);

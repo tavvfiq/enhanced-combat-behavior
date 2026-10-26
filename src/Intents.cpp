@@ -38,6 +38,7 @@ namespace CombatAI::Intents
             float refusedSide = 0.0f;      // Circle side that last failed, and when
             Clock::time_point refusedAt{};
             Clock::time_point attackVetoUntil{};
+            Clock::time_point swingAt{};
             bool dualBlockStarted = false;
         };
 
@@ -380,6 +381,23 @@ namespace CombatAI::Intents
         }
         const auto until = Clock::now() + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<float>(a_seconds));
         g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) { e.attackVetoUntil = until; });
+    }
+
+    void NoteSwingStarted(RE::Actor *a_actor)
+    {
+        if (a_actor) {
+            const auto now = Clock::now();
+            g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) { e.swingAt = now; });
+        }
+    }
+
+    float SinceSwing(RE::Actor *a_actor)
+    {
+        const auto e = a_actor ? g_board.Find(a_actor->GetFormID()) : std::nullopt;
+        if (!e || e->swingAt == Clock::time_point{}) {
+            return 999.0f;
+        }
+        return std::chrono::duration<float>(Clock::now() - e->swingAt).count();
     }
 
     bool AttackVetoed(RE::Actor *a_actor)

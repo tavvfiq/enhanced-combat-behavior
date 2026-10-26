@@ -491,3 +491,6 @@
 
 ## 0.31.3 (2026-10-26) tactical retreat needs caution
 - Untested in game. Pass: a Foolhardy NPC outnumbered at 50-70% health fights instead of retreating; low-health (survival) retreats still happen.
+
+## 0.31.4 (2026-10-26) bash cone/reach, creature mid-swing
+- Run 58 traces. Bash, 0xFF00086F 26 executed: all taken by the tree; 6 swung; the rest: StartAttack hit cone FAIL with the target at 135-166 deg, 62-81 units (bashPowerStart also "power: stamina too low"). Draugr attack events vs time since the last accepted attack start: 0.5-2.0 s 2 accepted / 34 rejected; >= 3 s (or none) 25 / 49, the latter mostly vanilla (chance "unchanged") attackStartGSForwardPowerB tried every tick while Advancing at 470-523 units. Humans: 57 accepted / 1 rejected. Untested in game. Pass: bash executions mostly followed by bashStart accepted; draugr rejected attack events within 2 s of a start near 0; `creature still swinging` / `creature mid-swing` lines.

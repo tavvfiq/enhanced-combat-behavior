@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.31.4 (2026-10-26)
+
+- **Bashes only when they can land.** Bash and parry (a bash) now need the target within 75 deg in front and inside bash reach (`fCombatBashReach`); otherwise the brain may still timed-block. Run 58: one NPC's bashes swung 5 of 26 times; vanilla's hit cone refused the rest with the target at 135-166 deg (beside or behind it). The boss guard-break bash uses the same check.
+- **Draugr, falmer and skeletons stop re-trying mid-swing.** Their swing runs about 2 s while their attack state reads idle, so the brain (and vanilla's attack roll) kept starting new attacks their graph refused: 34 of 36 attack events 0.5-2 s after a start were rejected. For these creatures neither starts a new attack within 2 s of an accepted swing start (debug: `creature still swinging` / `creature mid-swing`).
+- Not changed: vanilla's own forward lunges (e.g. `attackStartGSForwardPowerB`) tried every tick while a draugr runs in and refused by its graph; harmless.
+
 ## CombatAITree 0.31.3 (2026-10-26)
 
 - **Fearless NPCs no longer run from a crowd.** The tactical retreat (badly outnumbered or high threat, health under 70%) now needs a careful personality (caution 0.3 or more) and never applies to bosses (they have their own phases). Health-based survival retreat is unchanged. Run 58: a Foolhardy falmer (caution 0.05) retreated 107 of 162 decisions at 50-70% health.

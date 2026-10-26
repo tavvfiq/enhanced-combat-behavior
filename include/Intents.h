@@ -64,6 +64,9 @@ namespace CombatAI::Intents
     // Brain side: it is defending (dodge, block, back off, retreat); attacks that bypass the tree's intents (SCAR)
     // are refused until a_seconds from now. Refreshed while the brain keeps defending.
     void PostAttackVeto(RE::Actor *a_actor, float a_seconds);
+    // An attack or bash start event was accepted by the actor's graph (EngineProbes); seconds since then (999 = none)
+    void NoteSwingStarted(RE::Actor *a_actor);
+    float SinceSwing(RE::Actor *a_actor);
     bool AttackVetoed(RE::Actor *a_actor);
     bool CircleRefused(RE::Actor *a_actor, float a_side);
     // Distance the brain wants the running Advance to stop at (0 = vanilla's own).

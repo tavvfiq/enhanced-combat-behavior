@@ -1,4 +1,5 @@
 #include "EngineProbes.h"
+#include "Intents.h"
 #include "CombatDirector.h"
 #include "ActorUtils.h"
 #include "Config.h"
@@ -30,6 +31,7 @@ namespace CombatAI::EngineProbes
                     if (name.starts_with("attackStart") || name.starts_with("attackPowerStart") ||
                         name.starts_with("bashStart") || name.starts_with("bashPowerStart")) {
                         CombatDirector::GetInstance().NotifySwingStarted(actor);
+                        Intents::NoteSwingStarted(actor);
                     }
                 }
                 if (Config::GetInstance().IsDebugTarget(actor->GetFormID()) && IsCombatEvent(a_event.c_str())) {
