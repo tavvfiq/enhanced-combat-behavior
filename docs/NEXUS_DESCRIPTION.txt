@@ -41,7 +41,7 @@ Install with your mod manager. When updating, overwrite. Missing settings fall b
 
 [size=4][b]Compatibility[/b][/size]
 [list]
-[*][b]Not with:[/b] Enhanced Combat AI, FenixCombatAI, Combat Pathing Revolution. They change the same combat movement code. With CPR installed this mod shows a warning at startup and stays off.
+[*][b]Not with:[/b] Enhanced Combat AI, FenixCombatAI, Combat Pathing Revolution. They change the same combat movement code. With CPR installed, a dialog at startup lets you continue without this mod or exit the game.
 [*][b]SCAR:[/b] works. SCAR keeps picking the move; this mod only stops it while an NPC waits its turn or defends. Our own combo follow-up switches off.
 [*]Other parry / timed-block mods work if they react to an NPC's block or bash timing. Mods that only look at the player's key press won't apply to NPCs.
 [/list]

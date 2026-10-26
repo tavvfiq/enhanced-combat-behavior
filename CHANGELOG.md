@@ -1,5 +1,9 @@
 # Changelog
 
+## Enhanced Combat Behavior 0.34.1 (2026-10-26)
+
+- **The CPR warning asks what to do:** Yes continues the game without Enhanced Combat Behavior, No exits the game so you can disable one of the two mods. The log records the choice.
+
 ## Enhanced Combat Behavior 0.34.0 (2026-10-26)
 
 - **Not compatible with Combat Pathing Revolution.** CPR patches the same combat movement code (the CloseMovement tree, the Circle node, the Backoff / Fallback starts); at the Fallback distance call it replaces our rule outright when its fallback is on. When `CombatPathingRevolution.dll` is loaded or present in `Data/SKSE/Plugins`, the mod now shows a warning dialog at startup and does not load (nothing is hooked). Log: `Combat Pathing Revolution ... is installed: Enhanced Combat Behavior is not compatible with it and does not load this session`.

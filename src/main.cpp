@@ -61,15 +61,25 @@ extern "C" __declspec(dllexport) bool __cdecl SKSEPlugin_Load(const SKSE::LoadIn
         return true; // Plugin loaded but disabled
     }
 
-    // Refuse to run next to CPR, before installing anything (SKSE unloads a plugin that returns false)
+    // Refuse to run next to CPR, before installing anything (SKSE unloads a plugin that returns false). The player picks
+    // whether the game continues without this mod or exits so the load order can be fixed.
     if (CPRInstalled()) {
         LOG_ERROR("Combat Pathing Revolution (CombatPathingRevolution.dll) is installed: Enhanced Combat Behavior is not "
                   "compatible with it and does not load this session");
-        MessageBoxW(nullptr,
-                    L"Enhanced Combat Behavior is not compatible with Combat Pathing Revolution "
-                    L"(CombatPathingRevolution.dll).\n\nBoth change how NPCs move in combat. Enhanced Combat Behavior "
-                    L"will not load this session. Disable one of the two mods.",
-                    L"Enhanced Combat Behavior", MB_OK | MB_ICONWARNING | MB_TOPMOST);
+        const int choice = MessageBoxW(
+            nullptr,
+            L"Enhanced Combat Behavior is not compatible with Combat Pathing Revolution "
+            L"(CombatPathingRevolution.dll). Both change how NPCs move in combat, so Enhanced Combat Behavior "
+            L"will not load.\n\n"
+            L"Yes: continue the game without Enhanced Combat Behavior.\n"
+            L"No: exit the game (then disable one of the two mods).",
+            L"Enhanced Combat Behavior", MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON1 | MB_TOPMOST);
+        if (choice == IDNO) {
+            LOG_INFO("Player chose to exit the game");
+            spdlog::default_logger()->flush();
+            ExitProcess(0);
+        }
+        LOG_INFO("Player chose to continue without Enhanced Combat Behavior");
         return false;
     }
 

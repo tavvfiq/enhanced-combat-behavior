@@ -6,7 +6,7 @@ own combat behavior trees (vanilla leaf nodes), so animations, attack data and v
 charge of how each move plays out.
 
 Successor of **Enhanced Combat AI** (`CombatAI-NG.dll`). Not compatible with Enhanced Combat AI, FenixCombatAI
-or Combat Pathing Revolution (with CPR installed it shows a warning and does not load).
+or Combat Pathing Revolution (with CPR installed a startup dialog lets you continue without this mod or exit).
 
 ## What it does
 - **Decisions every tick per NPC:** offense (attack, power attack, sprint attack, feint, combo
