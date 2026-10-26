@@ -442,6 +442,10 @@ namespace CombatAI
     // skeletons). Giants and dragon priests stay out (Skyrim.esm GiantRace 0x131F9, C00GiantOutsideWhiterunRace
     // 0xCAE13, DragonPriestRace 0x131EF; FormIDs from a read-only scan of the race records). No dodge animations
     // exist for them, so the brain never dodges with one.
+    // How long such a creature's swing blocks a new attack start while its attack state reads idle. Run 58: 34 of 36
+    // attack events 0.5-2 s after a start rejected; run 61 (Deathlord greatsword): 20 of 23 at 2-3 s.
+    constexpr float kCreatureSwingSeconds = 3.0f;
+
     inline bool IsHumanoidCreature(RE::Actor *a_actor)
     {
         if (!a_actor || !SafeHasKeywordString(a_actor, "ActorTypeCreature")) {

@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.31.7 (2026-10-26)
+
+- **Draugr wait out their whole swing:** the no-new-attack window after a draugr/falmer/skeleton swing start is 3 s (was 2). Run 61: a Draugr Deathlord's attack events 2-3 s after an accepted start were rejected 20 of 23 times.
+- Run 61 confirmed the 0.31.6 bash check: of 263 bash openings refused, 252 were "graph not attack-ready", nearly all with the NPC mid-own-attack (vanilla could not have started those either), 11 "outside bash reach". Parry and timed block are back (Parry 5, TimedBlock 7 among the selected NPCs).
+
 ## CombatAITree 0.31.6 (2026-10-26)
 
 - **Bash check moved to where a bash is actually wanted, with a reason in the debug log.** The attack-ready / facing / bash-reach check sat at the top of the interrupt evaluation, so it also cut off the parry and timed-block paths below it whenever the NPC wasn't attack-ready, and it gave no reason. Run 60: the selected NPCs had a bash candidate on 7 ticks only. Now it runs once a bash opening exists and logs `Bash 0x..: opening, no bash (graph not attack-ready | target not in front | outside bash reach, dist N)`.

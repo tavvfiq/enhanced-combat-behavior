@@ -2019,7 +2019,7 @@ namespace CombatAI
                 constexpr float kMaxAttackAngleCos = 0.259f; // cos 75 deg
             // A draugr's (falmer's, skeleton's) swing runs ~2 s with its attack state reading idle; a new attack
             // inside that is refused by its graph (run 58: 34 of 36 attack events 0.5-2 s after a start)
-            if (ActorUtils::IsHumanoidCreature(a_actor) && Intents::SinceSwing(a_actor) < 2.0f) {
+            if (ActorUtils::IsHumanoidCreature(a_actor) && Intents::SinceSwing(a_actor) < ActorUtils::kCreatureSwingSeconds) {
                 return skip("creature still swinging, s", Intents::SinceSwing(a_actor));
             }
             if (!AttackReady(a_actor)) {

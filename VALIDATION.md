@@ -502,3 +502,7 @@
 
 ## 0.31.6 (2026-10-26) bash gate placement
 - Untested in game. Pass: `Bash 0x..: opening, no bash (...)` lines show which gate refuses; parry / timed block counts back to run 58 levels.
+- Run 61 (0.31.6, 3 min; Draugr Deathlords 0xFF0008B5 / 0xFF000927, Marauder Champions): loads, no warnings. Bash openings refused: 252 "graph not attack-ready" (NPC attack state 1/3/4 in most; draugr at state 0 mid-swing), 11 "outside bash reach"; all-actor intents bash 23 posted / 23 taken; selected NPCs Bash 7 + Parry 5 executed, bash events accepted 4 (champions; the greatsword Deathlord had no bash event). Draugr attack events by time since the last accepted start: 2-3 s 3 accepted / 20 rejected, >= 3 s 12 / 14; brain-intent 7 / 20, vanilla 8 / 14; creature gate lines 26. Humans: 21 accepted / 0 rejected.
+
+## 0.31.7 (2026-10-26) creature swing window 3 s
+- Untested in game. Pass: draugr rejected attack events within 3 s of a start near 0.
