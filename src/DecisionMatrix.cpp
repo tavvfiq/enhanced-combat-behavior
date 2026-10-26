@@ -49,6 +49,19 @@ namespace CombatAI
         return IsAimedAt(a_state.target.distance, a_state.target.orientationDot, a_state.self.boundRadius + kAimSlack);
     }
 
+    // Bash reach (GMST fCombatBashReach, read once; SCAR uses it for bash actions)
+    static float BashReach()
+    {
+        static const float reach = [] {
+            auto *settings = RE::GameSettingCollection::GetSingleton();
+            auto *setting = settings ? settings->GetSetting("fCombatBashReach") : nullptr;
+            const float value = setting ? setting->GetFloat() : 60.0f;
+            LOG_INFO("Bash reach {:.1f} (fCombatBashReach{})", value, setting ? "" : " not found, using 60");
+            return value;
+        }();
+        return reach;
+    }
+
     // Stamina vanilla's bash needs (GMST fStaminaBashBase, read once): below it StartAttack refuses the bash
     static float BashStaminaCost()
     {
@@ -269,13 +282,16 @@ namespace CombatAI
             }
         }
 
-        // Guard break: the target has held its block for a second, in reach and facing us
+        // Guard break: the target has held its block for a second, in reach and facing us. A bash only inside bash
+        // reach (GMST fCombatBashReach, as SCAR measures it): run 56's 119 guard-break bashes were taken by the Block
+        // tree but only 2 swung, the rest failed vanilla's range check at weapon reach.
         if (a_state.target.isBlocking && a_state.temporal.target.blockingDuration >= 1.0f && cc.isInAttackRange &&
             a_state.self.isIdle && a_state.target.orientationDot > 0.5f) {
-            if (a_state.self.staminaPercent >= dm.powerAttackMinStamina) {
+            if (a_state.self.staminaPercent >= Boss::PowerStaminaMin(a_actor)) {
                 return pick(ActionType::PowerAttack, 2.6f, "guard break (target turtling)");
             }
-            if (BlockRules::CanRunBlockTree(a_actor) && a_state.self.currentStamina >= BashStaminaCost()) {
+            if (BlockRules::CanRunBlockTree(a_actor) && a_state.self.currentStamina >= BashStaminaCost() &&
+                dist <= BashReach() * a_actor->GetScale() + a_state.target.boundRadius) {
                 return pick(ActionType::Bash, 2.4f, "guard break with a bash (low stamina)");
             }
         }
@@ -409,6 +425,14 @@ namespace CombatAI
 
         // Evaluate all potential actions
         DecisionResult survivalResult = EvaluateSurvival(a_actor, a_state);
+        // An enraged boss, or a brave desperate one going all-in, doesn't run from the damage race (run 56: the
+        // "all-in" chief still retreated 35 times below 25% health, 13 times enraged)
+        if (survivalResult.action == ActionType::Retreat) {
+            const auto phase = Boss::CurrentPhase(a_actor);
+            if (phase == Boss::Phase::Enraged || (phase == Boss::Phase::Desperate && Boss::Brave(a_actor))) {
+                survivalResult = DecisionResult();
+            }
+        }
         if (survivalResult.action != ActionType::None) {
             possibleDecisions.push_back(survivalResult);
         }

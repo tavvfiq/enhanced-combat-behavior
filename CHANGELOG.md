@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.30.1 (2026-10-26)
+
+- **Guard-break bashes land.** The boss only bashes your raised guard from inside bash reach (GMST `fCombatBashReach`, logged at first use). In run 56 the Block tree took all 119 guard-break bashes but only 2 swung: the rest failed vanilla's range check at weapon reach.
+- **Bosses power attack on less stamina:** they need 40% (others keep `PowerAttackMinStamina`, 70%); vanilla's own stamina-cost check still applies. Run 56's chief sat at 20-50% and made 9 power attacks against 213 normal ones.
+- **An enraged boss, or a brave desperate one, no longer runs from the damage race** (run 56: the "all-in" chief retreated 35 times below 25% health).
+
 ## CombatAITree 0.30.0 (2026-10-26)
 
 - **Bosses fight like bosses** (bandit chiefs, draugr deathlords and anything else `[Boss]` detection flags):

@@ -565,7 +565,7 @@ namespace CombatAI
     {
         DecisionResult executedDecision = a_decision;
         // Power moves need stamina (one can empty the bar); without it the NPC swings light or keeps closing
-        const float powerMin = Config::GetInstance().GetDecisionMatrix().powerAttackMinStamina;
+        const float powerMin = Boss::PowerStaminaMin(a_actor);
         if (a_state.self.staminaPercent < powerMin) {
             if (executedDecision.action == ActionType::PowerAttack) {
                 executedDecision.action = ActionType::Attack;

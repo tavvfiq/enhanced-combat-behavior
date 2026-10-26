@@ -38,4 +38,7 @@ namespace CombatAI::Boss
     Phase CurrentPhase(RE::Actor *a_actor);
     // A brave boss (Confidence Brave or Foolhardy) goes all-in when desperate, others fall back
     bool Brave(RE::Actor *a_actor);
+    // Stamina fraction a power attack needs: PowerAttackMinStamina, at most 0.4 for a boss (run 56: the chief sat at
+    // 20-50% stamina and never power attacked). Vanilla's own stamina-cost check still applies.
+    float PowerStaminaMin(RE::Actor *a_actor);
 } // namespace CombatAI::Boss

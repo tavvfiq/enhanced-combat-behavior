@@ -166,6 +166,12 @@ namespace CombatAI::Boss
         return a_actor ? g_phase.GetOrDefault(a_actor->GetFormID(), Phase::None) : Phase::None;
     }
 
+    float PowerStaminaMin(RE::Actor *a_actor)
+    {
+        const float configured = Config::GetInstance().GetDecisionMatrix().powerAttackMinStamina;
+        return a_actor && Get(a_actor).boss ? (std::min)(configured, 0.4f) : configured;
+    }
+
     bool Brave(RE::Actor *a_actor)
     {
         return a_actor && a_actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kConfidence) >= 3.0f;

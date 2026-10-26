@@ -1,4 +1,5 @@
 #include "VanillaAttackShaper.h"
+#include "Boss.h"
 #include "ActorStateData.h"
 #include "ActorUtils.h"
 #include "AttackCoordinator.h"
@@ -38,7 +39,7 @@ namespace CombatAI
         // True when a_actor is below the stamina fraction power moves need
         bool LacksPowerStamina(RE::Actor *a_actor)
         {
-            const float minimum = Config::GetInstance().GetDecisionMatrix().powerAttackMinStamina;
+            const float minimum = Boss::PowerStaminaMin(a_actor);
             auto *values = ActorUtils::SafeAsActorValueOwner(a_actor);
             const float max = a_actor->GetActorValueMax(RE::ActorValue::kStamina);
             return minimum > 0.0f && values && max > 0.0f && values->GetActorValue(RE::ActorValue::kStamina) < minimum * max;

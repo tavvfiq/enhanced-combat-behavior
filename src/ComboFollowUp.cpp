@@ -213,7 +213,7 @@ namespace CombatAI::ComboFollowUp
         }
 
         // One roll per window: power when its window is open and stamina allows, else normal
-        const float powerMin = Config::GetInstance().GetDecisionMatrix().powerAttackMinStamina;
+        const float powerMin = Boss::PowerStaminaMin(a_actor);
         bool power = false, go = false;
         // An enraged boss (or a brave desperate one) chains more and harder: x1.5 power, x1.3 normal
         const auto phase = Boss::CurrentPhase(a_actor);
