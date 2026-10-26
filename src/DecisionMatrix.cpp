@@ -87,19 +87,25 @@ namespace CombatAI
         return !a_actor || !a_actor->GetGraphVariableBool("IsAttackReady", ready) || ready;
     }
 
-    static bool CanBashNow(RE::Actor *a_actor, const ActorStateData &a_state)
+    // Why a bash can't start now (nullptr: it can)
+    static const char *BashRefusal(RE::Actor *a_actor, const ActorStateData &a_state)
     {
         if (!AttackReady(a_actor)) {
-            return false;
+            return "graph not attack-ready";
         }
         RE::NiPoint3 toTarget = a_state.target.position - a_state.self.position;
         RE::NiPoint3 forward = a_state.self.forwardVector;
         toTarget.z = forward.z = 0.0f;
         if (toTarget.Unitize() > 1.0f && forward.Unitize() > 0.01f && forward.Dot(toTarget) < 0.259f) { // cos 75 deg
-            return false;
+            return "target not in front";
         }
-        return a_state.target.distance <= BashReach() * a_actor->GetScale() + a_state.target.boundRadius;
+        if (a_state.target.distance > BashReach() * a_actor->GetScale() + a_state.target.boundRadius) {
+            return "outside bash reach";
+        }
+        return nullptr;
     }
+
+    static bool CanBashNow(RE::Actor *a_actor, const ActorStateData &a_state) { return BashRefusal(a_actor, a_state) == nullptr; }
 
 
     static float EffectiveAttackRange(const ActorStateData &a_state, float a_weaponReach, float a_multiplier,
@@ -632,9 +638,6 @@ namespace CombatAI
         if (a_state.self.currentStamina < BashStaminaCost()) {
             return EvaluateTimedBlock(a_actor, a_state); // a block costs no stamina: a timed block can still go
         }
-        if (!CanBashNow(a_actor, a_state)) {
-            return EvaluateTimedBlock(a_actor, a_state); // turned away or out of bash reach: no bash, maybe a block
-        }
 
         // Get interrupt distance - use actual weapon reach from state
         // Fallback to config value if weapon reach not available
@@ -794,6 +797,16 @@ namespace CombatAI
         }
 
         // Additional considerations
+        // The bash itself must be able to start (run 60: with this check up front, the debug NPCs had a bash candidate
+        // on 7 ticks and the reason was invisible)
+        if (shouldBash) {
+            if (const char *why = BashRefusal(a_actor, a_state)) {
+                if (Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+                    LOG_DEBUG("Bash 0x{:08X}: opening, no bash ({}, dist {:.0f})", a_actor->GetFormID(), why, a_state.target.distance);
+                }
+                return EvaluateTimedBlock(a_actor, a_state);
+            }
+        }
         if (shouldBash) {
             // Don't bash if we're already attacking (bash is an interrupt, not a combo)
             if (a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone &&

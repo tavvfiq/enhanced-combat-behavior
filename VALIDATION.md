@@ -498,3 +498,7 @@
 
 ## 0.31.5 (2026-10-26) IsAttackReady gate
 - Untested in game. Pass: bash executions followed by bashStart accepted much more often; `graph not attack-ready` offense skips in the debug log.
+- Run 60 (0.31.5, 3.5 min; two Draugr Deathlords, Marauder Champions fighting them and the player): loads, no warnings. Deathlords: phases logged; 0xFF000835 attack events 3 / 3 accepted. Champions: attack events 26 accepted / 4 rejected (2 attackStartSprint). Offense `graph not attack-ready` skips 22. Bash: 0 brain bash executions by the selected NPCs, a Bash candidate on 7 ticks only (never won); all-actor intents bash 14 posted / 13 taken; 3 bashStart accepted from vanilla branches. Champion 0xFF0008C3 Retreat 16 / 18 at 19% health, losing the race (survival, expected).
+
+## 0.31.6 (2026-10-26) bash gate placement
+- Untested in game. Pass: `Bash 0x..: opening, no bash (...)` lines show which gate refuses; parry / timed block counts back to run 58 levels.

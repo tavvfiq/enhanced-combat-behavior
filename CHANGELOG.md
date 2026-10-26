@@ -1,5 +1,9 @@
 # Changelog
 
+## CombatAITree 0.31.6 (2026-10-26)
+
+- **Bash check moved to where a bash is actually wanted, with a reason in the debug log.** The attack-ready / facing / bash-reach check sat at the top of the interrupt evaluation, so it also cut off the parry and timed-block paths below it whenever the NPC wasn't attack-ready, and it gave no reason. Run 60: the selected NPCs had a bash candidate on 7 ticks only. Now it runs once a bash opening exists and logs `Bash 0x..: opening, no bash (graph not attack-ready | target not in front | outside bash reach, dist N)`.
+
 ## CombatAITree 0.31.5 (2026-10-26)
 
 - **The brain waits until the NPC is "attack-ready".** Vanilla's Attack and Bash nodes start nothing unless the animation graph's `IsAttackReady` is true (found by disassembly: they check it right before StartAttack). A bash or attack the brain asked for while it was false was taken by the tree and wasted: run 59's Marauder Champion had 9 of 9 bashes taken and none started. Bash, parry, guard-break bash and attacks now need `IsAttackReady`; until then the brain picks its next option.
