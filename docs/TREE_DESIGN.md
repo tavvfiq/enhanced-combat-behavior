@@ -6,9 +6,10 @@ later versions are in `CHANGELOG.md`. The fork kept Enhanced Combat AI's decisio
 its actuator (raw animation events and graph variables in `ActionExecutor`) with behavior trees built
 from vanilla node classes, the way FenixCombatAI-NG does. Vanilla leaf nodes execute every action.
 
-At the time SCAR / MCO / BFCO / CPR / Precision / TK Dodge compatibility and VR were out of scope;
-all but VR are handled since (see the README). Targets: SE 1.5.97 and AE 1.7.104 (1.6.1170 shares
-the AE IDs used here).
+At the time SCAR / MCO / BFCO / CPR / Precision / TK Dodge compatibility and VR were out of scope.
+SCAR, MCO, BFCO, Precision and TK Dodge are handled since; Combat Pathing Revolution is refused at
+startup (it patches the same movement code); VR stays out of scope (see the README). Targets: SE 1.5.97
+and AE 1.7.104 (1.6.1170 shares the AE IDs used here).
 
 Labels: **C** confirmed (binary or runtime), **L** likely, **U** unverified.
 

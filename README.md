@@ -36,9 +36,22 @@ or Combat Pathing Revolution (with CPR installed it shows a warning and does not
 - **Simple Timed Block**, **EldenParry**: timed block / parry windows.
 - **powerofthree's Tweaks** with "Load EditorIDs": the "Boss in the EditorID" boss rule.
 
-## Install
-Install with a mod manager. Files: `SKSE/Plugins/EnhancedCombatBehavior.dll` and
-`SKSE/Plugins/EnhancedCombatBehavior.ini`.
+## Install, update, uninstall
+- Install with a mod manager. Files: `SKSE/Plugins/EnhancedCombatBehavior.dll` and
+  `SKSE/Plugins/EnhancedCombatBehavior.ini`.
+- Update by overwriting. Coming from a development build named CombatAITree: remove `CombatAITree.dll` and
+  `CombatAITree.ini`.
+- Uninstall any time, mid-playthrough included: no plugin, no scripts, nothing written to saves.
+
+## Compatibility
+- **Not compatible:** Enhanced Combat AI, FenixCombatAI (they drive the same combat trees) and Combat
+  Pathing Revolution (it patches the same movement code; with CPR installed this mod shows a warning
+  dialog at startup and does not load).
+- **SCAR:** works; SCAR keeps choosing its attacks, this mod holds them back while an NPC waits its turn
+  or defends, and its own combo follow-up switches off.
+- **Other parry / timed-block mods:** work if they judge an NPC's vanilla block or bash timing; mods that
+  only read the player's key press don't reach NPCs.
+- **VR:** not supported.
 
 ## Configure
 Edit `Data/SKSE/Plugins/EnhancedCombatBehavior.ini` (every key is commented) or use the in-game menu,
