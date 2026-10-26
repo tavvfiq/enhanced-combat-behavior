@@ -1,5 +1,10 @@
 # Changelog
 
+## CombatAITree 0.25.1 (2026-10-26)
+
+- **The combo follow-up now actually chains.** It sends vanilla's attack event (`attackStart`, or `attackPowerStartInPlace` for power) the way vanilla's Attack node does. In run 51 (BFCO) every combo that chained followed an `attackStart` inside the window, while 0.25.0's bare attack action (it played `BFCOAttackstart_0`) never chained on its own. The MCO NPC idles 0.25.0 looked for don't exist in this setup and are dropped.
+- **A back-off the brain then drops no longer blocks the follow-up.** The follow-up check now runs after the "back off this swing?" roll: in run 51, 84 open windows were skipped as "defending" on Backoff decisions that the roll turned into "keep swinging".
+
 ## CombatAITree 0.25.0 (2026-10-26)
 
 - **Our own combo follow-up for MCO and BFCO movesets, for use without SCAR.** The movesets mark the combo windows with annotation events (MCO_WinOpen / MCO_WinClose, MCO_PowerWinOpen / MCO_PowerWinClose, BFCO_NextWinStart / BFCO_NextPowerWinStart / BFCO_DIY_EndLoop). Inside an open window the NPC rolls once to start the next attack (normal 70%, power 30% when its window is open and stamina allows); the moveset's behavior already knows which attack comes next. No follow-up while it waits for an attack slot, defends, or the target is out of reach. It plays MCO's NPC attack idles (`ADXP_NPCNormalAttack` / `ADXP_NPCPowerAttack`) the way SCAR does, or the bare attack action when they are missing. Off while SCAR.dll is loaded. INI: `[ModIntegrations] EnableComboFollowUp`, `ComboFollowUpChance`, `ComboPowerChance`.

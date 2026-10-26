@@ -7,7 +7,6 @@
 
 #include <random>
 
-#undef GetObject // windows.h maps it to GetObjectA, hiding BGSDefaultObjectManager::GetObject
 
 namespace CombatAI::ComboFollowUp
 {
@@ -24,8 +23,6 @@ namespace CombatAI::ComboFollowUp
         ThreadSafeMap<RE::FormID, Window> g_windows;
         constexpr auto kStale = std::chrono::milliseconds(1500); // a window whose close event we missed
         bool g_installed = false;
-        RE::TESIdleForm *g_normalIdle = nullptr;
-        RE::TESIdleForm *g_powerIdle = nullptr;
 
         enum class Tag
         {
@@ -114,47 +111,28 @@ namespace CombatAI::ComboFollowUp
             return std::uniform_real_distribution<float>(0.0f, 1.0f)(gen) < a_chance;
         }
 
-        // Start the next attack on the main thread: the moveset's NPC attack idle when it exists, else the bare
-        // attack action (BFCO: NPC combos follow the player's rules)
+        // Start the next attack on the main thread the way vanilla's Attack node and SCAR's attack-data path do: a
+        // CombatAnimation carrying the attack event. Run 51 (BFCO): every chained combo followed an "attackStart"
+        // inside the window; the bare attack action (it played BFCOAttackstart_0) never chained on its own.
         void Perform(RE::Actor *a_actor, RE::Actor *a_target, bool a_power)
         {
-            auto *objects = RE::BGSDefaultObjectManager::GetSingleton();
-            auto *action = objects ? objects->GetObject<RE::BGSAction>(a_power ? RE::DEFAULT_OBJECT::kActionRightPowerAttack
-                                                                               : RE::DEFAULT_OBJECT::kActionRightAttack)
-                                   : nullptr;
-            if (!action) {
-                return;
-            }
-            RE::TESIdleForm *idle = a_power ? g_powerIdle : g_normalIdle;
-            SKSE::GetTaskInterface()->AddTask([self = a_actor->GetHandle(), target = a_target->GetHandle(), action, idle, a_power]() {
+            SKSE::GetTaskInterface()->AddTask([self = a_actor->GetHandle(), target = a_target->GetHandle(), a_power]() {
                 auto me = self.get();
                 auto them = target.get();
                 if (!me || !them) {
                     return;
                 }
-                const bool debug = Config::GetInstance().IsDebugTarget(me->GetFormID());
-                if (idle && !idle->CheckConditions(me.get(), them.get(), false)) {
-                    if (debug) {
-                        LOG_DEBUG("Combo 0x{:08X}: {} follow-up refused by the idle's conditions", me->GetFormID(),
-                                  a_power ? "power" : "normal");
-                    }
+                auto *anim = RE::CombatAnimation::Create(me.get(), a_power ? RE::CombatAnimation::ANIM::kActionRightPowerAttack
+                                                                           : RE::CombatAnimation::ANIM::kActionRightAttack);
+                if (!anim) {
                     return;
                 }
-                auto *data = RE::TESActionData::Create();
-                if (!data) {
-                    return;
-                }
-                data->source = RE::NiPointer<RE::TESObjectREFR>(me.get());
-                data->target = RE::NiPointer<RE::TESObjectREFR>(them.get());
-                data->action = action;
-                if (idle) {
-                    data->animObjIdle = idle;
-                    data->animEvent = idle->animEventName;
-                }
-                const bool ok = data->Process();
-                data->~TESActionData();
-                RE::free(data);
-                if (debug) {
+                anim->target = RE::NiPointer<RE::TESObjectREFR>(them.get());
+                anim->animEvent = a_power ? "attackPowerStartInPlace" : "attackStart";
+                const bool ok = anim->Execute();
+                anim->~CombatAnimation();
+                RE::free(anim);
+                if (Config::GetInstance().IsDebugTarget(me->GetFormID())) {
                     LOG_DEBUG("Combo 0x{:08X}: {} follow-up {}", me->GetFormID(), a_power ? "power" : "normal",
                               ok ? "started" : "FAILED (graph refused)");
                 }
@@ -168,16 +146,10 @@ namespace CombatAI::ComboFollowUp
             LOG_INFO("Combo follow-up: off (SCAR.dll is loaded and runs combos)");
             return;
         }
-        g_normalIdle = RE::TESForm::LookupByEditorID<RE::TESIdleForm>("ADXP_NPCNormalAttack");
-        g_powerIdle = RE::TESForm::LookupByEditorID<RE::TESIdleForm>("ADXP_NPCPowerAttack");
         REL::Relocation<std::uintptr_t> sink{RE::Character::VTABLE[2]};
         AnimEvent::func = sink.write_vfunc(0x1, AnimEvent::thunk);
         g_installed = true;
-        const auto name = [](RE::TESIdleForm *a_idle) {
-            return a_idle ? std::format("found (event {})", a_idle->animEventName.c_str()) : std::string("not found");
-        };
-        LOG_INFO("Combo follow-up: MCO/BFCO window events hooked; MCO NPC idles ADXP_NPCNormalAttack {}, ADXP_NPCPowerAttack {}",
-                 name(g_normalIdle), name(g_powerIdle));
+        LOG_INFO("Combo follow-up: MCO/BFCO window events hooked (next attack = attackStart / attackPowerStartInPlace)");
     }
 
     void Update(RE::Actor *a_actor, const ActorStateData &a_state, const DecisionResult &a_decision)

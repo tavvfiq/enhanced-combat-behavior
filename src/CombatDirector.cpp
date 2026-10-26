@@ -216,7 +216,6 @@ namespace CombatAI
         }
 
         decision = ApplyCombatPacing(a_actor, formID, state, decision);
-        ComboFollowUp::Update(a_actor, state, decision); // MCO/BFCO: the next attack inside an open combo window
 
         // A dodge, bash or sprint change that cuts an attack's windup can leave the engine
         // in kDraw with no attack playing. Vanilla AI then never starts another swing until
@@ -325,11 +324,15 @@ namespace CombatAI
                               ownSwing ? "own swing" : "target's swing", ActionName(instead.action));
                 }
                 if (instead.action == ActionType::None) {
+                    ComboFollowUp::Update(a_actor, state, instead);
                     return; // vanilla keeps the NPC: it blocks, swings again or holds
                 }
                 decision = instead;
             }
         }
+        // MCO/BFCO: the next attack inside an open combo window, after the back-off roll (run 51: 84 windows were
+        // skipped as "defending" on a Backoff that roll then dropped)
+        ComboFollowUp::Update(a_actor, state, decision);
 
         // A failed roll is a mistake, not a freeze: the NPC takes the next-best option it had this tick.
         if (decision.action != ActionType::None && !decision.reflex &&
