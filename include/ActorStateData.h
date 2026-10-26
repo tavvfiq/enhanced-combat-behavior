@@ -275,6 +275,7 @@ namespace CombatAI
         float deltaTime = 0.0f;
         float weaponReach = 150.0f; // Weapon reach (from Precision or fallback)
         bool weaponReachFromPrecision = false;
+        float baseWeaponReach = 150.0f; // weaponReach before a SCAR clip replaced it (SCAR's own range check uses this)
     };
 
     // Helper functions

@@ -1,4 +1,7 @@
 #include "SCARData.h"
+#include "AttackCoordinator.h"
+#include "Intents.h"
+#include "SCARIntegration.h"
 #include "Config.h"
 #include "Logger.h"
 
@@ -246,5 +249,103 @@ namespace CombatAI::SCARData
         }
         LOG_DEBUG("SCAR 0x{:08X}: {} actions on the active clip (t {:.2f}), best fit {}: {}", a_self->GetFormID(),
                   actions.size(), clipTime, best ? (best->attackData.empty() ? best->idle : best->attackData) : "none", fits);
+    }
+
+    float AttackReach(RE::Actor *a_self, float a_reach)
+    {
+        float clipTime = 0.0f;
+        const auto actions = Read(a_self, clipTime);
+        float likely = 0.0f, any = 0.0f;
+        for (const auto &a : actions) {
+            const float reach = a.maxDistance + (a.weaponLength >= 0.0f ? a.weaponLength * a_self->GetScale() : a_reach);
+            any = (std::max)(any, reach);
+            if (a.chance >= 50.0f) {
+                likely = (std::max)(likely, reach);
+            }
+        }
+        return likely > 0.0f ? likely : any;
+    }
+
+    namespace
+    {
+        bool GateEnabled()
+        {
+            return SCARIntegration::GetInstance().IsAvailable() &&
+                   Config::GetInstance().GetModIntegrations().enableSCARIntegration;
+        }
+
+        // Why the brain refuses a SCAR attack right now, or nullptr
+        const char *Refusal(RE::Actor *a_actor)
+        {
+            if (AttackCoordinator::GetSingleton().IsHeld(a_actor->GetFormID())) {
+                return "waiting its turn";
+            }
+            if (Intents::WantsDualBlock(a_actor)) {
+                return "holding a block";
+            }
+            if (Intents::AttackVetoed(a_actor)) {
+                return "defending";
+            }
+            return nullptr;
+        }
+
+        struct AttackStart
+        {
+            static bool thunk(void *a_context)
+            {
+                auto *actor = RE::CombatBehaviorController::GetCurrentAttacker();
+                if (actor && GateEnabled()) {
+                    if (const char *why = Refusal(actor)) {
+                        float clipTime = 0.0f;
+                        if (!Read(actor, clipTime).empty()) { // a SCAR clip: SCAR would start it (vanilla is paced already)
+                            if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
+                                LOG_DEBUG("SCAR gate 0x{:08X}: attack start refused ({})", actor->GetFormID(), why);
+                            }
+                            return false;
+                        }
+                    }
+                }
+                return func(a_context);
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
+        struct ComboEvent
+        {
+            static RE::BSEventNotifyControl thunk(RE::BSTEventSink<RE::BSAnimationGraphEvent> *a_sink,
+                                                  RE::BSAnimationGraphEvent *a_event,
+                                                  RE::BSTEventSource<RE::BSAnimationGraphEvent> *a_source)
+            {
+                if (a_event && a_event->holder && _stricmp(a_event->tag.c_str(), "SCAR_ComboStart") == 0 && GateEnabled()) {
+                    auto *actor = const_cast<RE::Actor *>(a_event->holder->As<RE::Actor>());
+                    if (actor && !actor->IsPlayerRef()) {
+                        if (const char *why = Refusal(actor)) {
+                            if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
+                                LOG_DEBUG("SCAR gate 0x{:08X}: combo refused ({})", actor->GetFormID(), why);
+                            }
+                            return RE::BSEventNotifyControl::kContinue; // a SCAR-only event: vanilla ignores it
+                        }
+                    }
+                }
+                return func(a_sink, a_event, a_source);
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+    } // namespace
+
+    void InstallGate(SKSE::Trampoline &a_trampoline)
+    {
+        if (!SCARIntegration::GetInstance().IsAvailable() || REL::Module::IsVR()) {
+            return;
+        }
+        REL::Relocation<std::uintptr_t> site{RELOCATION_ID(48147, 49178), REL::Relocate(0x164, 0x148)};
+        if (*reinterpret_cast<const std::uint8_t *>(site.address()) != 0xE8) {
+            LOG_WARN("SCAR gate: attack start site is not a call - gate off");
+            return;
+        }
+        AttackStart::func = a_trampoline.write_call<5>(site.address(), AttackStart::thunk);
+        REL::Relocation<std::uintptr_t> sink{RE::Character::VTABLE[2]};
+        ComboEvent::func = sink.write_vfunc(0x1, ComboEvent::thunk);
+        LOG_INFO("SCAR gate installed: pacing and defending also hold SCAR attacks and combos");
     }
 } // namespace CombatAI::SCARData

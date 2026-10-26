@@ -16,3 +16,6 @@ ActorState wantBlocking + blockStart (Simple Dual Wield Block's method; run 34 p
 executor. While the node runs it holds that hand's tree, so vanilla can't cast or swing with it mid-block, and it
 releases in its own Exit. The executor route was smaller but left vanilla's attack branch and left-hand casting free
 to break the block. Dodge stays an executor event (see above): it is reaction-critical and needs the synchronous result.
+
+## 2026-10-26 SCAR: gate it, don't replace it (0.24.0)
+- Options: (A) feed SCAR ranges to the brain, (B) wrap SCAR's two hooks and refuse when the brain says no, (C) take over SCAR (pick and play actions, SCAR.dll removed). Chosen (A)+(B): SCAR already falls through to vanilla off SCAR clips and its hooks chain, so wrapping it is small and keeps SCAR's move choice; (C) only adds the light/power choice.

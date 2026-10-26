@@ -37,6 +37,7 @@ namespace CombatAI::Intents
             Clock::time_point holdSince{}; // start of the current shot hold (epoch = not holding)
             float refusedSide = 0.0f;      // Circle side that last failed, and when
             Clock::time_point refusedAt{};
+            Clock::time_point attackVetoUntil{};
             bool dualBlockStarted = false;
         };
 
@@ -365,6 +366,24 @@ namespace CombatAI::Intents
                 e.refusedAt = now;
             }
         });
+    }
+
+    void PostAttackVeto(RE::Actor *a_actor, float a_seconds)
+    {
+        if (!a_actor) {
+            return;
+        }
+        const auto until = Clock::now() + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<float>(a_seconds));
+        g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) { e.attackVetoUntil = until; });
+    }
+
+    bool AttackVetoed(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return false;
+        }
+        const auto e = g_board.Find(a_actor->GetFormID());
+        return e && Clock::now() < e->attackVetoUntil;
     }
 
     bool CircleRefused(RE::Actor *a_actor, float a_side)

@@ -40,4 +40,13 @@ namespace CombatAI::SCARData
 
     // Debug (selected NPC): log the actions on its active clip and which ones fit right now
     void Probe(RE::Actor *a_self, RE::Actor *a_target, float a_reach);
+
+    // Brain reach for an NPC whose active clip has SCAR actions: the farthest MaxDistance + reach among actions with
+    // a chance of 50% or more (all actions if none), i.e. SCAR's range without the target's radius. 0 = no SCAR data.
+    float AttackReach(RE::Actor *a_self, float a_reach);
+
+    // Gate SCAR (installed after SCAR's own hooks, so ours run first): while the NPC waits for an attack slot, holds a
+    // block or the brain is defending, SCAR's attack start (StartAttack call SE 48147+0x164 / AE 49178+0x148) and its
+    // combo trigger (SCAR_ComboStart on the Character anim event sink, VTABLE_Character[2] slot 1) are refused.
+    void InstallGate(SKSE::Trampoline &a_trampoline);
 } // namespace CombatAI::SCARData

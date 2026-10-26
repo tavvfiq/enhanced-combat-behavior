@@ -432,3 +432,7 @@
 ## 0.23.2 (2026-10-26) ranged out of pacing, shot hold TTL
 - Run 49 recheck: of the 3 draws "during a hold", one fell in a 0.62 s gap between brain posts after the 0.4 s factor lapsed (18.58 -> 19.20, draw 18.99); the other two came after the hold ended (the 0.45 s classifier window was too wide). The Ranged tree re-rolls 49772 per shot (Repeat > Fallback{rand > RangedAttack, Idle}).
 - Untested in game. Pass: no `Pacing 0x..` lines for an archer or mage beyond reach + 150, no bow draw while `shot chance x0.0` lines run.
+
+## 0.24.0 (2026-10-26) SCAR gate, SCAR reach
+- Sites: StartAttack (SE 48139 / AE 49170) callers SE 46638+0x160, 48147+0x164; AE (1.6.1170 and 1.7.104) 47841+0x144, 49178+0x148 (se.py xrefs). 48147/49178 = SCAR's site (SCAR e62b63a Hook_AttackStart.h; Juan-MZ SCAR AE patch NOTICE: 49178 + Relocate(0x164, 0x148)). SCAR source read: StartAttack hook calls vanilla unless the active clip has SCAR data; combo hook is VTABLE_Character[2] (261399 / 207890) slot 1 on SCAR_ComboStart, then calls the original. SCAR installs at kPostLoad; ours at kDataLoaded wraps it.
+- Untested in game. Pass: `SCAR gate installed`; no crash; `SCAR gate 0x..: ... refused (waiting its turn)` for a held SCAR NPC, and it circles instead of swinging; `Misc: WeaponReach=` above the weapon's reach on a SCAR clip.

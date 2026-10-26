@@ -23,7 +23,7 @@ extern "C" __declspec(dllexport) bool __cdecl SKSEPlugin_Load(const SKSE::LoadIn
 {
     // Initialize SKSE
     // One trampoline for every hook (tree builders at load, the rest at kDataLoaded)
-    SKSE::Init(a_skse, {.trampoline = true, .trampolineSize = 512}); // 17 hooks use ~238 B; headroom for more
+    SKSE::Init(a_skse, {.trampoline = true, .trampolineSize = 1024}); // ~30 call hooks at 14 B each plus stubs; headroom for more
 
     auto logsFolder = SKSE::log::log_directory();
     if (!logsFolder)

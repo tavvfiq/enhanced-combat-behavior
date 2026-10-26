@@ -1,5 +1,11 @@
 # Changelog
 
+## CombatAITree 0.24.0 (2026-10-26)
+
+- **SCAR attacks now follow the brain (SCAR stays installed and still picks the move).** While an NPC waits for an attack slot, holds a block, or the brain is dodging, blocking, backing off or retreating, SCAR can no longer start an attack or continue a combo for it. Before, pacing only reached vanilla attacks; SCAR's bypassed it. Debug: `SCAR gate 0x..: attack start refused (waiting its turn)` / `combo refused (...)`. Log at load: `SCAR gate installed`. Only when SCAR.dll is loaded and the SCAR integration setting is on.
+- **The brain closes to SCAR's real attack range.** For an NPC on a SCAR clip, the brain's attack reach is the farthest range of the clip's likely actions (50%+ chance; all actions if none) instead of the weapon's reach, so it no longer stands where SCAR won't swing, or walks in closer than needed. Debug: the `Misc: WeaponReach=` line shows the SCAR reach.
+- Trampoline raised to 1024 bytes (30 call hooks).
+
 ## CombatAITree 0.23.2 (2026-10-26)
 
 - **Archers and mages at range are left out of attack pacing.** A bow draw counted as attacking, so a ranged NPC took one of the 3 attack slots on you (or was held back waiting for one) from across the camp (run 49: an archer at 1400+ units 11 times). Now only NPCs within melee reach + 150 units take part, whatever their weapon.

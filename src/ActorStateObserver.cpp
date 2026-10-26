@@ -22,6 +22,8 @@
 #include "GuardCounterFeedbackTracker.h"
 #include "ParryFeedbackTracker.h"
 #include "PrecisionIntegration.h"
+#include "SCARData.h"
+#include "SCARIntegration.h"
 #include "TimedBlockFeedbackTracker.h"
 
 namespace CombatAI
@@ -45,6 +47,15 @@ namespace CombatAI
 
         // Get weapon reach
         data.weaponReach = GetWeaponReach(a_actor, &data.weaponReachFromPrecision);
+        data.baseWeaponReach = data.weaponReach;
+        // SCAR moveset: the brain closes to where SCAR will actually start an attack, not the weapon's reach. SCAR's
+        // limit is MaxDistance + reach + target radius; offense uses reach * mult + target radius - margin.
+        if (SCARIntegration::GetInstance().IsAvailable() && Config::GetInstance().GetModIntegrations().enableSCARIntegration) {
+            if (const float scar = SCARData::AttackReach(a_actor, data.weaponReach); scar > 0.0f) {
+                const auto &dm = Config::GetInstance().GetDecisionMatrix();
+                data.weaponReach = (scar + dm.offenseReachSafetyMargin) / (std::max)(dm.offenseReachMultiplier, 0.1f);
+            }
+        }
 
         // Gather target state. Hold the NiPointer for the whole gather so the target
         // can't be released while we still use it below.

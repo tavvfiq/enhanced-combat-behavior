@@ -61,6 +61,10 @@ namespace CombatAI::Intents
     // Tree side: our Circle node failed (start or run) while the brain wanted a side. Brain side: that side
     // (+1/-1) failed under 2 s ago, so try the other one.
     void NoteCircleRefused(RE::Actor *a_actor);
+    // Brain side: it is defending (dodge, block, back off, retreat); attacks that bypass the tree's intents (SCAR)
+    // are refused until a_seconds from now. Refreshed while the brain keeps defending.
+    void PostAttackVeto(RE::Actor *a_actor, float a_seconds);
+    bool AttackVetoed(RE::Actor *a_actor);
     bool CircleRefused(RE::Actor *a_actor, float a_side);
     // Distance the brain wants the running Advance to stop at (0 = vanilla's own).
     float AdvanceDistance(RE::Actor *a_actor);

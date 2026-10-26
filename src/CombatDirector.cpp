@@ -200,7 +200,7 @@ namespace CombatAI
             (decision.action == ActionType::Attack || decision.action == ActionType::PowerAttack ||
              state.self.attackState == RE::ATTACK_STATE_ENUM::kNextAttack)) {
             if (auto target = RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID)) {
-                SCARData::Probe(a_actor, target, state.weaponReach);
+                SCARData::Probe(a_actor, target, state.baseWeaponReach);
             }
         }
         // Shot factor for archers; for everyone else a cast hold while an ally is in the line of fire
@@ -585,6 +585,19 @@ namespace CombatAI
                       executedDecision.priority, static_cast<std::uint32_t>(a_state.target.targetFormID),
                       a_state.target.distance, a_state.self.healthPercent * 100.0f,
                       a_state.target.healthPercent * 100.0f);
+        }
+
+        switch (executedDecision.action) {
+        case ActionType::Dodge:
+        case ActionType::Parry:
+        case ActionType::TimedBlock:
+        case ActionType::Retreat:
+        case ActionType::Backoff:
+        case ActionType::Jump:
+            Intents::PostAttackVeto(a_actor, 0.4f); // SCAR attacks bypass the tree; the SCAR gate reads this
+            break;
+        default:
+            break;
         }
 
         m_processedActors.Insert(a_formID);
