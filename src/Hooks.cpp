@@ -28,19 +28,67 @@ namespace CombatAI
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
-        // Global systems must tick exactly once per frame. The player never reaches the
-        // Character hook above: PlayerCharacter::Update (own vtable slot 0xAD, AE 40447)
-        // calls Character::Update directly, not through the vtable. So tick from here.
+        // Global systems must tick exactly once per frame (director/humanizer clock, cooldowns, jumps, summaries).
+        // They tick from the main loop: PlayerCharacter::Update stops under the console's free camera (tfc), which
+        // froze the clock, so NPCs entering combat never passed the reaction delay and the others stopped deciding
+        // (STD run, 2026-10-27: one NPC skipped 895 times over 2 min). Main::Update (SE 35565 / AE 36564) calls an
+        // empty function (76765 / 78641) once per frame: SE +0x748, AE +0xC2B (1.6.1170) / +0xC3D (1.7.104).
+        bool g_mainLoopTick = false;
+
+        void TickDirector()
+        {
+            // As before, only in game (the player update used to be the only caller)
+            if (auto *player = RE::PlayerCharacter::GetSingleton(); player && player->Is3DLoaded()) {
+                CombatDirector::GetInstance().Update(RE::GetSecondsSinceLastFrame());
+            }
+        }
+
+        struct MainLoopTick
+        {
+            static void thunk()
+            {
+                func();
+                TickDirector();
+            }
+
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
+        // Fallback when the main-loop site doesn't match (VR, unknown build). The player never reaches the Character
+        // hook above: PlayerCharacter::Update (own vtable slot 0xAD, AE 40447) calls Character::Update directly.
         struct PlayerCharacter_Update
         {
             static void thunk(RE::PlayerCharacter *a_player, float a_delta)
             {
                 func(a_player, a_delta);
-                CombatDirector::GetInstance().Update(RE::GetSecondsSinceLastFrame());
+                if (!g_mainLoopTick) {
+                    CombatDirector::GetInstance().Update(RE::GetSecondsSinceLastFrame());
+                }
             }
 
             static inline REL::Relocation<decltype(thunk)> func;
         };
+
+        void InstallMainLoopTick(SKSE::Trampoline &a_trampoline)
+        {
+            if (REL::Module::IsVR()) {
+                return;
+            }
+            const auto main = REL::RelocationID(35565, 36564).address();
+            const auto empty = REL::RelocationID(76765, 78641).address();
+            for (const std::size_t offset : REL::Module::IsAE() ? std::initializer_list<std::size_t>{0xC2B, 0xC3D}
+                                                                : std::initializer_list<std::size_t>{0x748}) {
+                const auto site = main + offset;
+                const auto *bytes = reinterpret_cast<const std::uint8_t *>(site);
+                if (bytes[0] == 0xE8 && site + 5 + *reinterpret_cast<const std::int32_t *>(site + 1) == empty) {
+                    MainLoopTick::func = a_trampoline.write_call<5>(site, MainLoopTick::thunk);
+                    g_mainLoopTick = true;
+                    LOG_INFO("Per-frame tick from the main loop (keeps running under tfc)");
+                    return;
+                }
+            }
+            LOG_WARN("Main loop site does not match - per-frame tick stays on the player update (stops under tfc)");
+        }
 
         // The vanilla melee attack node (CombatBehaviorAttack) asks this for each candidate
         // attack's chance: float(attacker, target, BGSAttackData*) = SE 49748 / AE 50675.
@@ -102,6 +150,7 @@ namespace CombatAI
 
             REL::Relocation<std::uintptr_t> PlayerVTable{RE::PlayerCharacter::VTABLE[0]};
             PlayerCharacter_Update::func = PlayerVTable.write_vfunc(0x0AD, PlayerCharacter_Update::thunk);
+            InstallMainLoopTick(trampoline);
 
             // Call-site offsets are only mapped for SE and AE. write_call returns the current
             // target, so a mod already hooking this site (e.g. FenixCombatAI) stays chained.

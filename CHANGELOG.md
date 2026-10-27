@@ -1,5 +1,10 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.0.3 (2026-10-27)
+
+- **Works with the console free camera (`tfc`).** The mod's once-per-frame clock (reaction delay, cooldowns, jumps, the debug summaries) ran from the player's update, and the game skips that under `tfc`. The clock froze, so an NPC entering combat waited out its reaction delay forever (one NPC: 2 minutes, 895 skips) and NPCs already fighting stopped making decisions; they fell back to vanilla AI. The clock now ticks from the game's main loop. Log: `Per-frame tick from the main loop (keeps running under tfc)`. If that hook site doesn't match a game build, the log says so and the old player-update tick is used.
+- This is also why the per-minute `Intents (last 60s ...)` summaries sometimes didn't appear.
+
 ## Enhanced Combat Behavior 1.0.2 (2026-10-27)
 
 - **Circle, back off and fall back wait for the NPC's animation to end.** The game refuses to start these moves while an animation drives the NPC's movement (mid-swing, stagger, dodge recovery). That was most of the failed starts: 10 of 15 Circles and 2 of 5 Backoffs in one fight. The brain no longer asks for them while the animation runs, and asks again at the next decision once it ends. Before, the request was lost, and a refused Circle also blocked circling for 2 s.
