@@ -57,25 +57,34 @@ namespace CombatAI
         };
 
         // A preset resets all tuning (not General's switches, performance or integrations) to the defaults, then applies
-        // its own changes; Save to keep it. One button per JSON file in the Presets folder, read again on reload/save.
+        // its own changes; Save to keep it. Picking one in the list applies it; the list is Default plus one entry per
+        // JSON file in the Presets folder, read again on reload/save. The picked name goes to the save field (not
+        // Default), so a tweaked preset is one click from being overwritten.
         static std::vector<std::string> presets = Config::ListPresets();
+        static std::string applied; // last preset picked; empty after a reload
+        static char presetName[65] = "";
         ImGuiMCP::Text("Preset (resets tuning, then applies):");
         ImGuiMCP::SameLine();
-        if (ImGuiMCP::Button("Default")) {
-            config.ApplyPreset("Default");
-        }
-        for (const auto &name : presets) {
-            ImGuiMCP::SameLine();
-            if (ImGuiMCP::Button(name.c_str())) {
-                config.ApplyPreset(name);
+        ImGuiMCP::SetNextItemWidth(220.0f);
+        if (ImGuiMCP::BeginCombo("##Preset", applied.empty() ? "Choose..." : applied.c_str())) {
+            if (ImGuiMCP::Selectable("Default", applied == "Default")) {
+                config.ApplyPreset("Default");
+                applied = "Default";
             }
+            for (const auto &name : presets) {
+                if (ImGuiMCP::Selectable(name.c_str(), applied == name) && config.ApplyPreset(name)) {
+                    applied = name;
+                    strncpy_s(presetName, name.c_str(), _TRUNCATE);
+                }
+            }
+            ImGuiMCP::EndCombo();
         }
-        static char presetName[65] = "";
         ImGuiMCP::InputText("##PresetName", presetName, sizeof(presetName));
         ImGuiMCP::SameLine();
         const bool exists = std::ranges::find(presets, std::string(presetName)) != presets.end();
         if (ImGuiMCP::Button(exists ? "Overwrite preset" : "Save as preset") && config.SavePreset(presetName)) {
             presets = Config::ListPresets();
+            applied = presetName;
         }
         ImGuiMCP::SameLine();
         ImGuiMCP::TextDisabled("current tuning, what differs from the defaults");
@@ -330,6 +339,7 @@ namespace CombatAI
             config.Load();
             Personality::ReloadProfiles();
             presets = Config::ListPresets();
+            applied.clear();
             config.MarkHumanizerDirty();
             applyLogLevel();
         }

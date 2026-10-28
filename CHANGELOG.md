@@ -1,5 +1,9 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.2.2 (2026-10-29)
+
+- **Menu: presets are a dropdown** instead of a row of buttons, so a long list of your own presets stays on one line. Picking one applies it at once, as the buttons did. The dropdown shows the preset last picked or saved, and picking one also puts its name in the save field, so after tweaking it "Overwrite preset" is one click.
+
 ## Enhanced Combat Behavior 1.2.1 (2026-10-29)
 
 - **Preset and profile files are plain JSON.** `//` comments are gone from the shipped files and no longer accepted, so any JSON editor or validator reads them. A preset can carry a `"Description"` text, a profile entry a `"note"`; both are ignored by the mod. Preset values are unchanged.
