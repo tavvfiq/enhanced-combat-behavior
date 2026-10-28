@@ -53,28 +53,43 @@ namespace CombatAI::Trees
             return a_me ? std::clamp(vanilla * Intents::RangedShotFactor(a_me), 0.0f, 1.0f) : vanilla;
         }
 
-        void InstallRangedShotChance(SKSE::Trampoline &a_trampoline)
+        // Points a tree builder's `lea rax, [rip+x]` (the chance function its RandomNode rolls) at a_ours. Returns the
+        // function it pointed at, or 0 (nothing written) if the bytes aren't that lea, it doesn't point at a_expected
+        // (0 = don't check), or the stub is out of reach.
+        std::uintptr_t RedirectChanceLea(SKSE::Trampoline &a_trampoline, std::uintptr_t a_lea, std::uintptr_t a_expected,
+                                         std::uintptr_t a_ours)
         {
-            const auto lea = kRangedTree.address() + (REL::Module::IsAE() ? kRangedChanceLeaAE : kRangedChanceLeaSE);
-            const auto *b = reinterpret_cast<const std::uint8_t *>(lea);
+            const auto *b = reinterpret_cast<const std::uint8_t *>(a_lea);
             if (b[0] != 0x48 || b[1] != 0x8D || b[2] != 0x05) {
-                LOG_ERROR("Tree: Ranged tree chance site does not match - archers keep vanilla shot timing");
-                return;
+                return 0;
             }
-            const auto next = lea + 7;
-            g_vanillaRangedChance = reinterpret_cast<ChanceFn>(next + *reinterpret_cast<const std::int32_t *>(lea + 3));
+            const auto next = a_lea + 7;
+            const auto vanilla = next + *reinterpret_cast<const std::int32_t *>(a_lea + 3);
+            if (a_expected != 0 && vanilla != a_expected) {
+                return 0;
+            }
             // Our function may be out of rel32 reach: jump through a stub in the trampoline (near the game)
             auto *stub = static_cast<std::uint8_t *>(a_trampoline.allocate(14));
             const std::uint8_t jmp[6] = {0xFF, 0x25, 0, 0, 0, 0}; // jmp [rip+0]
             std::memcpy(stub, jmp, 6);
-            const auto target = reinterpret_cast<std::uintptr_t>(&RangedShotChance);
-            std::memcpy(stub + 6, &target, 8);
+            std::memcpy(stub + 6, &a_ours, 8);
             const auto disp = static_cast<std::int64_t>(reinterpret_cast<std::uintptr_t>(stub)) - static_cast<std::int64_t>(next);
             if (disp < INT32_MIN || disp > INT32_MAX) {
-                LOG_ERROR("Tree: Ranged chance stub out of reach - archers keep vanilla shot timing");
+                return 0;
+            }
+            REL::safe_write(a_lea + 3, static_cast<std::int32_t>(disp));
+            return vanilla;
+        }
+
+        void InstallRangedShotChance(SKSE::Trampoline &a_trampoline)
+        {
+            const auto lea = kRangedTree.address() + (REL::Module::IsAE() ? kRangedChanceLeaAE : kRangedChanceLeaSE);
+            g_vanillaRangedChance = reinterpret_cast<ChanceFn>(
+                RedirectChanceLea(a_trampoline, lea, 0, reinterpret_cast<std::uintptr_t>(&RangedShotChance)));
+            if (!g_vanillaRangedChance) {
+                LOG_ERROR("Tree: Ranged tree chance site does not match - archers keep vanilla shot timing");
                 return;
             }
-            REL::safe_write(lea + 3, static_cast<std::int32_t>(disp));
             LOG_INFO("Tree: Ranged attack chance redirected (the brain times archers' shots)");
         }
 
@@ -931,6 +946,91 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
+        // ---- Shouts and potions (probe, 1.2.6: vanilla timing, logged for the selected NPC). Vanilla trees (RE
+        // 2026-10-29): Shout = Context > Repeat > Fallback{ rand(CalcCastMagicChance) > Sequence{CastShout, Wait}, Idle },
+        // UsePotion = Context > Repeat > Fallback{ Sequence{DrinkPotion, Wait}, Idle }; the equipment selector picks
+        // either when the NPC's inventory scores a shout or a potion highest.
+        // The Shout builder (SE 48811 / AE 49766) stores CombatBehaviorContextShout::CalcCastMagicChance (SE 48806 /
+        // AE 49761, `float() const`, this = the context) with a `lea rax, [rip+x]` at SE +0x121 / AE +0x208 (same in
+        // 1.6.1170 and 1.7.104; bytes and target checked offline and again before writing).
+        constexpr REL::RelocationID kShoutTree{48811, 49766};
+        constexpr REL::RelocationID kShoutChance{48806, 49761};
+        constexpr std::size_t kShoutChanceLeaSE = 0x121;
+        constexpr std::size_t kShoutChanceLeaAE = 0x208;
+        using ShoutChanceFn = float (*)(const RE::CombatBehaviorContextShout *);
+        ShoutChanceFn g_vanillaShoutChance = nullptr;
+
+        // What the selected NPC and its target are doing, for the shout/potion lines
+        std::string ProbeState(RE::Actor *a_actor)
+        {
+            auto *controller = RE::CombatBehaviorController::GetCurrentCombatController();
+            const auto target = controller ? controller->targetHandle.get() : RE::NiPointer<RE::Actor>();
+            auto *av = a_actor->AsActorValueOwner();
+            const float hp = av->GetActorValue(RE::ActorValue::kHealth) /
+                             (std::max)(1.0f, av->GetPermanentActorValue(RE::ActorValue::kHealth));
+            if (!target) {
+                return std::format("hp {:.0f}%, no target", hp * 100.0f);
+            }
+            const auto *state = target->AsActorState();
+            return std::format("hp {:.0f}%, target 0x{:08X} dist {:.0f} attack state {} blocking {} casting {}",
+                               hp * 100.0f, target->GetFormID(), a_actor->GetPosition().GetDistance(target->GetPosition()),
+                               static_cast<int>(state->actorState1.meleeAttackState), target->IsBlocking(),
+                               target->IsCasting(nullptr));
+        }
+
+        float ShoutChance(const RE::CombatBehaviorContextShout *a_context)
+        {
+            const float vanilla = g_vanillaShoutChance(a_context);
+            auto *actor = RE::CombatBehaviorController::GetCurrentAttacker();
+            if (actor && Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
+                const auto *shout = a_context ? a_context->shout : nullptr;
+                LOG_DEBUG("Shout 0x{:08X}: chance {:.2f} for {} ({})", actor->GetFormID(), vanilla,
+                          shout ? shout->GetName() : "?", ProbeState(actor));
+            }
+            return vanilla;
+        }
+
+        // Enter (slot 2) of the CastShout and DrinkPotion leaves: the shout starts / the potion is drunk in it
+        template <bool Potion>
+        struct ProbeEnter
+        {
+            static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
+            {
+                auto *actor = AuditedActor(a_thread);
+                if (!actor) {
+                    func(a_node, a_thread);
+                    return;
+                }
+                const auto before = ProbeState(actor);
+                func(a_node, a_thread);
+                if constexpr (Potion) {
+                    LOG_DEBUG("Potion 0x{:08X}: DrinkPotion entered ({}) -> after: {}", actor->GetFormID(), before,
+                              ProbeState(actor));
+                } else {
+                    const auto *power = actor->GetActorRuntimeData().selectedPower;
+                    LOG_DEBUG("Shout 0x{:08X}: CastShout entered, {} ({})", actor->GetFormID(),
+                              power ? power->GetName() : "?", before);
+                }
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
+        void InstallShoutPotionProbe(SKSE::Trampoline &a_trampoline)
+        {
+            const auto lea = kShoutTree.address() + (REL::Module::IsAE() ? kShoutChanceLeaAE : kShoutChanceLeaSE);
+            g_vanillaShoutChance = reinterpret_cast<ShoutChanceFn>(RedirectChanceLea(
+                a_trampoline, lea, kShoutChance.address(), reinterpret_cast<std::uintptr_t>(&ShoutChance)));
+            if (!g_vanillaShoutChance) {
+                LOG_ERROR("Tree: Shout tree chance site does not match - shout chance not logged");
+            }
+            REL::Relocation<std::uintptr_t> castShout{RE::VTABLE_CombatBehaviorTreeNodeObject_CombatBehaviorCastShout_[0]},
+                drinkPotion{RE::VTABLE_CombatBehaviorTreeNodeObject_CombatBehaviorDrinkPotion_[0]};
+            ProbeEnter<false>::func = castShout.write_vfunc(2, ProbeEnter<false>::thunk);
+            ProbeEnter<true>::func = drinkPotion.write_vfunc(2, ProbeEnter<true>::thunk);
+            LOG_INFO("Tree: shout chance{} and CastShout/DrinkPotion starts hooked (probe: vanilla timing, logged for the "
+                     "selected NPC)", g_vanillaShoutChance ? "" : " not");
+        }
+
         // Vanilla Magic (0.18.3 dump): Context > ValueNode "Casting Type Selector" > one ValueNode case per casting
         // type ("Cast Immediate Repeat", "Cast Concentration Repeat") > that type's spell selector. The loop is the
         // equipment selector above, which re-runs the tree from the top. Each case gets
@@ -1146,6 +1246,7 @@ namespace CombatAI::Trees
         }
 
         InstallRangedShotChance(trampoline);
+        InstallShoutPotionProbe(trampoline);
 
         const auto rangedSite =
             kRangedMovementTree.address() + (REL::Module::IsAE() ? kRangedMovementSetRootAE : kRangedMovementSetRootSE);

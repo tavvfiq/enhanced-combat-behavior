@@ -1,5 +1,10 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.2.6 (2026-10-29)
+
+- **Groundwork for smarter shouts and potions (no change in how NPCs fight yet).** The plugin now hooks into the game's own shout and potion behaviour and, with the debug log on, records for the selected NPC every shout chance the game rolls, every shout it starts and every potion it drinks, with its health and what its target is doing. Upcoming versions will use this to time shouts (Unrelenting Force against a turtling player, Disarm against a power attack) and to make NPCs step back before drinking.
+- Log: `Tree: shout chance and CastShout/DrinkPotion starts hooked` at startup; per selected NPC `Shout 0x..: chance ..`, `Shout 0x..: CastShout entered, <shout>`, `Potion 0x..: DrinkPotion entered (...) -> after: ...`.
+
 ## Enhanced Combat Behavior 1.2.5 (2026-10-29)
 
 - **NPCs that haven't found you no longer dodge your arrows.** After a sneak shot an NPC enters combat and searches, but until it actually detects you it no longer sidesteps your arrows or spells, jumps away from your aimed bow, or dodges your swings. Attacks and approaches already waited for detection; dodges didn't. Arrows from other NPCs are still dodged.
