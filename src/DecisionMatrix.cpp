@@ -3124,10 +3124,11 @@ namespace CombatAI
             return CalculateStrafeDirection(a_state);
         }
 
-        // Validate closestAllyPosition is valid (not zero/uninitialized)
+        // An ally that is known and within ~3000 units, as EvaluateFlanking checks it. This used to test the ally's
+        // world position (|pos|^2 > 1e7), which outdoors always failed, so exteriors never got the pincer side.
         RE::NiPoint3 allyPos = a_state.combatContext.closestAllyPosition;
-        float allyDistSq = allyPos.x * allyPos.x + allyPos.y * allyPos.y + allyPos.z * allyPos.z;
-        if (allyDistSq < 1.0f || allyDistSq > 10000000.0f) { // Very close to zero or extremely far = invalid
+        const float allyDist = a_state.combatContext.closestAllyDistance;
+        if (allyDist <= 0.0f || allyDist > 3000.0f) {
             // Fallback to normal strafe direction
             return CalculateStrafeDirection(a_state);
         }

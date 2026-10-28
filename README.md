@@ -25,7 +25,8 @@ or Combat Pathing Revolution (with CPR installed a startup dialog lets you conti
 
 ## Requirements
 - SKSE64 for your game version, Address Library for SKSE Plugins.
-- Skyrim SE 1.5.97 or AE 1.6.1170 / 1.7.x. Tested in game on AE 1.7.104 only.
+- Skyrim AE 1.6.1170 / 1.7.x (tested in game on AE 1.7.104). SE 1.5.97 builds but is untested in game:
+  experimental.
 
 ## Optional
 - **SKSE Menu Framework**: in-game config menu ("Enhanced Combat Behavior").

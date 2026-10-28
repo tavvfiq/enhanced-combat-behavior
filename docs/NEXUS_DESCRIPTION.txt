@@ -24,7 +24,7 @@ Successor to [i]Enhanced Combat AI[/i]. Don't run both.
 [*]SKSE64
 [*]Address Library for SKSE Plugins
 [/list]
-Supports SE 1.5.97 and AE 1.6.1170 / 1.7.x. Played and tested on AE 1.7.104 only so far.
+Supports AE 1.6.1170 / 1.7.x; played and tested on AE 1.7.104. SE 1.5.97 builds but has not been played yet: treat it as experimental and report problems with the debug log.
 
 [size=4][b]Optional[/b][/size]
 [list]

@@ -1,5 +1,10 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.0.4 (2026-10-29)
+
+- **Flanking NPCs pick the pincer side outdoors.** The flank side (opposite the nearest ally, so the two pinch the target) was chosen only when a check on the ally's world position passed, and outdoor coordinates always failed it: in exteriors flanking NPCs circled whichever way plain strafing picked, often beside their ally. It now uses the ally's distance (within 3000 units), the fix the flanking decision itself got in 0.19.1.
+- **SE 1.5.97 marked experimental** in the README and description: it builds, but nobody has played it yet.
+
 ## Enhanced Combat Behavior 1.0.3 (2026-10-27)
 
 - **Works with the console free camera (`tfc`).** The mod's once-per-frame clock (reaction delay, cooldowns, jumps, the debug summaries) ran from the player's update, and the game skips that under `tfc`. The clock froze, so an NPC entering combat waited out its reaction delay forever (one NPC: 2 minutes, 895 skips) and NPCs already fighting stopped making decisions; they fell back to vanilla AI. The clock now ticks from the game's main loop. Log: `Per-frame tick from the main loop (keeps running under tfc)`. If that hook site doesn't match a game build, the log says so and the old player-update tick is used.
