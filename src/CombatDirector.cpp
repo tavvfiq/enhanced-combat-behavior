@@ -391,15 +391,23 @@ namespace CombatAI
                             a_decision.action == ActionType::SprintAttack || a_decision.action == ActionType::Bash;
         // Archers and mages at range never take a slot: a bow draw counts as attacking (run 49: an archer at 1400+
         // was held back and granted a slot 11 times). Pacing is about crowding the target inside melee reach.
-        const bool engaging = a_state.target.distance <= reach + pacing.engageMargin;
-        if (!engaging && (DecisionMatrix::IsRangedFighter(a_state) || (!attacking && !commit))) {
+        // A wait ring beyond EngageMargin (the Duel preset's far ring) is part of the paced zone out to its far edge:
+        // a latecomer stops at the ring instead of walking in, and a waiter isn't released there to walk back in,
+        // be held again and fall back out, over and over. The default ring (120) is inside EngageMargin (150).
+        // Archers and mages keep the plain zone, or one at range could take a duel's only slot.
+        const bool wasHeld = coordinator.IsHeld(a_formID);
+        const bool ranged = DecisionMatrix::IsRangedFighter(a_state);
+        const float engageMargin = !ranged && pacing.waitDistanceMargin > pacing.engageMargin
+                                       ? pacing.waitDistanceMargin + kWaitRingTolerance
+                                       : pacing.engageMargin;
+        const bool engaging = a_state.target.distance <= reach + engageMargin;
+        if (!engaging && (ranged || (!attacking && !commit))) {
             coordinator.Release(target, a_formID);
             coordinator.ClearHeld(a_formID);
             return a_decision;
         }
 
         const bool debug = Config::GetInstance().IsDebugTarget(a_formID);
-        const bool wasHeld = coordinator.IsHeld(a_formID);
         const auto hit = m_retaliation.Find(a_formID);
         const bool retaliating =
             hit && hit->attacker == target && m_time.load(std::memory_order_relaxed) < hit->until;
@@ -430,11 +438,16 @@ namespace CombatAI
             return a_decision; // never cancel a swing in progress
         }
 
-        // Wait outside reach: circle on a ring, or step back first if already inside reach
+        // Wait outside reach: circle on a ring, or step back first if already inside reach. A ring farther out than the
+        // tolerance (default ring: reach + 120, so never) is reached by Fallback steps (96-256 units each) first.
         const float holdDistance = reach + pacing.waitDistanceMargin;
         DecisionResult held;
         if (a_state.target.distance <= reach) {
             held.action = ActionType::Backoff;
+            held.priority = 1.0f;
+            held.paced = true;
+        } else if (a_state.target.distance < holdDistance - kWaitRingTolerance) {
+            held.action = ActionType::Retreat;
             held.priority = 1.0f;
             held.paced = true;
         } else {

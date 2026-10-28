@@ -63,7 +63,8 @@ or Combat Pathing Revolution (with CPR installed a startup dialog lets you conti
 Edit `Data/SKSE/Plugins/EnhancedCombatBehavior.ini` (every key is commented) or use the in-game menu,
 which saves back to the INI. The menu has five tabs (General, Offense, Defense, Groups & Movement, NPC
 Character) with the rarely changed settings under "Advanced" headers. Presets: Default, Vanilla+ (gentle),
-Souls-like (sharp duels), Chaos (a swarm); each resets tuning to the defaults first.
+Souls-like (sharp duels), Chaos (a swarm), Duel (one at a time, the rest wait on a wide ring); each resets
+tuning to the defaults first.
 Presets are JSON files in `SKSE/Plugins/EnhancedCombatBehavior/Presets`; the menu saves the current tuning as a new one.
 Personality profiles (risk, caution, patience per keyword, faction, race or NPC) are JSON files in
 `SKSE/Plugins/EnhancedCombatBehavior/Profiles`; `Examples.json` there shows the format.

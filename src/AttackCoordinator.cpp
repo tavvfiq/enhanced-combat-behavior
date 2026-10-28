@@ -1,4 +1,5 @@
 #include "AttackCoordinator.h"
+#include "ActorUtils.h"
 #include "Logger.h"
 
 #include <random>
@@ -50,7 +51,15 @@ namespace CombatAI
         m_slots.ModifyOrCreate(a_target, [&](SlotBucket &bucket) {
             // Rotate out expired slots so waiting attackers get their turn.
             for (auto it = bucket.begin(); it != bucket.end();) {
-                if (now - it->second.acquireTime > it->second.window) {
+                // A holder that died, left combat or turned on someone else frees its slot now: with a long window (the
+                // Duel preset) it would otherwise keep the others waiting until the window ran out
+                auto *holder = RE::TESForm::LookupByID<RE::Actor>(it->first);
+                auto *controller = holder ? ActorUtils::SafeGetCombatController(holder) : nullptr;
+                const auto holderTarget = controller ? controller->targetHandle.get() : nullptr; // the brain's target
+                if (!holder || holder->IsDead() || !holder->IsInCombat() || !holderTarget ||
+                    holderTarget->GetFormID() != a_target) {
+                    it = bucket.erase(it);
+                } else if (now - it->second.acquireTime > it->second.window) {
                     m_rested.ModifyOrCreate(it->first, [&](float &a_time) { a_time = now; });
                     it = bucket.erase(it);
                 } else {

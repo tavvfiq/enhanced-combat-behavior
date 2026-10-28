@@ -49,7 +49,7 @@ Install with your mod manager. When updating, overwrite. Missing settings fall b
 [/list]
 
 [size=4][b]Settings[/b][/size]
-In-game: open the SKSE Menu Framework menu, then Enhanced Combat Behavior > Config. Five tabs, common settings on top, the rest under "Advanced". Presets: Default, Vanilla+ (gentler), Souls-like (sharp duels), Chaos (a swarm).
+In-game: open the SKSE Menu Framework menu, then Enhanced Combat Behavior > Config. Five tabs, common settings on top, the rest under "Advanced". Presets: Default, Vanilla+ (gentler), Souls-like (sharp duels), Chaos (a swarm), Duel (one at a time, the rest wait on a wide ring); save your own from the menu.
 Or edit [i]Data/SKSE/Plugins/EnhancedCombatBehavior.ini[/i], every line is commented.
 
 [size=4][b]Known limits[/b][/size]

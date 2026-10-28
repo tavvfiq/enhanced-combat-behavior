@@ -120,5 +120,7 @@ namespace CombatAI
         static constexpr float SPAWN_WARMUP_DELAY = 0.5f; // 500ms delay
         // Real windups last under ~1s; a kDraw this old has no attack behind it
         static constexpr float STALE_DRAW_TIMEOUT = 3.0f;
+        // A waiting NPC within this of its wait ring circles; closer in it falls back first (pacing)
+        static constexpr float kWaitRingTolerance = 150.0f;
     };
 } // namespace CombatAI

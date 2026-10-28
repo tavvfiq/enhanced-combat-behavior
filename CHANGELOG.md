@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.2.0 (2026-10-29)
+
+- **New preset: Duel.** One NPC fights you at a time and keeps the fight until it dies, breaks off or turns on someone else; the others wait on a wide ring (attack reach + 600 units) and circle there, out of the duel's way. A waiting NPC you hit still fights back for a moment. Bosses never wait, and archers and mages at range aren't paced (they still shoot and cast).
+- **Waiting NPCs keep to their ring.** They used to circle wherever they stood once outside reach, so a larger `WaitDistanceMargin` didn't move them out. Now a waiting NPC well inside its ring (more than 150 units) falls back to it first, and a ring beyond `EngageMargin` counts as part of the paced zone, so newcomers stop at the ring instead of walking in and being sent back out. With the default ring (reach + 120) nothing changes.
+- **An attack slot is freed as soon as its holder dies, leaves combat or turns on someone else**, not when its time runs out. With the default 2-4 s windows that is a short wait saved; with Duel's long window it is what lets the next NPC step in.
+- Menu: the waiting-ring slider goes to 1000 (the INI already allowed it).
+
 ## Enhanced Combat Behavior 1.1.0 (2026-10-29)
 
 - **Presets are JSON files now, and you can make your own.** The menu's preset buttons come from `SKSE/Plugins/EnhancedCombatBehavior/Presets/*.json` (plus the built-in Default). Each file holds INI settings by their INI names, `{"Section": {"Key": value}}`, `//` comments allowed. Applying one works as before: tuning resets to the defaults, then the file's values apply, checked and clamped as INI values are. Vanilla+, Souls-like and Chaos ship as files with exactly the values they had.
