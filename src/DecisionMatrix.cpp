@@ -1009,6 +1009,21 @@ namespace CombatAI
             incoming.timeToImpact < settings.reactMinSeconds || incoming.timeToImpact > settings.reactMaxSeconds) {
             return result;
         }
+        // An arrow from a player it hasn't found (searching after the hit, sneak archery) can't be seen coming. Its
+        // combat target is usually the player, whose detection is already read; otherwise ask (rare: one arrow).
+        if (incoming.shooterID == 0x14) {
+            auto *player = RE::PlayerCharacter::GetSingleton();
+            const bool seen = a_state.target.isPlayer ? a_state.target.isDetected
+                                                      : ActorUtils::SafeRequestDetectionLevel(a_actor, player) > 0;
+            if (!seen) {
+                if (Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+                    LOG_DEBUG("Projectile 0x{:08X}: threat 0x{:08X} from the player, who is hidden from it -> no reaction",
+                              static_cast<std::uint32_t>(a_actor->GetFormID()),
+                              static_cast<std::uint32_t>(incoming.threatID));
+                }
+                return result;
+            }
+        }
 
         const RE::FormID formID = a_actor->GetFormID();
         const bool react = ProjectileAwareness::GetInstance().RollReaction(formID, incoming.threatID,
@@ -1042,8 +1057,8 @@ namespace CombatAI
 
         auto &config = Config::GetInstance();
 
-        // Check if target is valid
-        if (!a_state.target.isValid) {
+        // Check if target is valid. A hidden player's swing or aimed bow isn't seen either (searching NPC).
+        if (!a_state.target.isValid || (a_state.target.isPlayer && !a_state.target.isDetected)) {
             return result;
         }
 

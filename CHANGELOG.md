@@ -1,5 +1,9 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.2.5 (2026-10-29)
+
+- **NPCs that haven't found you no longer dodge your arrows.** After a sneak shot an NPC enters combat and searches, but until it actually detects you it no longer sidesteps your arrows or spells, jumps away from your aimed bow, or dodges your swings. Attacks and approaches already waited for detection; dodges didn't. Arrows from other NPCs are still dodged.
+
 ## Enhanced Combat Behavior 1.2.4 (2026-10-29)
 
 - **Menu: choosing a preset no longer applies it.** Pick one in the dropdown, then press **Load**. A misclick in the list no longer wipes your tuning.
