@@ -7,7 +7,7 @@ includes(path.join(commonlibsse_ng_dir, "xmake.lua"))
 
 -- set project
 set_project("EnhancedCombatBehavior")
-set_version("1.0.4")
+set_version("1.1.0")
 set_license("GPL-3.0-or-later")
 
 -- set defaults
@@ -24,13 +24,14 @@ add_rules("plugin.compile_commands.autoupdate", { outputdir = ".vscode", lsp = "
 
 -- require packages
 add_requires("simpleini")
+add_requires("nlohmann_json")
 add_requires("spdlog v1.16.0", { configs = { header_only = false, wchar = true, std_format = true } })
 
 -- targets
 target("EnhancedCombatBehavior")
 -- add dependencies to target
 add_deps("commonlibsse-ng")
-add_packages("simpleini")
+add_packages("simpleini", "nlohmann_json")
 if has_config("skyrim_se") and has_config("skyrim_ae") then
     set_targetdir("/build/SkyrimSEAE/skse/plugins")
 elseif has_config("skyrim_ae") then

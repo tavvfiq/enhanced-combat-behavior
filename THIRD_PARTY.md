@@ -65,3 +65,4 @@ share their license. Both licenses are compatible with this project's GPL-3.0-or
   originally MIT.
 - spdlog (https://github.com/gabime/spdlog): MIT.
 - SimpleIni (https://github.com/brofield/simpleini): MIT.
+- JSON for Modern C++ (https://github.com/nlohmann/json, v3.12.0): MIT, Copyright (c) 2013-2025 Niels Lohmann.

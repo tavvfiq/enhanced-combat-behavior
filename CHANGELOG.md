@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.1.0 (2026-10-29)
+
+- **Presets are JSON files now, and you can make your own.** The menu's preset buttons come from `SKSE/Plugins/EnhancedCombatBehavior/Presets/*.json` (plus the built-in Default). Each file holds INI settings by their INI names, `{"Section": {"Key": value}}`, `//` comments allowed. Applying one works as before: tuning resets to the defaults, then the file's values apply, checked and clamped as INI values are. Vanilla+, Souls-like and Chaos ship as files with exactly the values they had.
+- **Save as preset.** Type a name in the menu and press "Save as preset" (or "Overwrite preset"): the current tuning that differs from the defaults is written to `Presets/<name>.json` and gets its own button. General, performance and integration settings stay out (except the combo follow-up chances), as presets never touched them.
+- **Personality profiles: set how groups of NPCs fight.** JSON files in `SKSE/Plugins/EnhancedCombatBehavior/Profiles/` override the risk, caution and patience an NPC gets from its Confidence, Aggression and combat style, for everyone with a keyword, faction, race or NPC record: `{ "match": "0x39F26~Skyrim.esm", "risk": 0.4, "caution": 0.8, "patience": 0.9 }`. `match` is a keyword EditorID (vanilla, or added with KID / SPID) or `0xFormID~Plugin.esp`; factions, races and NPCs by EditorID need EditorIDs kept in memory (powerofthree's Tweaks). Every file in the folder is read, so other mods can ship their own. The per-NPC spread is still added. `Examples.json` ships empty with the format and examples (bandits, Thalmor, undead), so nothing changes until you add an entry.
+- Log: each profile entry used (`Profiles <file>: <match> = <form type> <FormID> (<name>) -> risk 0.40, caution 0.80, patience -`), a warning for each file, entry or preset value that can't be used and why, `Preset <name> applied` / `saved`. With the debug log on, a selected NPC's `Personality` line names the profile that matched. "Reload from INI" also re-reads profiles and the preset list.
+
 ## Enhanced Combat Behavior 1.0.4 (2026-10-29)
 
 - **Flanking NPCs pick the pincer side outdoors.** The flank side (opposite the nearest ally, so the two pinch the target) was chosen only when a check on the ally's world position passed, and outdoor coordinates always failed it: in exteriors flanking NPCs circled whichever way plain strafing picked, often beside their ally. It now uses the ally's distance (within 3000 units), the fix the flanking decision itself got in 0.19.1.

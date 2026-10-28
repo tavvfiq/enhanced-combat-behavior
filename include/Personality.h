@@ -6,6 +6,8 @@
 // (0 Unaggressive .. 3 Frenzied) actor values, the combat style's offensive / defensive multipliers and its
 // avoid-threat chance, plus a small fixed per-NPC jitter (from the FormID) so two bandits of one template differ.
 // Three numbers in 0..1 scale the brain's risky and careful rolls instead of one chance for everyone.
+// Profiles (JSON files in SKSE/Plugins/EnhancedCombatBehavior/Profiles) replace any of the three for NPCs with a
+// keyword, faction, race or NPC record (jitter still added).
 namespace CombatAI::Personality
 {
     struct Traits
@@ -20,6 +22,10 @@ namespace CombatAI::Personality
     // Get plus the boss phase (Boss.h): caution floor 0.4, enraged risk +0.2, desperate all-in or careful.
     // The brain's rolls use this one.
     Traits Effective(RE::Actor *a_actor);
+
+    // Reads the profile files, resolves them to forms and drops cached traits. Needs loaded data: call at kDataLoaded
+    // and on the menu's reload.
+    void ReloadProfiles();
 
     // Multiplier for a risky chance: 0.25 (risk 0) .. 1.75 (risk 1); about 0.9 for an average bandit
     constexpr float RiskScale(float a_risk) { return 0.25f + 1.5f * a_risk; }

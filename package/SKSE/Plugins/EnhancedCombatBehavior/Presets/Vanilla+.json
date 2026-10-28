@@ -1,0 +1,11 @@
+// Gentle: slower and sloppier, one attacker at a time, few dodges, short combos, mild bosses.
+// A preset resets the tuning to the defaults, then applies these values (names as in EnhancedCombatBehavior.ini).
+{
+    "Humanizer": { "BaseReactionDelayMs": 300, "SkillBase": 0.6, "SkillPerLevel": 0.006 },
+    "CombatPacing": { "MaxSimultaneousAttackers": 1 },
+    "DecisionMatrix": { "DefendOnSwingChance": 0.3, "CloseDodgeChance": 0.15, "TradeBlowsChance": 0.15, "EvasionJumpChance": 0.2 },
+    "DodgeSystem": { "ForwardDodgeChance": 0.1 },
+    "ModIntegrations": { "ComboFollowUpChance": 0.5, "ComboPowerChance": 0.15 },
+    "Boss": { "SkillBonus": 0.05, "CautionFloor": 0.3 },
+    "TargetSwitching": { "RetaliateChance": 0.3, "FinisherChance": 0.15 }
+}

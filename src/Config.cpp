@@ -1,7 +1,12 @@
 #include "Config.h"
 #include "Logger.h"
 #include "pch.h"
+#include <algorithm>
+#include <cctype>
+#include <cstring>
 #include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
 #include <set>
 #include <vector>
 
@@ -37,24 +42,7 @@ namespace CombatAI
 
         LOG_INFO("Loading configuration from: {}", a_filePath);
 
-        // Read all settings sections
-        ReadGeneralSettings(ini);
-        ReadHumanizerSettings(ini);
-        ReadDodgeSystemSettings(ini);
-        ReadDecisionMatrixSettings(ini);
-        ReadScoringWeightsSettings(ini);
-        ReadPerformanceSettings(ini);
-        ReadModIntegrationSettings(ini);
-        ReadParrySettings(ini);
-        ReadTimedBlockSettings(ini);
-        ReadCombatPacingSettings(ini);
-        ReadDamageMomentumSettings(ini);
-        ReadEnvSensorSettings(ini);
-        ReadTargetSwitchingSettings(ini);
-        ReadArmorStyleSettings(ini);
-        ReadTeamworkSettings(ini);
-        ReadVanillaAttackSettings(ini);
-        ReadProjectileAwarenessSettings(ini);
+        ReadAll(ini);
 
         LOG_INFO("Configuration loaded successfully");
         LOG_INFO("Jump evasion: {} (chance {:.2f}, aimed bow/crossbow at {:.0f}-{:.0f} units, height {:.0f}, stamina {:.0f}); skill at level 1 {:.2f}",
@@ -81,6 +69,38 @@ namespace CombatAI
 
         // Every key written is recorded; keys the file still has but this version no longer
         // uses (renamed/removed settings) are pruned before saving.
+        const auto written = WriteTo(ini);
+
+        std::vector<std::pair<std::string, std::string>> stale;
+        CSimpleIniA::TNamesDepend sections;
+        ini.GetAllSections(sections);
+        for (const auto &section : sections) {
+            CSimpleIniA::TNamesDepend keys;
+            ini.GetAllKeys(section.pItem, keys);
+            for (const auto &key : keys) {
+                if (!written.contains({section.pItem, key.pItem})) {
+                    stale.emplace_back(section.pItem, key.pItem);
+                }
+            }
+        }
+        for (const auto &[section, key] : stale) {
+            ini.Delete(section.c_str(), key.c_str(), true);
+        }
+        if (!stale.empty()) {
+            LOG_INFO("Removed {} obsolete setting(s) from the INI", stale.size());
+        }
+
+        SI_Error rc = ini.SaveFile(a_filePath.c_str());
+        if (rc < 0) {
+            LOG_WARN("Failed to save config file: {}", a_filePath);
+            return false;
+        }
+        LOG_INFO("Configuration saved to: {}", a_filePath);
+        return true;
+    }
+
+    std::set<std::pair<std::string, std::string>> Config::WriteTo(CSimpleIniA &ini) const
+    {
         std::set<std::pair<std::string, std::string>> written;
         auto B = [&](const char *sec, const char *key, bool val) {
             ini.SetBoolValue(sec, key, val);
@@ -308,32 +328,174 @@ namespace CombatAI
         D("ProjectileAwareness", "DodgeChance", m_projectileAwareness.dodgeChance);
         D("ProjectileAwareness", "HitMargin", m_projectileAwareness.hitMargin);
         D("ProjectileAwareness", "DodgePriority", m_projectileAwareness.dodgePriority);
+        return written;
+    }
 
-        std::vector<std::pair<std::string, std::string>> stale;
-        CSimpleIniA::TNamesDepend sections;
-        ini.GetAllSections(sections);
-        for (const auto &section : sections) {
-            CSimpleIniA::TNamesDepend keys;
-            ini.GetAllKeys(section.pItem, keys);
-            for (const auto &key : keys) {
-                if (!written.contains({section.pItem, key.pItem})) {
-                    stale.emplace_back(section.pItem, key.pItem);
+    void Config::ReadAll(CSimpleIniA &a_ini)
+    {
+        ReadGeneralSettings(a_ini);
+        ReadHumanizerSettings(a_ini);
+        ReadDodgeSystemSettings(a_ini);
+        ReadDecisionMatrixSettings(a_ini);
+        ReadScoringWeightsSettings(a_ini);
+        ReadPerformanceSettings(a_ini);
+        ReadModIntegrationSettings(a_ini);
+        ReadParrySettings(a_ini);
+        ReadTimedBlockSettings(a_ini);
+        ReadCombatPacingSettings(a_ini);
+        ReadDamageMomentumSettings(a_ini);
+        ReadEnvSensorSettings(a_ini);
+        ReadTargetSwitchingSettings(a_ini);
+        ReadArmorStyleSettings(a_ini);
+        ReadTeamworkSettings(a_ini);
+        ReadVanillaAttackSettings(a_ini);
+        ReadProjectileAwarenessSettings(a_ini);
+    }
+
+    // ---- Presets (JSON files of INI overrides)
+    namespace
+    {
+        // A preset reaches the tuning: these sections keep their values (except the two combo chances below)
+        bool IsPresetSetting(const std::string &a_section, const std::string &a_key)
+        {
+            if (a_section == "ModIntegrations") {
+                return a_key == "ComboFollowUpChance" || a_key == "ComboPowerChance";
+            }
+            return a_section != "General" && a_section != "Performance";
+        }
+
+        // A file name the user typed: letters, digits, space, - _ + . only, so it stays inside PresetDirectory
+        bool ValidPresetName(const std::string &a_name)
+        {
+            return !a_name.empty() && a_name.size() <= 64 && a_name != "Default" && a_name.front() != '.' &&
+                   std::ranges::all_of(a_name, [](unsigned char c) { return std::isalnum(c) || std::strchr(" -_+.", c); });
+        }
+    } // namespace
+
+    std::vector<std::string> Config::ListPresets()
+    {
+        std::vector<std::string> names;
+        std::error_code ec;
+        for (const auto &entry : std::filesystem::directory_iterator(PresetDirectory, ec)) {
+            if (entry.path().extension() == ".json") {
+                names.push_back(entry.path().stem().string());
+            }
+        }
+        std::ranges::sort(names);
+        return names;
+    }
+
+    bool Config::ApplyPreset(const std::string &a_name)
+    {
+        // The file's values go into an in-memory INI, so the section readers parse and clamp them as INI lines
+        CSimpleIniA preset;
+        preset.SetUnicode();
+        if (a_name != "Default") {
+            const auto path = std::filesystem::path(PresetDirectory) / (a_name + ".json");
+            nlohmann::json json;
+            try {
+                std::ifstream file(path);
+                if (!file) {
+                    LOG_WARN("Preset {}: can't open {}", a_name, path.string());
+                    return false;
+                }
+                json = nlohmann::json::parse(file, nullptr, true, true); // allow // comments
+            } catch (const nlohmann::json::exception &e) {
+                LOG_WARN("Preset {}: not valid JSON ({})", a_name, e.what());
+                return false;
+            }
+            if (!json.is_object()) {
+                LOG_WARN("Preset {}: expected {{\"Section\": {{\"Key\": value}}}}", a_name);
+                return false;
+            }
+            CSimpleIniA names;
+            const auto known = WriteTo(names);
+            for (const auto &[section, values] : json.items()) {
+                if (!values.is_object()) {
+                    LOG_WARN("Preset {}: [{}] is not an object of settings: ignored", a_name, section);
+                    continue;
+                }
+                for (const auto &[key, value] : values.items()) {
+                    if (!known.contains({section, key})) {
+                        LOG_WARN("Preset {}: unknown setting {}.{} (names as in the INI, case included): ignored", a_name, section, key);
+                    } else if (value.is_string()) {
+                        preset.SetValue(section.c_str(), key.c_str(), value.get<std::string>().c_str());
+                    } else if (value.is_number() || value.is_boolean()) {
+                        preset.SetValue(section.c_str(), key.c_str(), value.dump().c_str());
+                    } else {
+                        LOG_WARN("Preset {}: {}.{} is not a number, true/false or text: ignored", a_name, section, key);
+                    }
                 }
             }
         }
-        for (const auto &[section, key] : stale) {
-            ini.Delete(section.c_str(), key.c_str(), true);
-        }
-        if (!stale.empty()) {
-            LOG_INFO("Removed {} obsolete setting(s) from the INI", stale.size());
-        }
 
-        SI_Error rc = ini.SaveFile(a_filePath.c_str());
-        if (rc < 0) {
-            LOG_WARN("Failed to save config file: {}", a_filePath);
+        // Every preset starts from the shipped defaults so results don't depend on
+        // whatever was tuned before.
+        m_humanizer = {};
+        m_dodgeSystem = {};
+        m_decisionMatrix = {};
+        m_scoringWeights = {};
+        m_parry = {};
+        m_timedBlock = {};
+        m_combatPacing = {};
+        m_damageMomentum = {};
+        m_envSensor = {};
+        m_targetSwitching = {};
+        m_armorStyle = {};
+        m_teamwork = {};
+        m_boss = {};
+        m_vanillaAttacks = {};
+        m_projectileAwareness = {};
+        // Combo follow-up chances live with the integrations (not reset above), so every preset resets them
+        const ModIntegrationSettings defaults{};
+        m_modIntegrations.comboFollowUpChance = defaults.comboFollowUpChance;
+        m_modIntegrations.comboPowerChance = defaults.comboPowerChance;
+
+        ReadAll(preset);
+        MarkHumanizerDirty();
+        LOG_INFO("Preset {} applied", a_name);
+        return true;
+    }
+
+    bool Config::SavePreset(const std::string &a_name) const
+    {
+        if (!ValidPresetName(a_name)) {
+            LOG_WARN("Preset name \"{}\" not saved: use letters, digits, spaces, - _ + . (not \"Default\")", a_name);
             return false;
         }
-        LOG_INFO("Configuration saved to: {}", a_filePath);
+        // Only what differs from the defaults: applying the file (reset, then these) gives back the current tuning
+        CSimpleIniA current, shipped;
+        const auto keys = WriteTo(current);
+        Config{}.WriteTo(shipped);
+        nlohmann::ordered_json json = nlohmann::ordered_json::object();
+        int differing = 0;
+        for (const auto &[section, key] : keys) {
+            const std::string value = current.GetValue(section.c_str(), key.c_str(), "");
+            if (!IsPresetSetting(section, key) || value == shipped.GetValue(section.c_str(), key.c_str(), "")) {
+                continue;
+            }
+            // Back to JSON types: the INI holds bools as true/false and numbers as %f / integers
+            auto &slot = json[section][key];
+            ++differing;
+            char *end = nullptr;
+            const double number = std::strtod(value.c_str(), &end);
+            if (value == "true" || value == "false") {
+                slot = value == "true";
+            } else if (!value.empty() && *end == '\0') {
+                slot = value.find('.') == std::string::npos ? nlohmann::ordered_json(std::stol(value)) : nlohmann::ordered_json(number);
+            } else {
+                slot = value;
+            }
+        }
+        std::error_code ec;
+        std::filesystem::create_directories(PresetDirectory, ec);
+        const auto path = std::filesystem::path(PresetDirectory) / (a_name + ".json");
+        std::ofstream file(path, std::ios::trunc);
+        if (!(file << json.dump(4) << '\n')) {
+            LOG_WARN("Preset {}: can't write {}", a_name, path.string());
+            return false;
+        }
+        LOG_INFO("Preset {} saved to {} ({} setting(s) differ from the defaults)", a_name, path.string(), differing);
         return true;
     }
 
@@ -869,98 +1031,5 @@ namespace CombatAI
         F("OpeningNormalMult", s.openingNormalMult, 0.0f, 5.0f);
         F("BlockedPowerMult", s.blockedPowerMult, 0.0f, 5.0f);
         F("BlockedNormalMult", s.blockedNormalMult, 0.0f, 5.0f);
-    }
-
-    void Config::ApplyPreset(Preset a_preset)
-    {
-        // Every preset starts from the shipped defaults so results don't depend on
-        // whatever was tuned before.
-        m_humanizer = {};
-        m_dodgeSystem = {};
-        m_decisionMatrix = {};
-        m_scoringWeights = {};
-        m_parry = {};
-        m_timedBlock = {};
-        m_combatPacing = {};
-        m_damageMomentum = {};
-        m_envSensor = {};
-        m_targetSwitching = {};
-        m_armorStyle = {};
-        m_teamwork = {};
-        m_boss = {};
-        m_vanillaAttacks = {};
-        m_projectileAwareness = {};
-
-        // Combo follow-up chances live with the integrations (not reset above), so every preset sets them
-        m_modIntegrations.comboFollowUpChance = 0.7f;
-        m_modIntegrations.comboPowerChance = 0.3f;
-
-        switch (a_preset) {
-        case Preset::Default:
-            break;
-        case Preset::VanillaPlus:
-            // Gentle: slower and sloppier, one attacker at a time, few dodges, short combos, mild bosses.
-            m_humanizer.baseReactionDelayMs = 300.0f;
-            m_humanizer.skillBase = 0.6f;
-            m_humanizer.skillPerLevel = 0.006f;
-            m_combatPacing.maxSimultaneousAttackers = 1;
-            m_decisionMatrix.defendOnSwingChance = 0.3f;
-            m_decisionMatrix.closeDodgeChance = 0.15f;
-            m_decisionMatrix.tradeBlowsChance = 0.15f;
-            m_decisionMatrix.evasionJumpChance = 0.2f;
-            m_dodgeSystem.forwardDodgeChance = 0.1f;
-            m_modIntegrations.comboFollowUpChance = 0.5f;
-            m_modIntegrations.comboPowerChance = 0.15f;
-            m_boss.skillBonus = 0.05f;
-            m_boss.cautionFloor = 0.3f;
-            m_targetSwitching.retaliateChance = 0.3f;
-            m_targetSwitching.finisherChance = 0.15f;
-            break;
-        case Preset::Soulslike:
-            // Sharp duels: fast reactions, read the swing, punish openings, long combos, hard bosses.
-            m_humanizer.baseReactionDelayMs = 120.0f;
-            m_humanizer.skillBase = 0.85f;
-            m_humanizer.skillPerLevel = 0.01f;
-            m_decisionMatrix.defendOnSwingChance = 0.7f;
-            m_decisionMatrix.closeDodgeChance = 0.4f;
-            m_decisionMatrix.tradeBlowsChance = 0.2f;
-            m_decisionMatrix.backoffAfterSwingChance = 0.5f;
-            m_dodgeSystem.forwardDodgeChance = 0.3f;
-            m_modIntegrations.comboFollowUpChance = 0.85f;
-            m_modIntegrations.comboPowerChance = 0.4f;
-            m_boss.skillBonus = 0.25f;
-            m_boss.enragedHealth = 0.6f;
-            m_boss.guardBreakBlockSeconds = 0.7f;
-            m_scoringWeights.targetRecoveryBonus = 0.8f;
-            m_scoringWeights.targetStaggeredBonus = 0.8f;
-            m_scoringWeights.openingRiskPenalty = 0.6f;
-            m_damageMomentum.offensiveBonusMax = 0.6f;
-            m_vanillaAttacks.openingPowerMult = 3.0f;
-            m_vanillaAttacks.blockedNormalMult = 0.1f;
-            m_projectileAwareness.dodgeChance = 0.8f;
-            break;
-        case Preset::Chaos:
-            // A swarm: no turns, reckless gap-closing and long combos, little defense.
-            m_humanizer.baseReactionDelayMs = 80.0f;
-            m_humanizer.skillBase = 0.8f;
-            m_humanizer.enableFatigue = false;
-            m_combatPacing.enableCombatPacing = false;
-            m_decisionMatrix.defendOnSwingChance = 0.2f;
-            m_decisionMatrix.closeDodgeChance = 0.2f;
-            m_decisionMatrix.tradeBlowsChance = 0.6f;
-            m_decisionMatrix.evasionJumpChance = 0.7f;
-            m_dodgeSystem.forwardDodgeChance = 0.5f;
-            m_dodgeSystem.forwardDodgeCooldownSeconds = 4.0f;
-            m_modIntegrations.comboFollowUpChance = 0.9f;
-            m_modIntegrations.comboPowerChance = 0.5f;
-            m_scoringWeights.attackBase = 1.3f;
-            m_scoringWeights.sprintAttackBase = 1.6f;
-            m_damageMomentum.offensiveBonusMax = 0.8f;
-            m_targetSwitching.retaliateChance = 0.8f;
-            m_targetSwitching.finisherChance = 0.6f;
-            m_targetSwitching.switchCooldownSeconds = 3.0f;
-            break;
-        }
-        MarkHumanizerDirty();
     }
 } // namespace CombatAI

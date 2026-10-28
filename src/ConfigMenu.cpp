@@ -2,6 +2,7 @@
 #include "CombatDirector.h"
 #include "Config.h"
 #include "Logger.h"
+#include "Personality.h"
 #include "pch.h"
 
 // The vendored SKSE Menu Framework header uses <codecvt> (deprecated in C++17)
@@ -56,20 +57,28 @@ namespace CombatAI
         };
 
         // A preset resets all tuning (not General's switches, performance or integrations) to the defaults, then applies
-        // its own changes; Save to keep it.
+        // its own changes; Save to keep it. One button per JSON file in the Presets folder, read again on reload/save.
+        static std::vector<std::string> presets = Config::ListPresets();
         ImGuiMCP::Text("Preset (resets tuning, then applies):");
-        constexpr std::pair<const char *, Config::Preset> presets[] = {
-            {"Default", Config::Preset::Default},
-            {"Vanilla+", Config::Preset::VanillaPlus},
-            {"Souls-like", Config::Preset::Soulslike},
-            {"Chaos", Config::Preset::Chaos},
-        };
-        for (const auto &[label, preset] : presets) {
+        ImGuiMCP::SameLine();
+        if (ImGuiMCP::Button("Default")) {
+            config.ApplyPreset("Default");
+        }
+        for (const auto &name : presets) {
             ImGuiMCP::SameLine();
-            if (ImGuiMCP::Button(label)) {
-                config.ApplyPreset(preset);
+            if (ImGuiMCP::Button(name.c_str())) {
+                config.ApplyPreset(name);
             }
         }
+        static char presetName[65] = "";
+        ImGuiMCP::InputText("##PresetName", presetName, sizeof(presetName));
+        ImGuiMCP::SameLine();
+        const bool exists = std::ranges::find(presets, std::string(presetName)) != presets.end();
+        if (ImGuiMCP::Button(exists ? "Overwrite preset" : "Save as preset") && config.SavePreset(presetName)) {
+            presets = Config::ListPresets();
+        }
+        ImGuiMCP::SameLine();
+        ImGuiMCP::TextDisabled("current tuning, what differs from the defaults");
         ImGuiMCP::Separator();
 
         // Five tabs: the settings people change sit on top, the rest under collapsed "Advanced" headers.
@@ -319,6 +328,8 @@ namespace CombatAI
         ImGuiMCP::SameLine();
         if (ImGuiMCP::Button("Reload from INI")) {
             config.Load();
+            Personality::ReloadProfiles();
+            presets = Config::ListPresets();
             config.MarkHumanizerDirty();
             applyLogLevel();
         }

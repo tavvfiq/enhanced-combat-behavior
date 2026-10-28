@@ -2,7 +2,10 @@
 
 #include <SimpleIni.h>
 #include <atomic>
+#include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace CombatAI
 {
@@ -299,14 +302,6 @@ namespace CombatAI
             float blockedNormalMult = 0.25f; // ... normal attacks just bounce
         };
 
-        enum class Preset
-        {
-            Default,
-            VanillaPlus,
-            Soulslike,
-            Chaos
-        };
-
         static Config &GetInstance()
         {
             static Config instance;
@@ -358,9 +353,16 @@ namespace CombatAI
         const VanillaAttackSettings &GetVanillaAttacks() const { return m_vanillaAttacks; }
         const ProjectileAwarenessSettings &GetProjectileAwareness() const { return m_projectileAwareness; }
 
-        // Overwrite the tuning sections with a preset (General, Performance and mod
-        // integrations are kept). Marks the humanizer dirty; does not save.
-        void ApplyPreset(Preset a_preset);
+        // Presets are JSON files in PresetDirectory, {"Section": {"Key": value}} with the INI's names, holding what
+        // differs from the defaults. Applying one resets the tuning sections (not General, Performance or the
+        // integrations) to the defaults, then reads the file's values like INI lines. "Default" is built in (reset
+        // only). Marks the humanizer dirty; does not save the INI. False (nothing changed) if the file is unusable.
+        static constexpr const char *PresetDirectory = "Data/SKSE/Plugins/EnhancedCombatBehavior/Presets";
+        bool ApplyPreset(const std::string &a_name);
+        // Preset names (file names without .json), sorted
+        static std::vector<std::string> ListPresets();
+        // Writes the current tuning that differs from the defaults as PresetDirectory/<name>.json (overwrites)
+        bool SavePreset(const std::string &a_name) const;
 
         // Check if plugin is enabled
         bool IsEnabled() const { return m_general.enablePlugin; }
@@ -387,6 +389,10 @@ namespace CombatAI
         void ReadTeamworkSettings(CSimpleIniA &a_ini);
         void ReadVanillaAttackSettings(CSimpleIniA &a_ini);
         void ReadProjectileAwarenessSettings(CSimpleIniA &a_ini);
+        // Every section reader, in Load's order. Each reader keeps a setting the INI doesn't have.
+        void ReadAll(CSimpleIniA &a_ini);
+        // Writes every setting into a_ini; returns their (section, key) names
+        std::set<std::pair<std::string, std::string>> WriteTo(CSimpleIniA &a_ini) const;
 
         GeneralSettings m_general;
         HumanizerSettings m_humanizer;

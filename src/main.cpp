@@ -5,6 +5,7 @@
 #include "ConfigMenu.h"
 #include "Hooks.h"
 #include "Logger.h"
+#include "Personality.h"
 #include "Trees.h"
 #include "pch.h"
 
@@ -104,6 +105,7 @@ extern "C" __declspec(dllexport) bool __cdecl SKSEPlugin_Load(const SKSE::LoadIn
                 // kDataLoaded fires after TESDataHandler is available, which is required for mod detection
                 // Initialize BEFORE installing hooks so CombatDirector is ready when hooks start calling ProcessActor.
                 CombatAI::CombatDirector::GetInstance().Initialize();
+                CombatAI::Personality::ReloadProfiles(); // [Profiles] name forms, which exist from here on
 
                 // Install hooks after initialization
                 // Hooks will immediately start calling ProcessActor/Update, so CombatDirector must be initialized first

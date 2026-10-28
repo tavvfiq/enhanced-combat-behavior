@@ -1,0 +1,13 @@
+// Sharp duels: fast reactions, read the swing, punish openings, long combos, hard bosses.
+// A preset resets the tuning to the defaults, then applies these values (names as in EnhancedCombatBehavior.ini).
+{
+    "Humanizer": { "BaseReactionDelayMs": 120, "SkillBase": 0.85, "SkillPerLevel": 0.01 },
+    "DecisionMatrix": { "DefendOnSwingChance": 0.7, "CloseDodgeChance": 0.4, "TradeBlowsChance": 0.2, "BackoffAfterSwingChance": 0.5 },
+    "DodgeSystem": { "ForwardDodgeChance": 0.3 },
+    "ModIntegrations": { "ComboFollowUpChance": 0.85, "ComboPowerChance": 0.4 },
+    "Boss": { "SkillBonus": 0.25, "EnragedHealth": 0.6, "GuardBreakBlockSeconds": 0.7 },
+    "ScoringWeights": { "TargetRecoveryBonus": 0.8, "TargetStaggeredBonus": 0.8, "OpeningRiskPenalty": 0.6 },
+    "DamageMomentum": { "OffensiveBonusMax": 0.6 },
+    "VanillaAttacks": { "OpeningPowerMult": 3.0, "BlockedNormalMult": 0.1 },
+    "ProjectileAwareness": { "DodgeChance": 0.8 }
+}

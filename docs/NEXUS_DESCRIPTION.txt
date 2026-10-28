@@ -12,7 +12,7 @@ Successor to [i]Enhanced Combat AI[/i]. Don't run both.
 [size=4][b]What changes[/b][/size]
 [list]
 [*][b]Reads your swing.[/b] Parries (timed bash), timed blocks, dodges and counters are rolled per swing aimed at the NPC, not at whoever stands next to it.
-[*][b]Personality.[/b] An NPC's Confidence, Aggression and combat style decide how much it gambles. A berserker dashes in and trades blows; a cautious mage keeps its distance.
+[*][b]Personality.[/b] An NPC's Confidence, Aggression and combat style decide how much it gambles. A berserker dashes in and trades blows; a cautious mage keeps its distance. JSON profiles let you set it per faction, race, keyword or NPC (reckless Forsworn, patient Thalmor), and other mods can ship their own.
 [*][b]Groups take turns.[/b] Only a few enemies attack you at once, the rest circle and wait. Archers and casters hold fire when an ally is in the way and step aside.
 [*][b]Bosses.[/b] Bandit chiefs and draugr deathlords never wait their turn, get angrier as they lose health, and punish turtling, kiting and healing.
 [*][b]Combo follow-ups.[/b] With MCO or BFCO movesets, NPCs chain the next attack inside the combo window. No SCAR needed.

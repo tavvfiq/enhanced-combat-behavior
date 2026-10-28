@@ -1,0 +1,18 @@
+// Personality profiles: set how groups of NPCs fight. Every .json file in this folder is read (in name order), so
+// other mods can ship their own. Each file is a list of entries:
+//   { "match": "<what>", "risk": 0-1, "caution": 0-1, "patience": 0-1 }
+// Leave a trait out to keep the NPC's own (from Confidence, Aggression and combat style).
+//   risk: forward dodges, sprint attacks, trading blows. caution: backing off, parry / timed block, close dodges.
+//   patience: feints.
+// "match" is a keyword EditorID (vanilla, or one added with KID / SPID), or a form as "0xFormID~Plugin.esp":
+// a keyword, a faction, a race or an NPC. Factions, races and NPCs by EditorID only work with EditorIDs kept in
+// memory (powerofthree's Tweaks "Load EditorIDs"). Where several entries match an NPC, the later one wins per trait.
+// PersonalityJitter (INI) is still added, so NPCs of one group differ a little. The log lists every entry it used.
+// Requires [DecisionMatrix] EnablePersonality = true. The menu's "Reload from INI" reads these files again.
+//
+// This file ships empty. To try the examples, move them out of the comment:
+//   { "match": "0x1BCC0~Skyrim.esm", "risk": 0.85, "caution": 0.2 },          // bandits (BanditFaction): reckless
+//   { "match": "0x39F26~Skyrim.esm", "risk": 0.4, "caution": 0.8, "patience": 0.9 },  // Thalmor (ThalmorFaction)
+//   { "match": "ActorTypeUndead", "patience": 0.9 }                          // draugr and other undead
+[
+]
