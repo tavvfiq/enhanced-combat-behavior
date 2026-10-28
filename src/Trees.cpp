@@ -1,4 +1,5 @@
 #include "Trees.h"
+#include "AttackCoordinator.h"
 #include "Config.h"
 #include "Intents.h"
 #include "Logger.h"
@@ -404,7 +405,9 @@ namespace CombatAI::Trees
         // Per thread: the node it updates, since when, and what the brain wanted then.
         // shortcut: a node re-entered right after it finished naturally keeps its old entry (only a stop
         // resets it); hook slot 2 if that ever matters.
-        bool ShouldStop(const void *a_thread, const Node *a_node, Intents::Move a_atStart, Intents::Move a_now, bool a_ours)
+        // a_force: stop after kMinRun even though the brain hasn't changed its mind (a waiting NPC's vanilla Advance).
+        bool ShouldStop(const void *a_thread, const Node *a_node, Intents::Move a_atStart, Intents::Move a_now, bool a_ours,
+                        bool a_force = false)
         {
             struct Run
             {
@@ -423,7 +426,7 @@ namespace CombatAI::Trees
             if (run.node != a_node) {
                 run = {a_node, now, a_atStart};
             }
-            if (!BrainChangedMind(run.want, a_now, a_ours) || now - run.start < kMinRun) {
+            if (!(a_force || BrainChangedMind(run.want, a_now, a_ours)) || now - run.start < kMinRun) {
                 return false;
             }
             run.node = nullptr; // whatever this thread runs next is a fresh start
@@ -991,7 +994,13 @@ namespace CombatAI::Trees
                     } else if constexpr (K == Intents::Move::Advance) {
                         t_ourStart = ours && Config::GetInstance().GetDecisionMatrix().brainAdvanceDistance;
                     }
-                    if (ShouldStop(a_thread, a_node, ours ? K : want, want, ours)) {
+                    // An NPC waiting for an attack slot (pacing) must not walk in: when our Fallback/Backoff/Circle fails
+                    // its start checks (e.g. movement animation-driven) vanilla's Advance runs instead and kept going
+                    // until the brain changed its mind (2.5 s, 150 units into a duel). Stop it so ours is tried again.
+                    const bool walkingIn = K == Intents::Move::Advance && !ours && want != Intents::Move::None &&
+                                           want != Intents::Move::Advance &&
+                                           AttackCoordinator::GetSingleton().IsHeld(actor->GetFormID());
+                    if (ShouldStop(a_thread, a_node, ours ? K : want, want, ours, walkingIn)) {
                         t_ourStart = false;
                         Intents::NotePreempted(!ours);
                         if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
