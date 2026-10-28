@@ -1,5 +1,10 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.2.1 (2026-10-29)
+
+- **Preset and profile files are plain JSON.** `//` comments are gone from the shipped files and no longer accepted, so any JSON editor or validator reads them. A preset can carry a `"Description"` text, a profile entry a `"note"`; both are ignored by the mod. Preset values are unchanged.
+- `Profiles/Examples.json` is replaced by `Profiles/README.txt` with the format and the examples (bandits, Thalmor, undead). A leftover `Examples.json` from 1.1.0 or 1.2.0 holds comments, so it is skipped with a warning in the log; delete it.
+
 ## Enhanced Combat Behavior 1.2.0 (2026-10-29)
 
 - **New preset: Duel.** One NPC fights you at a time and keeps the fight until it dies, breaks off or turns on someone else; the others wait on a wide ring (attack reach + 600 units) and circle there, out of the duel's way. A waiting NPC you hit still fights back for a moment. Bosses never wait, and archers and mages at range aren't paced (they still shoot and cast).

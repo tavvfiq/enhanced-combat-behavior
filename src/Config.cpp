@@ -399,7 +399,7 @@ namespace CombatAI
                     LOG_WARN("Preset {}: can't open {}", a_name, path.string());
                     return false;
                 }
-                json = nlohmann::json::parse(file, nullptr, true, true); // allow // comments
+                json = nlohmann::json::parse(file); // plain JSON, no comments
             } catch (const nlohmann::json::exception &e) {
                 LOG_WARN("Preset {}: not valid JSON ({})", a_name, e.what());
                 return false;
@@ -411,6 +411,9 @@ namespace CombatAI
             CSimpleIniA names;
             const auto known = WriteTo(names);
             for (const auto &[section, values] : json.items()) {
+                if (section == "Description" && values.is_string()) {
+                    continue; // what the preset is for: JSON has no comments
+                }
                 if (!values.is_object()) {
                     LOG_WARN("Preset {}: [{}] is not an object of settings: ignored", a_name, section);
                     continue;

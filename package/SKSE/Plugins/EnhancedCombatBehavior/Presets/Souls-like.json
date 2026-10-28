@@ -1,6 +1,5 @@
-// Sharp duels: fast reactions, read the swing, punish openings, long combos, hard bosses.
-// A preset resets the tuning to the defaults, then applies these values (names as in EnhancedCombatBehavior.ini).
 {
+    "Description": "Sharp duels: fast reactions, read the swing, punish openings, long combos, hard bosses.",
     "Humanizer": { "BaseReactionDelayMs": 120, "SkillBase": 0.85, "SkillPerLevel": 0.01 },
     "DecisionMatrix": { "DefendOnSwingChance": 0.7, "CloseDodgeChance": 0.4, "TradeBlowsChance": 0.2, "BackoffAfterSwingChance": 0.5 },
     "DodgeSystem": { "ForwardDodgeChance": 0.3 },

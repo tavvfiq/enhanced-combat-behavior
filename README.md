@@ -67,7 +67,7 @@ Souls-like (sharp duels), Chaos (a swarm), Duel (one at a time, the rest wait on
 tuning to the defaults first.
 Presets are JSON files in `SKSE/Plugins/EnhancedCombatBehavior/Presets`; the menu saves the current tuning as a new one.
 Personality profiles (risk, caution, patience per keyword, faction, race or NPC) are JSON files in
-`SKSE/Plugins/EnhancedCombatBehavior/Profiles`; `Examples.json` there shows the format.
+`SKSE/Plugins/EnhancedCombatBehavior/Profiles`; `README.txt` there shows the format.
 
 ## Debug log
 `Documents/My Games/Skyrim Special Edition/SKSE/EnhancedCombatBehavior.log`. Off by default

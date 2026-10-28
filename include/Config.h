@@ -353,10 +353,11 @@ namespace CombatAI
         const VanillaAttackSettings &GetVanillaAttacks() const { return m_vanillaAttacks; }
         const ProjectileAwarenessSettings &GetProjectileAwareness() const { return m_projectileAwareness; }
 
-        // Presets are JSON files in PresetDirectory, {"Section": {"Key": value}} with the INI's names, holding what
-        // differs from the defaults. Applying one resets the tuning sections (not General, Performance or the
-        // integrations) to the defaults, then reads the file's values like INI lines. "Default" is built in (reset
-        // only). Marks the humanizer dirty; does not save the INI. False (nothing changed) if the file is unusable.
+        // Presets are JSON files in PresetDirectory, {"Section": {"Key": value}} with the INI's names (plus an optional
+        // "Description" text, skipped), holding what differs from the defaults. Applying one resets the tuning sections
+        // (not General, Performance or the integrations) to the defaults, then reads the file's values like INI lines.
+        // "Default" is built in (reset only). Marks the humanizer dirty; does not save the INI. False (nothing
+        // changed) if the file is unusable.
         static constexpr const char *PresetDirectory = "Data/SKSE/Plugins/EnhancedCombatBehavior/Presets";
         bool ApplyPreset(const std::string &a_name);
         // Preset names (file names without .json), sorted

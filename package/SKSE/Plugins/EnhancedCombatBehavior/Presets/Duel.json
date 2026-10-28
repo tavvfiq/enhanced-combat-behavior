@@ -1,9 +1,5 @@
-// Duel: one NPC fights you at a time and keeps the fight until it dies, breaks off or turns on someone else.
-// The others wait on a wide ring (attack reach + 600 units), falling back to it first, and circle there out of the
-// way. A waiting NPC you hit fights back for a moment. Bosses never wait, and archers and mages at range aren't
-// paced, so they still shoot and cast.
-// A preset resets the tuning to the defaults, then applies these values (names as in EnhancedCombatBehavior.ini).
 {
+    "Description": "Duel: one NPC fights you at a time and keeps the fight until it dies, breaks off or turns on someone else. The others wait on a wide ring (attack reach + 600 units) and circle there. Bosses never wait; archers and mages at range still shoot and cast.",
     "CombatPacing": {
         "EnableCombatPacing": true,
         "MaxSimultaneousAttackers": 1,

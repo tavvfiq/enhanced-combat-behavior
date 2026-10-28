@@ -194,7 +194,7 @@ namespace CombatAI::Personality
             nlohmann::json json;
             try {
                 std::ifstream in(path);
-                json = nlohmann::json::parse(in, nullptr, true, true); // allow // comments
+                json = nlohmann::json::parse(in); // plain JSON, no comments
             } catch (const nlohmann::json::exception &e) {
                 LOG_WARN("Profiles {}: not valid JSON ({}): file skipped", file, e.what());
                 continue;
@@ -212,13 +212,13 @@ namespace CombatAI::Personality
                         std::optional<float> *trait = key == "risk" ? &p.risk : key == "caution" ? &p.caution : key == "patience" ? &p.patience : nullptr;
                         if (trait && value.is_number()) {
                             *trait = std::clamp(value.get<float>(), 0.0f, 1.0f);
-                        } else if (key != "match") {
+                        } else if (key != "match" && !(key == "note" && value.is_string())) { // note: a label, JSON has no comments
                             usable = false;
                         }
                     }
                 }
                 if (!usable) {
-                    LOG_WARN("Profiles {}: {} skipped (needs \"match\" text and only risk / caution / patience numbers 0-1)", file, entry.dump());
+                    LOG_WARN("Profiles {}: {} skipped (needs \"match\" text, then only risk / caution / patience numbers 0-1 and a \"note\" text)", file, entry.dump());
                     continue;
                 }
                 p.form = Resolve(p.match);

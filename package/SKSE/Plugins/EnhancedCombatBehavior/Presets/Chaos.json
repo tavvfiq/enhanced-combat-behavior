@@ -1,6 +1,5 @@
-// A swarm: no turns, reckless gap-closing and long combos, little defense.
-// A preset resets the tuning to the defaults, then applies these values (names as in EnhancedCombatBehavior.ini).
 {
+    "Description": "A swarm: no turns, reckless gap-closing and long combos, little defense.",
     "Humanizer": { "BaseReactionDelayMs": 80, "SkillBase": 0.8, "EnableFatigue": false },
     "CombatPacing": { "EnableCombatPacing": false },
     "DecisionMatrix": { "DefendOnSwingChance": 0.2, "CloseDodgeChance": 0.2, "TradeBlowsChance": 0.6, "EvasionJumpChance": 0.7 },
