@@ -108,6 +108,7 @@ namespace CombatAI
             float closeDodgeChance = 0.3f;        // Chance to dodge each melee swing aimed at it from within reach
             float defendOnSwingChance = 0.5f;     // Chance to parry / timed block each swing aimed at it (in window)
             bool enableCounter = true;            // Power attack in the window after blocking a hit (guard counter)
+            bool enableShoutTiming = true;        // Stagger shouts for an open target, Disarm for an armed one; none at a hidden player or while waiting a turn
             bool allowDaggerBlock = true;         // Let daggers block and bash (patches vanilla; applies at game start)
             bool enableRangedPositioning = true;  // Archers and mages keep their distance from melee attackers
             float rangedKeepAwayDistance = 450.0f; // Fall back when a melee attacker is closer than this

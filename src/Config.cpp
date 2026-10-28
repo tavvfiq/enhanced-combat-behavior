@@ -182,6 +182,7 @@ namespace CombatAI
         D("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance);
         B("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
         B("DecisionMatrix", "EnableCounter", m_decisionMatrix.enableCounter);
+        B("DecisionMatrix", "EnableShoutTiming", m_decisionMatrix.enableShoutTiming);
         B("DecisionMatrix", "IncludeHumanoidCreatures", m_decisionMatrix.includeHumanoidCreatures);
         D("DecisionMatrix", "CreatureSwingSeconds", m_decisionMatrix.creatureSwingSeconds);
         D("DecisionMatrix", "PersonalityJitter", m_decisionMatrix.personalityJitter);
@@ -656,6 +657,8 @@ namespace CombatAI
         m_decisionMatrix.enablePersonality =
             a_ini.GetBoolValue("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
         m_decisionMatrix.enableCounter = a_ini.GetBoolValue("DecisionMatrix", "EnableCounter", m_decisionMatrix.enableCounter);
+        m_decisionMatrix.enableShoutTiming =
+            a_ini.GetBoolValue("DecisionMatrix", "EnableShoutTiming", m_decisionMatrix.enableShoutTiming);
         m_decisionMatrix.includeHumanoidCreatures =
             a_ini.GetBoolValue("DecisionMatrix", "IncludeHumanoidCreatures", m_decisionMatrix.includeHumanoidCreatures);
         const auto dmFloat = [&](const char *a_key, float &a_value, float a_min, float a_max) {

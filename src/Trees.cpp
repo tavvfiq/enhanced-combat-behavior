@@ -1,4 +1,5 @@
 #include "Trees.h"
+#include "ActorUtils.h"
 #include "AttackCoordinator.h"
 #include "Config.h"
 #include "Intents.h"
@@ -946,7 +947,7 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
-        // ---- Shouts and potions (probe, 1.2.6: vanilla timing, logged for the selected NPC). Vanilla trees (RE
+        // ---- Shouts and potions (1.2.6 probe; 1.2.7 times shouts, potions still vanilla). Vanilla trees (RE
         // 2026-10-29): Shout = Context > Repeat > Fallback{ rand(CalcCastMagicChance) > Sequence{CastShout, Wait}, Idle },
         // UsePotion = Context > Repeat > Fallback{ Sequence{DrinkPotion, Wait}, Idle }; the equipment selector picks
         // either when the NPC's inventory scores a shout or a potion highest.
@@ -975,19 +976,108 @@ namespace CombatAI::Trees
             return std::format("hp {:.0f}%, target 0x{:08X} dist {:.0f} attack state {} blocking {} casting {}",
                                hp * 100.0f, target->GetFormID(), a_actor->GetPosition().GetDistance(target->GetPosition()),
                                static_cast<int>(state->actorState1.meleeAttackState), target->IsBlocking(),
-                               target->IsCasting(nullptr));
+                               ActorUtils::SafeWhoIsCasting(target.get()) != 0);
+        }
+
+        // What a shout does to its target, from its spells' effect archetypes (any word level)
+        enum class ShoutKind
+        {
+            Other,
+            Stagger, // Unrelenting Force and the like
+            Disarm
+        };
+        ShoutKind Classify(const RE::TESShout *a_shout)
+        {
+            for (const auto &variation : a_shout->variations) {
+                if (!variation.spell) {
+                    continue;
+                }
+                for (const auto *effect : variation.spell->effects) {
+                    const auto *base = effect ? effect->baseEffect : nullptr;
+                    switch (base ? base->GetArchetype() : RE::EffectSetting::Archetype::kNone) {
+                    case RE::EffectSetting::Archetype::kStagger:
+                    case RE::EffectSetting::Archetype::kConcussion:
+                        return ShoutKind::Stagger;
+                    case RE::EffectSetting::Archetype::kDisarm:
+                        return ShoutKind::Disarm;
+                    default:
+                        break;
+                    }
+                }
+            }
+            return ShoutKind::Other;
+        }
+
+        // Shout timing (1.2.7): how well the moment suits the shout, times vanilla's chance. None at a player hidden
+        // from it or while pacing holds it back (bosses are never held). A stagger shout is kept for a target it
+        // breaks (blocking, drawing a bow, casting, power attacking); Disarm needs a weapon in the target's hand.
+        // Other shouts keep vanilla's chance: CastShout already fails when the target is outside the firing arc.
+        float ShoutFactor(RE::Actor *a_actor, const RE::TESShout *a_shout, const char *&a_why)
+        {
+            auto *controller = RE::CombatBehaviorController::GetCurrentCombatController();
+            const auto target = controller ? controller->targetHandle.get() : RE::NiPointer<RE::Actor>();
+            if (!target || !a_shout) {
+                a_why = "no target";
+                return 1.0f;
+            }
+            if (target->IsPlayerRef() && ActorUtils::SafeRequestDetectionLevel(a_actor, target.get()) <= 0) {
+                a_why = "player hidden from it";
+                return 0.0f;
+            }
+            if (AttackCoordinator::GetSingleton().IsHeld(a_actor->GetFormID())) {
+                a_why = "waiting its turn";
+                return 0.0f;
+            }
+            using AS = RE::ATTACK_STATE_ENUM;
+            const auto attack = target->AsActorState()->actorState1.meleeAttackState;
+            const bool swinging = attack >= AS::kDraw && attack <= AS::kFollowThrough;
+            switch (Classify(a_shout)) {
+            case ShoutKind::Stagger: {
+                const auto *process = target->GetActorRuntimeData().currentProcess;
+                const auto *high = process ? process->high : nullptr;
+                const bool power = swinging && high && high->attackData &&
+                                   high->attackData->data.flags.any(RE::AttackData::AttackFlag::kPowerAttack);
+                const bool bow = attack >= AS::kBowDraw && attack <= AS::kBowReleasing;
+                if (target->IsBlocking() || bow || power || ActorUtils::SafeWhoIsCasting(target.get()) != 0) {
+                    a_why = "stagger: target open";
+                    return 1.5f;
+                }
+                a_why = "stagger: target not open";
+                return 0.5f;
+            }
+            case ShoutKind::Disarm: {
+                const auto *weapon = target->GetEquippedObject(false);
+                const auto *weap = weapon ? weapon->As<RE::TESObjectWEAP>() : nullptr;
+                if (!weap || weap->IsHandToHandMelee()) {
+                    a_why = "disarm: nothing to disarm";
+                    return 0.0f;
+                }
+                a_why = swinging ? "disarm: target attacking" : "disarm";
+                return swinging ? 1.5f : 1.0f;
+            }
+            default:
+                a_why = "vanilla";
+                return 1.0f;
+            }
         }
 
         float ShoutChance(const RE::CombatBehaviorContextShout *a_context)
         {
             const float vanilla = g_vanillaShoutChance(a_context);
             auto *actor = RE::CombatBehaviorController::GetCurrentAttacker();
-            if (actor && Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
-                const auto *shout = a_context ? a_context->shout : nullptr;
-                LOG_DEBUG("Shout 0x{:08X}: chance {:.2f} for {} ({})", actor->GetFormID(), vanilla,
-                          shout ? shout->GetName() : "?", ProbeState(actor));
+            if (!actor) {
+                return vanilla;
             }
-            return vanilla;
+            const auto *shout = a_context ? a_context->shout : nullptr;
+            const char *why = "timing off";
+            const float factor =
+                Config::GetInstance().GetDecisionMatrix().enableShoutTiming ? ShoutFactor(actor, shout, why) : 1.0f;
+            const float chance = std::clamp(vanilla * factor, 0.0f, 1.0f);
+            if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
+                LOG_DEBUG("Shout 0x{:08X}: chance {:.2f} x {:.1f} ({}) = {:.2f} for {} ({})", actor->GetFormID(), vanilla,
+                          factor, why, chance, shout ? shout->GetName() : "?", ProbeState(actor));
+            }
+            return chance;
         }
 
         // Enter (slot 2) of the CastShout and DrinkPotion leaves: the shout starts / the potion is drunk in it
@@ -1002,14 +1092,18 @@ namespace CombatAI::Trees
                     return;
                 }
                 const auto before = ProbeState(actor);
+                const float recovery = actor->GetVoiceRecoveryTime();
                 func(a_node, a_thread);
                 if constexpr (Potion) {
                     LOG_DEBUG("Potion 0x{:08X}: DrinkPotion entered ({}) -> after: {}", actor->GetFormID(), before,
                               ProbeState(actor));
                 } else {
+                    // Vanilla enters CastShout while the voice still recovers (CombatInventoryItemShout equips up to
+                    // fCombatInventoryShoutMaxRecoveryTime); the start fails and the tree idles, as after a lost roll
                     const auto *power = actor->GetActorRuntimeData().selectedPower;
-                    LOG_DEBUG("Shout 0x{:08X}: CastShout entered, {} ({})", actor->GetFormID(),
-                              power ? power->GetName() : "?", before);
+                    LOG_DEBUG("Shout 0x{:08X}: CastShout entered, {}, voice recovery {:.1f} -> {:.1f} ({})",
+                              actor->GetFormID(), power ? power->GetName() : "?", recovery,
+                              actor->GetVoiceRecoveryTime(), before);
                 }
             }
             static inline REL::Relocation<decltype(thunk)> func;
@@ -1021,14 +1115,14 @@ namespace CombatAI::Trees
             g_vanillaShoutChance = reinterpret_cast<ShoutChanceFn>(RedirectChanceLea(
                 a_trampoline, lea, kShoutChance.address(), reinterpret_cast<std::uintptr_t>(&ShoutChance)));
             if (!g_vanillaShoutChance) {
-                LOG_ERROR("Tree: Shout tree chance site does not match - shout chance not logged");
+                LOG_ERROR("Tree: Shout tree chance site does not match - shouts keep vanilla timing");
             }
             REL::Relocation<std::uintptr_t> castShout{RE::VTABLE_CombatBehaviorTreeNodeObject_CombatBehaviorCastShout_[0]},
                 drinkPotion{RE::VTABLE_CombatBehaviorTreeNodeObject_CombatBehaviorDrinkPotion_[0]};
             ProbeEnter<false>::func = castShout.write_vfunc(2, ProbeEnter<false>::thunk);
             ProbeEnter<true>::func = drinkPotion.write_vfunc(2, ProbeEnter<true>::thunk);
-            LOG_INFO("Tree: shout chance{} and CastShout/DrinkPotion starts hooked (probe: vanilla timing, logged for the "
-                     "selected NPC)", g_vanillaShoutChance ? "" : " not");
+            LOG_INFO("Tree: shout chance{} redirected (shout timing); CastShout/DrinkPotion starts logged for the selected NPC",
+                     g_vanillaShoutChance ? "" : " not");
         }
 
         // Vanilla Magic (0.18.3 dump): Context > ValueNode "Casting Type Selector" > one ValueNode case per casting

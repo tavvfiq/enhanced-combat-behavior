@@ -126,6 +126,7 @@ namespace CombatAI
             if (ImGuiMCP::BeginTabItem("Offense")) {
                 ImGuiMCP::Checkbox("Enable offense", &config.m_decisionMatrix.enableOffense);
                 ImGuiMCP::Checkbox("Enable sprint attack", &config.m_decisionMatrix.enableSprintAttack);
+                ImGuiMCP::Checkbox("Time shouts (stagger an open target, disarm an armed one)", &config.m_decisionMatrix.enableShoutTiming);
                 ImGuiMCP::Checkbox("Enable combo follow-up (MCO / BFCO, without SCAR)", &config.m_modIntegrations.enableComboFollowUp);
                 liveFloat("Combo follow-up chance", &config.m_modIntegrations.comboFollowUpChance, 0.0f, 1.0f);
                 liveFloat("Combo power follow-up chance", &config.m_modIntegrations.comboPowerChance, 0.0f, 1.0f);

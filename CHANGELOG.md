@@ -1,5 +1,10 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.2.7 (2026-10-29)
+
+- **Shouts are timed.** Unrelenting Force (and other stagger shouts) is now mostly kept for when it breaks something: the target is blocking, drawing a bow, casting or winding up a power attack (1.5x the game's chance; 0.5x otherwise). Disarm is never wasted on an empty-handed target and comes more often mid-swing. No NPC shouts at a player it hasn't detected, or while it is waiting its turn in combat pacing (bosses never wait). Other shouts (Fire Breath, Frost Breath and so on) keep the game's timing. Toggle: `EnableShoutTiming` under `[DecisionMatrix]`, or Offense > "Time shouts" in the menu.
+- Log: per selected NPC `Shout 0x..: chance <vanilla> x <factor> (<reason>) = <chance>`, and each shout start now shows the voice recovery time before and after (the game retries a shout while the voice still recovers; those starts fail harmlessly).
+
 ## Enhanced Combat Behavior 1.2.6 (2026-10-29)
 
 - **Groundwork for smarter shouts and potions (no change in how NPCs fight yet).** The plugin now hooks into the game's own shout and potion behaviour and, with the debug log on, records for the selected NPC every shout chance the game rolls, every shout it starts and every potion it drinks, with its health and what its target is doing. Upcoming versions will use this to time shouts (Unrelenting Force against a turtling player, Disarm against a power attack) and to make NPCs step back before drinking.
