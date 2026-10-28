@@ -1,5 +1,9 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.2.4 (2026-10-29)
+
+- **Menu: choosing a preset no longer applies it.** Pick one in the dropdown, then press **Load**. A misclick in the list no longer wipes your tuning.
+
 ## Enhanced Combat Behavior 1.2.3 (2026-10-29)
 
 - **Waiting NPCs no longer walk into a duel.** When a waiting NPC's step back (or circle) couldn't start that moment, for example while an animation still moved it, the game's own advance took over and kept walking it in for seconds (seen: 150 units in 2.5 s with Duel). Now that advance stops after 0.3 s and the step back is tried again. Only NPCs waiting for their turn are affected.

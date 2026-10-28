@@ -57,34 +57,38 @@ namespace CombatAI
         };
 
         // A preset resets all tuning (not General's switches, performance or integrations) to the defaults, then applies
-        // its own changes; Save to keep it. Picking one in the list applies it; the list is Default plus one entry per
-        // JSON file in the Presets folder, read again on reload/save. The picked name goes to the save field (not
-        // Default), so a tweaked preset is one click from being overwritten.
+        // its own changes; Save to keep it. The list (Default plus one entry per JSON file in the Presets folder, read
+        // again on reload/save) only chooses; Load applies the choice. A loaded preset's name goes to the save field
+        // (not Default's), so a tweaked preset is one click from being overwritten.
         static std::vector<std::string> presets = Config::ListPresets();
-        static std::string applied; // last preset picked; empty after a reload
+        static std::string selected; // chosen in the list; empty after a reload
         static char presetName[65] = "";
         ImGuiMCP::Text("Preset (resets tuning, then applies):");
         ImGuiMCP::SameLine();
         ImGuiMCP::SetNextItemWidth(220.0f);
-        if (ImGuiMCP::BeginCombo("##Preset", applied.empty() ? "Choose..." : applied.c_str())) {
-            if (ImGuiMCP::Selectable("Default", applied == "Default")) {
-                config.ApplyPreset("Default");
-                applied = "Default";
+        if (ImGuiMCP::BeginCombo("##Preset", selected.empty() ? "Choose..." : selected.c_str())) {
+            if (ImGuiMCP::Selectable("Default", selected == "Default")) {
+                selected = "Default";
             }
             for (const auto &name : presets) {
-                if (ImGuiMCP::Selectable(name.c_str(), applied == name) && config.ApplyPreset(name)) {
-                    applied = name;
-                    strncpy_s(presetName, name.c_str(), _TRUNCATE);
+                if (ImGuiMCP::Selectable(name.c_str(), selected == name)) {
+                    selected = name;
                 }
             }
             ImGuiMCP::EndCombo();
         }
+        ImGuiMCP::SameLine();
+        ImGuiMCP::BeginDisabled(selected.empty());
+        if (ImGuiMCP::Button("Load") && config.ApplyPreset(selected) && selected != "Default") {
+            strncpy_s(presetName, selected.c_str(), _TRUNCATE);
+        }
+        ImGuiMCP::EndDisabled();
         ImGuiMCP::InputText("##PresetName", presetName, sizeof(presetName));
         ImGuiMCP::SameLine();
         const bool exists = std::ranges::find(presets, std::string(presetName)) != presets.end();
         if (ImGuiMCP::Button(exists ? "Overwrite preset" : "Save as preset") && config.SavePreset(presetName)) {
             presets = Config::ListPresets();
-            applied = presetName;
+            selected = presetName;
         }
         ImGuiMCP::SameLine();
         ImGuiMCP::TextDisabled("current tuning, what differs from the defaults");
@@ -339,7 +343,7 @@ namespace CombatAI
             config.Load();
             Personality::ReloadProfiles();
             presets = Config::ListPresets();
-            applied.clear();
+            selected.clear();
             config.MarkHumanizerDirty();
             applyLogLevel();
         }
