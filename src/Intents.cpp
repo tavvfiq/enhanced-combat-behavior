@@ -42,6 +42,7 @@ namespace CombatAI::Intents
             Clock::time_point swingAt{};
             Clock::time_point drinkSince{}, drinkUntil{}; // current drink wait (PostDrinkWait)
             bool dualBlockStarted = false;
+            std::array<std::uint32_t, 3> attackReads{}, defendReads{}; // tree reads when each was posted (debug)
         };
 
         ThreadSafeMap<RE::FormID, Entry> g_board;
@@ -59,6 +60,8 @@ namespace CombatAI::Intents
         // Last movement branch each actor's tree entered (debug log only, so we see when it changes)
         ThreadSafeMap<RE::FormID, Move> g_moveRun;
         ThreadSafeMap<RE::FormID, std::uint32_t> g_defendExpired; // per actor, since the last summary
+        // Reads of the board by our Melee, Block and CloseMovement trees, selected NPC only (NoteTreeRead)
+        ThreadSafeMap<RE::FormID, std::array<std::uint32_t, 3>> g_treeReads;
 
         // Block/bash requests in a row the tree never took, and when the latest expired (DefendUnavailable)
         struct Refusals
@@ -77,7 +80,23 @@ namespace CombatAI::Intents
                           t_swingTag.empty() ? "" : " ", t_swingTag);
             }
         }
+        // An attack or defense the tree never took: which trees read the board since it was posted
+        void LogUntaken(RE::Actor *a_actor, const char *a_what, int a_kind, const std::array<std::uint32_t, 3> &a_then,
+                        const std::array<std::uint32_t, 3> &a_now)
+        {
+            LOG_DEBUG("Intent 0x{:08X}: {} {} expired untaken; tree reads since posted: melee {}, block {}, move {}",
+                      static_cast<std::uint32_t>(a_actor->GetFormID()), a_what, a_kind, a_now[0] - a_then[0],
+                      a_now[1] - a_then[1], a_now[2] - a_then[2]);
+        }
     } // namespace
+
+    void NoteTreeRead(RE::Actor *a_actor, TreeRead a_tree)
+    {
+        if (a_actor && Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+            g_treeReads.ModifyOrCreate(a_actor->GetFormID(),
+                                       [&](std::array<std::uint32_t, 3> &n) { ++n[static_cast<int>(a_tree)]; });
+        }
+    }
 
     bool PostAttack(RE::Actor *a_actor, Attack a_kind)
     {
@@ -85,15 +104,27 @@ namespace CombatAI::Intents
             return false;
         }
         const auto now = Clock::now();
+        const bool debug = Config::GetInstance().IsDebugTarget(a_actor->GetFormID());
+        const auto reads = debug ? g_treeReads.GetOrDefault(a_actor->GetFormID(), {}) : std::array<std::uint32_t, 3>{};
         bool posted = false;
+        int untaken = -1;
+        std::array<std::uint32_t, 3> then{};
         g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
             if (e.attack == a_kind && now < e.attackUntil) {
                 return; // still waiting for the tree
             }
+            if (e.attack != Attack::None && now >= e.attackUntil) {
+                untaken = static_cast<int>(e.attack);
+                then = e.attackReads;
+            }
+            e.attackReads = reads;
             e.attack = a_kind;
             e.attackUntil = now + std::chrono::duration_cast<Clock::duration>(kAttackTTL);
             posted = true;
         });
+        if (debug && untaken >= 0) {
+            LogUntaken(a_actor, "attack", untaken, then, reads);
+        }
         if (posted) {
             g_count.attackPosted[static_cast<int>(a_kind)].fetch_add(1, std::memory_order_relaxed);
             Debug(a_actor, "post attack", static_cast<int>(a_kind));
@@ -107,11 +138,20 @@ namespace CombatAI::Intents
             return false;
         }
         const auto now = Clock::now();
+        const bool debug = Config::GetInstance().IsDebugTarget(a_actor->GetFormID());
+        const auto reads = debug ? g_treeReads.GetOrDefault(a_actor->GetFormID(), {}) : std::array<std::uint32_t, 3>{};
         bool posted = false;
+        int untaken = -1;
+        std::array<std::uint32_t, 3> then{};
         g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
             if (e.defend == a_kind && now < e.defendUntil) {
                 return; // still waiting for the tree
             }
+            if (e.defend != Defend::None && now >= e.defendUntil) {
+                untaken = static_cast<int>(e.defend);
+                then = e.defendReads;
+            }
+            e.defendReads = reads;
             if (e.defend != Defend::None) {
                 g_defendExpired.ModifyOrCreate(a_actor->GetFormID(), [](std::uint32_t &n) { ++n; }); // never taken
                 g_defendRefusals.ModifyOrCreate(a_actor->GetFormID(), [&](Refusals &r) {
@@ -123,6 +163,9 @@ namespace CombatAI::Intents
             e.defendUntil = now + std::chrono::duration_cast<Clock::duration>(kDefendTTL);
             posted = true;
         });
+        if (debug && untaken >= 0) {
+            LogUntaken(a_actor, "defend", untaken, then, reads);
+        }
         if (posted) {
             g_count.defendPosted[static_cast<int>(a_kind)].fetch_add(1, std::memory_order_relaxed);
             Debug(a_actor, "post defend", static_cast<int>(a_kind));
@@ -553,5 +596,6 @@ namespace CombatAI::Intents
         g_moveRun.Erase(a_formID);
         g_defendExpired.Erase(a_formID);
         g_defendRefusals.Erase(a_formID);
+        g_treeReads.Erase(a_formID);
     }
 } // namespace CombatAI::Intents

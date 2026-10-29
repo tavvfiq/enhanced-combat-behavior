@@ -44,6 +44,17 @@ namespace CombatAI::Intents
     // the pending defense only if it is a_kind (bash and block are separate tree branches).
     Attack TakeAttack(RE::Actor *a_actor);
     bool TakeDefend(RE::Actor *a_actor, Defend a_kind);
+
+    // Tree side, debug: one of our trees read the board for a_actor (selected NPC only). An attack or defense that
+    // expires untaken logs the reads since it was posted (1.7.4 run: an NPC stood 13 s at 66 units, its attack
+    // re-posted every 0.55 s, never taken, no tree activity logged)
+    enum class TreeRead : std::uint8_t
+    {
+        Melee,
+        Block,
+        Move
+    };
+    void NoteTreeRead(RE::Actor *a_actor, TreeRead a_tree);
     // Brain side, movement: (re)start the movement intent; always true (refreshing is expected).
     // a_param: Circle: +1 circle left, -1 right, 0 no preference. Advance: distance to the target to stop at
     // (the brain's attack range; 0 = vanilla's). Unused for the other moves.

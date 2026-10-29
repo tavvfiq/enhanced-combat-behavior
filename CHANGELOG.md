@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.7.6 (2026-10-30)
+
+Untested in game. Debug log only; no gameplay change.
+
+- When an attack or block the NPC chose is never carried out, the debug log now says which part of its combat AI (melee, block or movement) was running meanwhile. In the 1.7.4 run a dual-wielding NPC stood still for up to 13 seconds next to the player, choosing to attack over and over, without ever attacking.
+
 ## Enhanced Combat Behavior 1.7.5 (2026-10-30)
 
 Untested in game. Debug log only; no gameplay change.

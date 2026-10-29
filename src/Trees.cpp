@@ -145,6 +145,7 @@ namespace CombatAI::Trees
 
         float IntentAttack(RE::Actor *a_me, RE::Actor *)
         {
+            Intents::NoteTreeRead(a_me, Intents::TreeRead::Melee);
             return Intents::TakeAttack(a_me) != Intents::Attack::None ? 1.0f : 0.0f;
         }
 
@@ -161,6 +162,7 @@ namespace CombatAI::Trees
 
         float IntentBash(RE::Actor *a_me, RE::Actor *)
         {
+            Intents::NoteTreeRead(a_me, Intents::TreeRead::Block);
             return Intents::TakeDefend(a_me, Intents::Defend::Bash) ? 1.0f : 0.0f;
         }
 
@@ -260,7 +262,12 @@ namespace CombatAI::Trees
             return Named(n, "Dual Block");
         }
 
-        float WantDualBlock(RE::Actor *a_me, RE::Actor *) { return Intents::WantsDualBlock(a_me) ? 1.0f : 0.0f; }
+        // First child of the Melee selector: a read here is a Melee tree pass even when DualBlock then holds it
+        float WantDualBlock(RE::Actor *a_me, RE::Actor *)
+        {
+            Intents::NoteTreeRead(a_me, Intents::TreeRead::Melee);
+            return Intents::WantsDualBlock(a_me) ? 1.0f : 0.0f;
+        }
 
         // Hold a cast while the brain says the shot is off (an ally in the line of fire): an Idle branch in front of
         // vanilla's cast selector, re-read every 0.05 s like the others
@@ -322,7 +329,11 @@ namespace CombatAI::Trees
                 LOG_INFO("Tree: Block tree built (intent bash/block + vanilla branches, re-read every {}s)", kHold);
             }
         }
-        float WantAdvance(RE::Actor *a_me, RE::Actor *) { return Intents::WantsMove(a_me, Intents::Move::Advance) ? 1.0f : 0.0f; }
+        float WantAdvance(RE::Actor *a_me, RE::Actor *)
+        {
+            Intents::NoteTreeRead(a_me, Intents::TreeRead::Move); // first movement gate: one per CloseMovement pass
+            return Intents::WantsMove(a_me, Intents::Move::Advance) ? 1.0f : 0.0f;
+        }
         float WantCircle(RE::Actor *a_me, RE::Actor *) { return Intents::WantsMove(a_me, Intents::Move::Circle) ? 1.0f : 0.0f; }
         float WantFallback(RE::Actor *a_me, RE::Actor *) { return Intents::WantsMove(a_me, Intents::Move::Fallback) ? 1.0f : 0.0f; }
         float WantBackoff(RE::Actor *a_me, RE::Actor *) { return Intents::WantsMove(a_me, Intents::Move::Backoff) ? 1.0f : 0.0f; }
