@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.7.5 (2026-10-30)
+
+Untested in game. Debug log only; no gameplay change.
+
+- The debug log's defense timing lines now record what the NPC itself was doing when it chose to defend (attacking, staggered, recoiling, casting, already blocking), to find out why some timed blocks are chosen but never started.
+
 ## Enhanced Combat Behavior 1.7.4 (2026-10-30)
 
 Untested in game.

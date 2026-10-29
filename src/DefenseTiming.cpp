@@ -1,4 +1,5 @@
 #include "DefenseTiming.h"
+#include "ActorUtils.h"
 #include "Config.h"
 #include "Logger.h"
 #include "ThreadSafeMap.h"
@@ -30,6 +31,9 @@ namespace CombatAI::DefenseTiming
             Clock::time_point at{};
             float startDelay = -1.0f; // seconds from commit to the tree starting it (-1: not started)
             bool debug = false;
+            // The defender at commit (debug only): its attack state, knock state, stagger, recoil, casting, blocking.
+            // 1.7.4 run: 9 of 12 timed blocks never started, with nothing in the log to say what held the tree
+            std::string self;
         };
         ThreadSafeMap<RE::FormID, Pending> g_pending;
 
@@ -125,10 +129,11 @@ namespace CombatAI::DefenseTiming
                 std::string verdictKey = hit && !started ? std::string("never_started") : std::string(verdict);
                 std::ranges::replace(verdictKey, ' ', '_');
                 const std::string tail = std::format(
-                    ". action={} commit={:.2f} start={:.2f} blow={:.2f} lead={:.2f} pred={:.2f} verdict={} result={} src={} {}",
+                    ". action={} commit={:.2f} start={:.2f} blow={:.2f} lead={:.2f} pred={:.2f} verdict={} result={} src={} "
+                    "self={} {}",
                     action, a_pending.elapsed, started ? a_pending.startDelay : -1.0f, hit ? a_elapsedAtHit : -1.0f,
                     hit && started ? lead : -1.0f, a_pending.predicted, verdictKey,
-                    !hit ? "no_blow" : a_blocked ? "blocked" : "hit", a_pending.source,
+                    !hit ? "no_blow" : a_blocked ? "blocked" : "hit", a_pending.source, a_pending.self,
                     SwingTag(a_pending.target, a_pending.swing));
                 if (hit && started) {
                     LOG_DEBUG("Timing 0x{:08X}: {} committed {:.2f}s into the swing, started {:.2f}s later, blow at "
@@ -167,9 +172,19 @@ namespace CombatAI::DefenseTiming
                 Resolve(id, *old, -1.0f, false); // a new swing before the last one's blow
             }
         }
-        const Pending pending{a_target, a_action, a_elapsed, a_predicted, a_swing, a_source, Clock::now(),
+        Pending pending{a_target, a_action, a_elapsed, a_predicted, a_swing, a_source, Clock::now(),
                               *kind == kDodge ? 0.0f : -1.0f, // a dodge starts at the commit; blocks and bashes at the tree
                               Config::GetInstance().IsDebugTarget(id)};
+        if (pending.debug) {
+            const auto *state = ActorUtils::SafeAsActorState(a_self);
+            pending.self = std::format("atk{}/knock{}/stg{}/rec{}/cast{}/blk{}",
+                                       static_cast<int>(ActorUtils::SafeGetAttackState(a_self)),
+                                       static_cast<int>(ActorUtils::SafeGetKnockState(a_self)),
+                                       state && state->IsStaggered() ? 1 : 0,
+                                       state ? static_cast<int>(state->actorState2.recoil) : 0,
+                                       ActorUtils::SafeWhoIsCasting(a_self) != 0 ? 1 : 0,
+                                       ActorUtils::SafeIsBlocking(a_self) ? 1 : 0);
+        }
         g_pending.ModifyOrCreate(id, [&](Pending &p) { p = pending; });
     }
 
