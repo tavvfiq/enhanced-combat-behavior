@@ -652,7 +652,8 @@ namespace CombatAI
         // Defense timing log: how long before the blow it committed (resolved by the hit event, or "no blow")
         if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && a_state.temporal.target.attackStartTime >= 0.0f) {
             DefenseTiming::OnCommit(a_actor, a_state.target.targetFormID, executedDecision.action,
-                                    a_state.temporal.target.attackStartTime, a_state.temporal.target.timeUntilAttackHits);
+                                    a_state.temporal.target.attackStartTime, a_state.temporal.target.timeUntilAttackHits,
+                                    a_state.temporal.target.swingCount);
         }
 
         m_processedActors.Insert(a_formID);

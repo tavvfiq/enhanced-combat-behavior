@@ -25,7 +25,9 @@ namespace CombatAI::DefenseTiming
             ActionType action = ActionType::None;
             float elapsed = 0.0f;   // seconds into the swing at commit
             float predicted = 0.0f; // expected seconds to the hit at commit
+            std::uint32_t swing = 0;
             Clock::time_point at{};
+            float startDelay = -1.0f; // seconds from commit to the tree starting it (-1: not started)
             bool debug = false;
         };
         ThreadSafeMap<RE::FormID, Pending> g_pending;
@@ -42,8 +44,10 @@ namespace CombatAI::DefenseTiming
 
         struct Stats
         {
-            int commits = 0, hit = 0, blocked = 0, noHit = 0, early = 0, inWindow = 0, late = 0;
-            double sum = 0.0, sumSq = 0.0; // lead (s) of commits a blow resolved
+            int commits = 0, hit = 0, blocked = 0, noHit = 0, notStarted = 0, early = 0, inWindow = 0, late = 0;
+            double sum = 0.0, sumSq = 0.0; // lead (s) of started defenses a blow resolved
+            double delaySum = 0.0;         // commit to start (s), started defenses
+            int started = 0;
         };
         std::mutex g_statsLock;
         std::array<Stats, kKinds> g_stats{};
@@ -87,27 +91,43 @@ namespace CombatAI::DefenseTiming
             }
             const auto [start, end] = Window(*kind);
             const bool hit = a_elapsedAtHit >= 0.0f;
-            const float lead = hit ? a_elapsedAtHit - a_pending.elapsed : a_pending.predicted;
-            const char *verdict = lead > end ? "early" : lead < start ? "late" : "in window";
+            const bool started = a_pending.startDelay >= 0.0f;
+            // Lead at the start: the blow's time into the swing minus where the swing was when the tree started it
+            const float lead = hit ? a_elapsedAtHit - a_pending.elapsed - (std::max)(0.0f, a_pending.startDelay)
+                                   : a_pending.predicted;
+            const char *verdict = !started ? "never started" : lead > end ? "early" : lead < start ? "late" : "in window";
             {
                 std::scoped_lock lock(g_statsLock);
                 auto &s = g_stats[*kind];
                 ++s.commits;
+                if (started) {
+                    ++s.started;
+                    s.delaySum += a_pending.startDelay;
+                }
                 if (!hit) {
                     ++s.noHit;
                 } else {
                     ++(a_blocked ? s.blocked : s.hit);
-                    s.sum += lead;
-                    s.sumSq += static_cast<double>(lead) * lead;
-                    ++(lead > end ? s.early : lead < start ? s.late : s.inWindow);
+                    if (!started) {
+                        ++s.notStarted;
+                    } else {
+                        s.sum += lead;
+                        s.sumSq += static_cast<double>(lead) * lead;
+                        ++(lead > end ? s.early : lead < start ? s.late : s.inWindow);
+                    }
                 }
             }
             if (a_pending.debug) {
-                if (hit) {
-                    LOG_DEBUG("Timing 0x{:08X}: {} committed {:.2f}s into the swing, blow at {:.2f}s -> {:.2f}s before it "
-                              "(predicted {:.2f}, window {:.2f}-{:.2f}: {}), {}",
-                              a_self, kNames[*kind], a_pending.elapsed, a_elapsedAtHit, lead, a_pending.predicted, start,
-                              end, verdict, a_blocked ? "blocked" : "took the hit");
+                if (hit && started) {
+                    LOG_DEBUG("Timing 0x{:08X}: {} committed {:.2f}s into the swing, started {:.2f}s later, blow at "
+                              "{:.2f}s -> {:.2f}s before it (predicted {:.2f}, window {:.2f}-{:.2f}: {}), {}",
+                              a_self, kNames[*kind], a_pending.elapsed, a_pending.startDelay, a_elapsedAtHit, lead,
+                              a_pending.predicted, start, end, verdict, a_blocked ? "blocked" : "took the hit");
+                } else if (hit) {
+                    LOG_DEBUG("Timing 0x{:08X}: {} committed {:.2f}s into the swing, the tree never started it before the "
+                              "blow at {:.2f}s, {}",
+                              a_self, kNames[*kind], a_pending.elapsed, a_elapsedAtHit,
+                              a_blocked ? "blocked (block already up)" : "took the hit");
                 } else {
                     LOG_DEBUG("Timing 0x{:08X}: {} committed {:.2f}s into the swing, no blow came (dodged, missed or "
                               "cancelled; predicted {:.2f}s before it: {})",
@@ -117,17 +137,37 @@ namespace CombatAI::DefenseTiming
         }
     } // namespace
 
-    void OnCommit(RE::Actor *a_self, RE::FormID a_target, ActionType a_action, float a_elapsed, float a_predicted)
+    void OnCommit(RE::Actor *a_self, RE::FormID a_target, ActionType a_action, float a_elapsed, float a_predicted,
+                  std::uint32_t a_swing)
     {
-        if (!a_self || !KindOf(a_action)) {
+        const auto kind = KindOf(a_action);
+        if (!a_self || !kind) {
             return;
         }
         const RE::FormID id = a_self->GetFormID();
         if (const auto old = g_pending.Find(id)) {
-            Resolve(id, *old, -1.0f, false); // a new commit before the last one's blow
+            if (old->target == a_target && old->swing == a_swing) {
+                if (old->startDelay >= 0.0f) {
+                    return; // the tree already started the first one: that is the defense this swing meets
+                }
+                // else the brain re-decided before the tree started the first: it replaces it, not a "no blow"
+            } else {
+                Resolve(id, *old, -1.0f, false); // a new swing before the last one's blow
+            }
         }
-        g_pending.ModifyOrCreate(id, [&](Pending &p) {
-            p = {a_target, a_action, a_elapsed, a_predicted, Clock::now(), Config::GetInstance().IsDebugTarget(id)};
+        const Pending pending{a_target, a_action, a_elapsed, a_predicted, a_swing, Clock::now(),
+                              *kind == kDodge ? 0.0f : -1.0f, // a dodge starts at the commit; blocks and bashes at the tree
+                              Config::GetInstance().IsDebugTarget(id)};
+        g_pending.ModifyOrCreate(id, [&](Pending &p) { p = pending; });
+    }
+
+    void OnStart(RE::FormID a_self)
+    {
+        const auto now = Clock::now();
+        g_pending.Modify(a_self, [&](Pending &p) {
+            if (p.startDelay < 0.0f) {
+                p.startDelay = std::chrono::duration<float>(now - p.at).count();
+            }
         });
     }
 
@@ -182,14 +222,16 @@ namespace CombatAI::DefenseTiming
             if (s.commits == 0) {
                 continue;
             }
-            const int resolved = s.hit + s.blocked;
+            const int resolved = s.early + s.inWindow + s.late; // started, and a blow came
             const double mean = resolved ? s.sum / resolved : 0.0;
             const double sd = resolved > 1 ? std::sqrt((std::max)(0.0, s.sumSq / resolved - mean * mean)) : 0.0;
+            const double delay = s.started ? s.delaySum / s.started : 0.0;
             const auto [start, end] = Window(static_cast<Kind>(k));
-            report += std::format("; {} {} (blocked {}, hit {}, no blow {}): {:.2f}s +- {:.2f} before the blow, window "
-                                  "{:.2f}-{:.2f}: early {} in {} late {}",
-                                  kNames[k], s.commits, s.blocked, s.hit, s.noHit, mean, sd, start, end, s.early,
-                                  s.inWindow, s.late);
+            report += std::format("; {} {} (blocked {}, hit {}, no blow {}): started {:.2f}s after the commit, "
+                                  "{:.2f}s +- {:.2f} before the blow, window {:.2f}-{:.2f}: early {} in {} late {} "
+                                  "never started {}",
+                                  kNames[k], s.commits, s.blocked, s.hit, s.noHit, delay, mean, sd, start, end, s.early,
+                                  s.inWindow, s.late, s.notStarted);
         }
         if (!report.empty()) {
             LOG_INFO("Defense timing (last 60s, all NPCs){}", report);

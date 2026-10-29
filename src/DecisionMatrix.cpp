@@ -856,9 +856,8 @@ namespace CombatAI
         }
         if (shouldBash) {
             // Don't bash if we're already attacking (bash is an interrupt, not a combo)
-            if (a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone &&
-                a_state.self.attackState != RE::ATTACK_STATE_ENUM::kDraw) {
-                return result; // Already attacking - don't bash
+            if (a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone) {
+                return result; // Attacking, windup included - don't bash (the tree never takes it mid-windup)
             }
 
             // Use enhanced combat context: Threat level
@@ -941,9 +940,8 @@ namespace CombatAI
         }
 
         // Check if self is idle/ready (can't parry while attacking)
-        if (a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone &&
-            a_state.self.attackState != RE::ATTACK_STATE_ENUM::kDraw) {
-            return result; // Already attacking - can't parry
+        if (a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone) {
+            return result; // Attacking, windup included - can't parry (the tree never takes it mid-windup)
         }
 
         // Check distance
@@ -991,9 +989,8 @@ namespace CombatAI
         }
 
         // Check if self is idle/ready (can't timed block while attacking)
-        if (a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone &&
-            a_state.self.attackState != RE::ATTACK_STATE_ENUM::kDraw) {
-            return result; // Already attacking - can't timed block
+        if (a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone) {
+            return result; // Attacking, windup included - can't timed block (the tree never takes it mid-windup)
         }
 
         // Run 33 posted 3 untaken blocks for a dagger bandit: only some equipment runs the Block tree

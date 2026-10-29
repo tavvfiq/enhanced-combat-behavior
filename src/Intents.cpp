@@ -1,5 +1,6 @@
 #include "Intents.h"
 #include "Config.h"
+#include "DefenseTiming.h"
 #include "Logger.h"
 #include "ThreadSafeMap.h"
 
@@ -172,6 +173,7 @@ namespace CombatAI::Intents
         if (taken) {
             g_defendRefusals.Erase(a_actor->GetFormID());
             g_count.defendTaken[static_cast<int>(a_kind)].fetch_add(1, std::memory_order_relaxed);
+            DefenseTiming::OnStart(a_actor->GetFormID());
             Debug(a_actor, "tree took defend", static_cast<int>(a_kind));
         }
         return taken;

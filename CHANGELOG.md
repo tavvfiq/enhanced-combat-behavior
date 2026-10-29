@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.5.1 (2026-10-29)
+
+Untested in game.
+
+- **No block, timed block, parry or bash during the NPC's own attack windup.** The game never started them there (1.5.0 run: 2 of 2 asked for mid-windup never happened, both hits landed), so they only crowded out options that could happen. A windup can still be cancelled by a dodge.
+- **Defense timing log measures from when the defense starts, not when the NPC decides.** A block or bash starts when the combat tree picks it up, which took about 0.2 s in the 1.5.0 run; that delay is now logged, and the lead before the blow is measured from the start. Defenses the tree never started before the blow are counted as "never started". A second decision in the same swing (timed block, then parry) replaces the first instead of counting as "no blow came".
+
 ## Enhanced Combat Behavior 1.5.0 (2026-10-29)
 
 Untested in game.
