@@ -190,10 +190,22 @@ namespace CombatAI
                 LOG_DEBUG("DualBlock 0x{:08X}: target stopped attacking, ending the hold", static_cast<std::uint32_t>(formID));
             }
         }
-        // Measurement only: the player's attack clip predicts the blow; compared with the median rule at the hit
+        // The player's attack clip predicts the blow (sampled for the clip timing log either way); parries and timed
+        // blocks are timed from it, the learned median swing time is the fallback (1.6.x runs: mean miss 0.07 s vs
+        // 0.17 s, power attacks 0.07 vs 0.26)
         if (state.target.isPlayer && state.target.isAttacking) {
             if (auto target = RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID)) {
                 ClipTiming::Sample(target, state.temporal.target.timeUntilAttackHits, debugEnabled);
+                float earliest = 0.0f, latest = 0.0f;
+                if (config.GetDecisionMatrix().usePlayerClipTiming && ClipTiming::Predict(target, earliest, latest)) {
+                    if (debugEnabled) {
+                        LOG_DEBUG("ClipTiming 0x{:08X}: blow in {:.2f}s, contact from {:.2f}s (median rule {:.2f}s)",
+                                  static_cast<std::uint32_t>(formID), latest, earliest,
+                                  state.temporal.target.timeUntilAttackHits);
+                    }
+                    state.temporal.target.timeUntilAttackHits = latest;
+                    state.temporal.target.timeUntilEarliestHit = earliest;
+                }
             }
         }
         MaybeSwitchTarget(a_actor, formID, state);

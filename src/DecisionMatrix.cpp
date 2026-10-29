@@ -951,8 +951,11 @@ namespace CombatAI
         }
 
         // Check timing - need valid attack timing data
+        // The blow within the window end, and the earliest contact (Precision: anywhere in the clip's hit window, up to
+        // ~0.1 s before HitFrame) not closer than the window start, or the bash comes up after it
         float timeUntilHit = a_state.temporal.target.timeUntilAttackHits;
-        if (timeUntilHit > parryConfig.parryWindowEnd || timeUntilHit < parryConfig.parryWindowStart) {
+        if (timeUntilHit > parryConfig.parryWindowEnd ||
+            a_state.temporal.target.timeUntilEarliestHit < parryConfig.parryWindowStart) {
             return result; // Outside parry window
         }
         if (!DefendRoll(a_actor, a_state, "parry", timeUntilHit)) {
@@ -1003,9 +1006,10 @@ namespace CombatAI
         }
 
         // Check timing - need valid attack timing data
+        // As for parry: the blow within the window end, the earliest contact not closer than the window start
         float timeUntilHit = a_state.temporal.target.timeUntilAttackHits;
         if (timeUntilHit > timedBlockConfig.timedBlockWindowEnd ||
-            timeUntilHit < timedBlockConfig.timedBlockWindowStart) {
+            a_state.temporal.target.timeUntilEarliestHit < timedBlockConfig.timedBlockWindowStart) {
             return result; // Outside timed block window
         }
         // No Block tree: a weapon with a spell, torch or second weapon blocks through our DualBlock node instead

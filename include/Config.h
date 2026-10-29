@@ -120,6 +120,7 @@ namespace CombatAI
             bool enableShoutTiming = true;        // Stagger shouts for an open target, Disarm for an armed one; none at a hidden player or while waiting a turn
             bool allowDaggerBlock = true;         // Let daggers block and bash (patches vanilla; applies at game start)
             bool enableRangedPositioning = true;  // Archers and mages keep their distance from melee attackers
+            bool usePlayerClipTiming = true;      // Parry/timed block timed from the player's attack animation (off: learned median)
             float rangedKeepAwayDistance = 450.0f; // Fall back when a melee attacker is closer than this
             float rangedMaxDistance = 2000.0f;     // Close in when the target is farther than this (or out of sight)
             bool staminaAffectsRetreat = false;  // Off: retreat/backoff depend on health only (light attacks cost no stamina)

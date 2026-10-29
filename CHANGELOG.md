@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.7.0 (2026-10-29)
+
+Untested in game.
+
+- **NPCs time parries and timed blocks from your attack animation.** They read the clip you are playing (the one OAR/BFCO picked), how far into it you are and how fast it plays, and expect the blow at its `HitFrame` mark. With Precision a blow can land on contact a little earlier (from the clip's `weaponSwing`, or Precision's own collision start mark), so the parry or block must also be up before that earliest contact. Measured over the 1.6 test runs, the animation misses the real blow by 0.07 s on average, the old learned swing time by 0.17 s (power attacks 0.07 vs 0.26 s; later combo swings 0.07 vs 0.20 s). When no attack clip is found, the learned swing time is used as before. Setting: `UsePlayerClipTiming` ([DecisionMatrix], on), also in the menu under the parry and timed block windows.
+- Clip timing log: the hit window opens at `weaponSwing` (Precision's default) before `preHitFrame`.
+
 ## Enhanced Combat Behavior 1.6.2 (2026-10-29)
 
 Untested in game. Measurement only: no behaviour change.

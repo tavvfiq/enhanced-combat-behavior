@@ -1343,6 +1343,7 @@ namespace CombatAI
                     temporal.target.swingCount = targetTemporal.swingCount;
                     temporal.target.estimatedAttackDuration = targetTemporal.estimatedAttackDuration;
                     temporal.target.timeUntilAttackHits = targetTemporal.timeUntilAttackHits;
+                    temporal.target.timeUntilEarliestHit = targetTemporal.timeUntilAttackHits; // ClipTiming may refine
                 });
             }
         }

@@ -52,8 +52,7 @@ namespace CombatAI::ClipTiming
         // Fills the hit window and marks of a clip from its annotations
         void ReadWindow(const RE::hkaAnimation &a_animation, Clip &a_clip)
         {
-            float precisionOpen = -1.0f, vanillaOpen = -1.0f;
-            const char *vanillaName = "";
+            float precisionOpen = -1.0f, swingOpen = -1.0f, preHitOpen = -1.0f;
             std::vector<std::pair<float, const char *>> closes;
             int listed = 0;
             for (auto &annotation : a_animation.annotationTracks[0].annotations) {
@@ -69,11 +68,13 @@ namespace CombatAI::ClipTiming
                     if (precisionOpen < 0.0f || t < precisionOpen) {
                         precisionOpen = t;
                     }
-                } else if (IsEvent(text, "weaponSwing") || IsEvent(text, "weaponLeftSwing") ||
-                           IsEvent(text, "preHitFrame")) {
-                    if (vanillaOpen < 0.0f || t < vanillaOpen) {
-                        vanillaOpen = t;
-                        vanillaName = IsEvent(text, "preHitFrame") ? "preHitFrame" : "weaponSwing";
+                } else if (IsEvent(text, "weaponSwing") || IsEvent(text, "weaponLeftSwing")) {
+                    if (swingOpen < 0.0f || t < swingOpen) {
+                        swingOpen = t;
+                    }
+                } else if (IsEvent(text, "preHitFrame")) {
+                    if (preHitOpen < 0.0f || t < preHitOpen) {
+                        preHitOpen = t;
                     }
                 } else if (IsEvent(text, "Collision_AttackEnd")) {
                     closes.emplace_back(t, "Collision_AttackEnd");
@@ -86,9 +87,14 @@ namespace CombatAI::ClipTiming
             if (precisionOpen >= 0.0f) {
                 a_clip.open = precisionOpen;
                 a_clip.openName = "Collision_AttackStart";
-            } else if (vanillaOpen >= 0.0f) {
-                a_clip.open = vanillaOpen;
-                a_clip.openName = vanillaName;
+            } else if (swingOpen >= 0.0f) {
+                // Precision's default; preHitFrame only for attacks its config names (1.6.2 run: BFCO_Attack1
+                // preHitFrame 0.40, WeaponSwing 0.57, HitFrame 0.68, every blow at 0.58-0.71)
+                a_clip.open = swingOpen;
+                a_clip.openName = "weaponSwing";
+            } else if (preHitOpen >= 0.0f) {
+                a_clip.open = preHitOpen;
+                a_clip.openName = "preHitFrame";
             }
             for (const auto &[t, name] : closes) { // the first close after the open
                 if (t >= a_clip.open && (a_clip.close < 0.0f || t < a_clip.close)) {
@@ -300,6 +306,39 @@ namespace CombatAI::ClipTiming
                       track.clip.localTime, track.rate, track.clip.hits[next], ahead,
                       track.hasMedian ? std::format("{:.2f}s", a_medianTimeToHit) : std::string("none"));
         }
+    }
+
+    bool Predict(RE::Actor *a_attacker, float &a_earliest, float &a_latest)
+    {
+        // The hit event comes this long after the clip reaches HitFrame (1.6.x runs, clip error median +0.02 to
+        // +0.04 s)
+        constexpr float kHitLag = 0.03f;
+        if (!a_attacker) {
+            return false;
+        }
+        const auto now = Clock::now();
+        std::scoped_lock lock(g_lock);
+        const auto it = g_tracks.find(a_attacker->GetFormID());
+        if (it == g_tracks.end()) {
+            return false;
+        }
+        const auto &track = it->second;
+        if (!track.clip.animation || track.rate <= 0.0f || Since(track.at, now) > 0.15f) {
+            return false;
+        }
+        const float position = track.clip.localTime + track.rate * Since(track.at, now);
+        for (int i = track.consumed + 1; i < static_cast<int>(track.clip.hits.size()); ++i) {
+            const float hit = track.clip.hits[i];
+            if (hit + kHitLag * track.rate < position) {
+                continue; // passed (missed, or its hit event is late)
+            }
+            // Contact opens at the window mark for the clip's first blow, at the HitFrame for later ones
+            const float open = i == 0 && track.clip.open >= 0.0f && track.clip.open < hit ? track.clip.open : hit;
+            a_latest = (std::max)(0.0f, (hit - position) / track.rate + kHitLag);
+            a_earliest = (std::max)(0.0f, (std::min)((open - position) / track.rate, a_latest));
+            return true;
+        }
+        return false;
     }
 
     void OnHit(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power)

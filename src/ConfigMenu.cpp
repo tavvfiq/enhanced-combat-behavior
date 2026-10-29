@@ -257,6 +257,7 @@ namespace CombatAI
                 check("NPCs back off, then drink potions", &config.m_decisionMatrix.enableNPCPotions);
                 check("NPCs drink Fortify / Resist potions (at range)", &config.m_decisionMatrix.enableBuffPotions);
                 if (header("Advanced: parry and timed block windows")) {
+                    check("Time them from the player's attack animation", &config.m_decisionMatrix.usePlayerClipTiming);
                     liveFloat("Parry window start (s)", &config.m_parry.parryWindowStart, 0.0f, 0.5f, "%.3f");
                     liveFloat("Parry window end (s)", &config.m_parry.parryWindowEnd, 0.0f, 0.5f, "%.3f");
                     liveFloat("Parry min distance", &config.m_parry.parryMinDistance, 0.0f, 300.0f, "%.0f");
