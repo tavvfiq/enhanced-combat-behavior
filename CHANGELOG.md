@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.6.2 (2026-10-29)
+
+Untested in game. Measurement only: no behaviour change.
+
+- **Clip timing probe: Precision hit window.** With Precision a blow lands when the weapon touches, anywhere between the clip's collision start and end marks, so it can come before `HitFrame` (1.6.1 run: power attacks 0.17-0.32 s early). The probe now reads those marks (`Collision_AttackStart`/`Collision_Start`, else `weaponSwing`/`preHitFrame`; end at `Collision_AttackEnd`/`attackStop`/`Collision_Cancel`), logs every mark of each new clip, and logs where in the clip each blow landed. The summary counts blows that came before `HitFrame`.
+- A `HitFrame` already hit is not predicted again, and further contacts of the same swing (a second victim, or the same one again inside the window) are not scored as new blows.
+
 ## Enhanced Combat Behavior 1.6.1 (2026-10-29)
 
 Untested in game. Measurement only: no behaviour change.

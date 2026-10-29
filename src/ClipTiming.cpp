@@ -32,7 +32,71 @@ namespace CombatAI::ClipTiming
             float localTime = 0.0f;
             float playbackSpeed = 1.0f;
             int graph = -1; // index in the graph manager
+            // Precision's hit window (its PrecisionHandler animation event handler): the weapon collision opens at
+            // Collision_AttackStart/Collision_Start when the clip has Precision marks, else at weaponSwing/
+            // weaponLeftSwing (preHitFrame for some vanilla attacks), and closes at Collision_AttackEnd/attackStop/
+            // Collision_Cancel. A blow lands on contact anywhere inside it, so it can come before HitFrame
+            float open = -1.0f, close = -1.0f; // clip seconds, -1 = no mark
+            const char *openName = "";
+            const char *closeName = "";
+            std::string marks; // every annotation "text@time", for the debug log
         };
+
+        // An annotation is the event name, optionally followed by ".payload"
+        bool IsEvent(const char *a_text, std::string_view a_name)
+        {
+            return _strnicmp(a_text, a_name.data(), a_name.size()) == 0 &&
+                   (a_text[a_name.size()] == '\0' || a_text[a_name.size()] == '.');
+        }
+
+        // Fills the hit window and marks of a clip from its annotations
+        void ReadWindow(const RE::hkaAnimation &a_animation, Clip &a_clip)
+        {
+            float precisionOpen = -1.0f, vanillaOpen = -1.0f;
+            const char *vanillaName = "";
+            std::vector<std::pair<float, const char *>> closes;
+            int listed = 0;
+            for (auto &annotation : a_animation.annotationTracks[0].annotations) {
+                const char *text = annotation.text.c_str();
+                if (!text) {
+                    continue;
+                }
+                const float t = annotation.time;
+                if (listed++ < 24) {
+                    a_clip.marks += std::format("{}{}@{:.2f}", a_clip.marks.empty() ? "" : " ", text, t);
+                }
+                if (IsEvent(text, "Collision_AttackStart") || IsEvent(text, "Collision_Start")) {
+                    if (precisionOpen < 0.0f || t < precisionOpen) {
+                        precisionOpen = t;
+                    }
+                } else if (IsEvent(text, "weaponSwing") || IsEvent(text, "weaponLeftSwing") ||
+                           IsEvent(text, "preHitFrame")) {
+                    if (vanillaOpen < 0.0f || t < vanillaOpen) {
+                        vanillaOpen = t;
+                        vanillaName = IsEvent(text, "preHitFrame") ? "preHitFrame" : "weaponSwing";
+                    }
+                } else if (IsEvent(text, "Collision_AttackEnd")) {
+                    closes.emplace_back(t, "Collision_AttackEnd");
+                } else if (IsEvent(text, "attackStop")) {
+                    closes.emplace_back(t, "attackStop");
+                } else if (IsEvent(text, "Collision_Cancel")) {
+                    closes.emplace_back(t, "Collision_Cancel");
+                }
+            }
+            if (precisionOpen >= 0.0f) {
+                a_clip.open = precisionOpen;
+                a_clip.openName = "Collision_AttackStart";
+            } else if (vanillaOpen >= 0.0f) {
+                a_clip.open = vanillaOpen;
+                a_clip.openName = vanillaName;
+            }
+            for (const auto &[t, name] : closes) { // the first close after the open
+                if (t >= a_clip.open && (a_clip.close < 0.0f || t < a_clip.close)) {
+                    a_clip.close = t;
+                    a_clip.closeName = name;
+                }
+            }
+        }
 
         enum class ReadResult
         {
@@ -88,6 +152,7 @@ namespace CombatAI::ClipTiming
                     const char *name = clip->animationName.c_str();
                     a_out = {animation, name ? name : "", std::move(hits), animation->duration, clip->localTime,
                              clip->playbackSpeed, static_cast<int>(g)};
+                    ReadWindow(*animation, a_out);
                     found = true;
                     foundAhead = ahead;
                 }
@@ -107,6 +172,7 @@ namespace CombatAI::ClipTiming
             bool hasMedian = false;
             float horizon = 0.0f; // seconds before the predicted blow the prediction was made
             int hitIndex = -1;    // which HitFrame it was for
+            int consumed = -1;    // the last HitFrame of this clip a blow was scored for (not predicted again)
             bool debug = false;
             // The last blow counted: a second hit event on the same victim right after is the same blow
             RE::FormID lastVictim = 0;
@@ -123,7 +189,19 @@ namespace CombatAI::ClipTiming
             double medianSum = 0.0, medianSumSq = 0.0, medianAbs = 0.0;
             int medianCount = 0;
             double horizonSum = 0.0;
+            // Where scored blows fell in their clip, and which hit window marks the clip had
+            int beforeHitFrame = 0, precisionWindow = 0, vanillaWindow = 0, noWindow = 0, extraContacts = 0;
+            double earlySum = 0.0; // clip seconds before HitFrame, blows that came early
         } g_stats;
+
+        std::string Window(const Clip &a_clip)
+        {
+            return std::format("window {} {}, {} {}",
+                               a_clip.open >= 0.0f ? std::format("{:.2f}", a_clip.open) : std::string("none"),
+                               a_clip.openName,
+                               a_clip.close >= 0.0f ? std::format("{:.2f}", a_clip.close) : std::string("none"),
+                               a_clip.closeName);
+        }
 
         std::string Brief(const std::vector<float> &a_hits)
         {
@@ -168,6 +246,7 @@ namespace CombatAI::ClipTiming
             // A new swing (or the same clip restarted): predictions start over
             track.rate = 0.0f;
             track.predicted = false;
+            track.consumed = -1;
             track.debug = a_debug;
             if (a_debug) {
                 bool firstPerson = false;
@@ -175,10 +254,10 @@ namespace CombatAI::ClipTiming
                     const auto *camera = RE::PlayerCamera::GetSingleton();
                     firstPerson = camera && camera->IsInFirstPerson();
                 }
-                LOG_DEBUG("ClipTiming 0x{:08X}: clip '{}' ({:.2f}s, HitFrame {}, playbackSpeed {:.2f}, graph {}{}) at "
-                          "{:.2f}s",
-                          id, clip.name, clip.duration, Brief(clip.hits), clip.playbackSpeed, clip.graph,
-                          firstPerson ? ", first person" : "", clip.localTime);
+                LOG_DEBUG("ClipTiming 0x{:08X}: clip '{}' ({:.2f}s, HitFrame {}, {}, playbackSpeed {:.2f}, graph {}{}) "
+                          "at {:.2f}s; marks: {}",
+                          id, clip.name, clip.duration, Brief(clip.hits), Window(clip), clip.playbackSpeed, clip.graph,
+                          firstPerson ? ", first person" : "", clip.localTime, clip.marks);
             }
         } else {
             const float dt = Since(track.at, now);
@@ -195,7 +274,9 @@ namespace CombatAI::ClipTiming
             return;
         }
         int next = -1;
-        for (int i = 0; i < static_cast<int>(track.clip.hits.size()); ++i) {
+        // A blow can land before its HitFrame (Precision contact): that HitFrame is done, not predicted again
+        // (1.6.1 run: one power swing scored twice, its third contact called a missed swing)
+        for (int i = track.consumed + 1; i < static_cast<int>(track.clip.hits.size()); ++i) {
             if (track.clip.hits[i] > track.clip.localTime) {
                 next = i;
                 break;
@@ -237,6 +318,15 @@ namespace CombatAI::ClipTiming
         if (track.lastVictim == a_victim->GetFormID() && Since(track.lastBlowAt, now) < 0.1f) {
             return;
         }
+        // The clip's position at this blow, from the last sample at the measured rate
+        const float blowTime = track.clip.localTime + track.rate * Since(track.at, now);
+        // Another contact of a swing already scored (a sweep reaching a second victim, or the same one again inside
+        // the hit window): the same blow, not a new one
+        if (!track.predicted && track.consumed >= 0 && track.clip.animation && track.rate > 0.0f &&
+            blowTime <= (track.clip.close >= 0.0f ? track.clip.close : track.clip.hits.back() + 0.3f)) {
+            ++g_stats.extraContacts;
+            return;
+        }
         track.lastVictim = a_victim->GetFormID();
         track.lastBlowAt = now;
         ++g_stats.blows;
@@ -264,6 +354,14 @@ namespace CombatAI::ClipTiming
             return;
         }
         ++g_stats.compared;
+        const float hitFrame = track.clip.hits[track.hitIndex];
+        if (blowTime < hitFrame) {
+            ++g_stats.beforeHitFrame;
+            g_stats.earlySum += hitFrame - blowTime;
+        }
+        ++(track.clip.open < 0.0f                                     ? g_stats.noWindow
+           : _stricmp(track.clip.openName, "Collision_AttackStart") == 0 ? g_stats.precisionWindow
+                                                                        : g_stats.vanillaWindow);
         g_stats.clipSum += clipError;
         g_stats.clipSumSq += static_cast<double>(clipError) * clipError;
         g_stats.clipAbs += std::abs(clipError);
@@ -278,12 +376,14 @@ namespace CombatAI::ClipTiming
         }
         if (debug) {
             LOG_DEBUG("ClipTiming 0x{:08X} -> 0x{:08X}: {} blow, clip '{}' HitFrame {:.2f}: clip predicted it {:.2f}s "
-                      "ahead, off by {:+.2f}s; median rule {}",
+                      "ahead, off by {:+.2f}s; median rule {}; blow at clip {:.2f}s ({})",
                       a_attacker->GetFormID(), a_victim->GetFormID(), a_power ? "power" : "light", track.clip.name,
-                      track.clip.hits[track.hitIndex], track.horizon, clipError,
-                      track.hasMedian ? std::format("off by {:+.2f}s", medianError) : std::string("had none"));
+                      hitFrame, track.horizon, clipError,
+                      track.hasMedian ? std::format("off by {:+.2f}s", medianError) : std::string("had none"), blowTime,
+                      Window(track.clip));
         }
         track.predicted = false; // a multi-hit clip predicts its next HitFrame afresh
+        track.consumed = track.hitIndex;
     }
 
     void Update(float a_deltaTime)
@@ -315,10 +415,13 @@ namespace CombatAI::ClipTiming
         const auto [medianMean, medianSd] = meanSd(s.medianSum, s.medianSumSq, s.medianCount);
         LOG_INFO("Clip timing (last 60s): {} blows watched, {} compared ({:.2f}s ahead on average); clip error {:+.2f}s "
                  "+- {:.2f} (mean abs {:.2f}); median-rule error {:+.2f}s +- {:.2f} (mean abs {:.2f}, {} blows); no clip "
-                 "{}, too fast to predict {}, after a missed prediction {}",
+                 "{}, too fast to predict {}, after a missed prediction {}; blows before HitFrame {} (by {:.2f}s of clip on "
+                 "average), hit window marks: Precision {}, vanilla {}, none {}; extra contacts {}",
                  s.blows, s.compared, s.compared ? s.horizonSum / s.compared : 0.0, clipMean, clipSd,
                  s.compared ? s.clipAbs / s.compared : 0.0, medianMean, medianSd,
-                 s.medianCount ? s.medianAbs / s.medianCount : 0.0, s.medianCount, s.noClip, s.noPrediction, s.stale);
+                 s.medianCount ? s.medianAbs / s.medianCount : 0.0, s.medianCount, s.noClip, s.noPrediction, s.stale, s.beforeHitFrame,
+                 s.beforeHitFrame ? s.earlySum / s.beforeHitFrame : 0.0, s.precisionWindow, s.vanillaWindow, s.noWindow,
+                 s.extraContacts);
     }
 
     void Evict(RE::FormID a_formID)
