@@ -12,9 +12,10 @@
 namespace CombatAI::DefenseTiming
 {
     // a_elapsed: seconds since the target's swing started, at commit; a_predicted: the expected seconds to the hit;
-    // a_swing: the target's swing count (a second commit in one swing replaces the first)
+    // a_swing: the target's swing count (a second commit in one swing replaces the first); a_source: what a_predicted
+    // came from (clip, median, none: a string literal, logged)
     void OnCommit(RE::Actor *a_self, RE::FormID a_target, ActionType a_action, float a_elapsed, float a_predicted,
-                  std::uint32_t a_swing);
+                  std::uint32_t a_swing, const char *a_source);
 
     // The tree took a block or bash intent: the defense starts now
     void OnStart(RE::FormID a_self);

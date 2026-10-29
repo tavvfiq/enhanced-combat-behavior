@@ -616,7 +616,10 @@ namespace CombatAI
 
         // Log comprehensive state for selected actor (debugging)
         if (debugEnabled && selectedRef && a_actor == selectedRef.get()) {
-            LogActorState(a_actor, a_state);
+            // ~28 lines per tick, ~70% of the 1.7.1 debug log: only on request
+            if (Config::GetInstance().GetGeneral().verboseTicks) {
+                LogActorState(a_actor, a_state);
+            }
 
             std::ostringstream logs;
             if (auto formID = ActorUtils::SafeGetFormID(a_actor)) {

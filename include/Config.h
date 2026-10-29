@@ -22,6 +22,7 @@ namespace CombatAI
         {
             bool enablePlugin = true;
             bool enableDebugLog = false;
+            bool verboseTicks = false; // + per-tick dumps of the console-selected NPC (full state, vanilla attack rolls)
             float processingInterval = 0.1f;
         };
 

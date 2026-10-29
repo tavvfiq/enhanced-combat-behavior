@@ -1,5 +1,14 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.7.3 (2026-10-30)
+
+Untested in game. Debug log only; no gameplay change.
+
+- **Smaller debug log.** The selected NPC's full state dump (about 28 lines a tick) and its vanilla attack roll lines now need the new `VerboseTicks` setting (General, off by default; MCM: "Debug log: per-tick dumps"). They were about 70% of the 1.7.1 log.
+- **Every line about one swing carries the same tag**, `swing=<attacker>#<n>`: the decision, the defend post, the executed action, the timing verdict, the hit and the animation timing lines.
+- **Where the blow's timing came from**: `src=clip` (your attack animation), `src=median` (learned swing time) or `src=none` (the animation's blows are past) on decision, post, executed and timing lines. A new `Eta` line per tick shows both predictions side by side.
+- Timing, hit timing and animation timing lines end with `key=value` fields.
+
 ## Enhanced Combat Behavior 1.7.2 (2026-10-30)
 
 Untested in game.

@@ -122,6 +122,7 @@ namespace CombatAI
         // General
         B("General", "EnablePlugin", m_general.enablePlugin);
         B("General", "EnableDebugLog", m_general.enableDebugLog);
+        B("General", "VerboseTicks", m_general.verboseTicks);
         D("General", "ProcessingInterval", m_general.processingInterval);
 
         // Humanizer
@@ -529,6 +530,7 @@ namespace CombatAI
     {
         m_general.enablePlugin = a_ini.GetBoolValue("General", "EnablePlugin", m_general.enablePlugin);
         m_general.enableDebugLog = a_ini.GetBoolValue("General", "EnableDebugLog", m_general.enableDebugLog);
+        m_general.verboseTicks = a_ini.GetBoolValue("General", "VerboseTicks", m_general.verboseTicks);
         m_general.processingInterval =
             static_cast<float>(a_ini.GetDoubleValue("General", "ProcessingInterval", m_general.processingInterval));
 

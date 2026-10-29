@@ -17,7 +17,7 @@ namespace CombatAI
                      const char *a_reason)
         {
             const RE::FormID formID = a_attacker->GetFormID();
-            if (Config::GetInstance().IsDebugTarget(formID)) {
+            if (Config::GetInstance().GetGeneral().verboseTicks && Config::GetInstance().IsDebugTarget(formID)) { // per tick: bulky
                 LOG_DEBUG("VanillaAttack 0x{:08X} {}: chance {:.2f} -> {:.2f} ({})", static_cast<std::uint32_t>(formID),
                           a_data->event.c_str(), a_chance, a_result, a_reason);
             }

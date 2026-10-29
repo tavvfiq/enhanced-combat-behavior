@@ -187,6 +187,7 @@ namespace CombatAI::ClipTiming
             int hitIndex = -1;    // which HitFrame it was for
             int consumed = -1;    // the last HitFrame of this clip a blow was scored for (not predicted again)
             bool debug = false;
+            std::uint32_t swing = 0; // a selected NPC's count of this attacker's swings, for the log's swing tag
             // The last blow counted: a second hit event on the same victim right after is the same blow
             RE::FormID lastVictim = 0;
             Clock::time_point lastBlowAt{};
@@ -226,7 +227,23 @@ namespace CombatAI::ClipTiming
         }
     } // namespace
 
-    void Sample(RE::Actor *a_attacker, float a_medianTimeToHit, bool a_debug)
+    const char *Name(Eta a_eta)
+    {
+        switch (a_eta) {
+        case Eta::kOff:
+            return "off";
+        case Eta::kNoClip:
+            return "noclip";
+        case Eta::kHeld:
+            return "held";
+        case Eta::kBlow:
+            return "blow";
+        default:
+            return "past";
+        }
+    }
+
+    void Sample(RE::Actor *a_attacker, float a_medianTimeToHit, bool a_debug, std::uint32_t a_swing)
     {
         if (!a_attacker) {
             return;
@@ -237,6 +254,9 @@ namespace CombatAI::ClipTiming
             std::scoped_lock lock(g_lock);
             if (const auto it = g_tracks.find(id); it != g_tracks.end() && Since(it->second.at, now) < 0.03f) {
                 it->second.debug |= a_debug;
+                if (a_debug) {
+                    it->second.swing = a_swing;
+                }
                 return; // another NPC sampled this attacker this frame
             }
         }
@@ -245,10 +265,14 @@ namespace CombatAI::ClipTiming
 
         std::scoped_lock lock(g_lock);
         auto &track = g_tracks[id];
+        if (a_debug) {
+            track.swing = a_swing;
+        }
         if (result != ReadResult::kFound) {
             if (a_debug && track.clip.animation) {
-                LOG_DEBUG("ClipTiming 0x{:08X}: swing with no attack clip found ({})", id,
-                          result == ReadResult::kNoGraph ? "no graph" : "no active clip with a HitFrame");
+                LOG_DEBUG("ClipTiming 0x{:08X}: swing with no attack clip found ({}) {}", id,
+                          result == ReadResult::kNoGraph ? "no graph" : "no active clip with a HitFrame",
+                          SwingTag(id, a_swing));
             }
             track.clip = {};
             track.at = now;
@@ -267,9 +291,9 @@ namespace CombatAI::ClipTiming
                     firstPerson = camera && camera->IsInFirstPerson();
                 }
                 LOG_DEBUG("ClipTiming 0x{:08X}: clip '{}' ({:.2f}s, HitFrame {}, {}, playbackSpeed {:.2f}, graph {}{}) "
-                          "at {:.2f}s; marks: {}",
+                          "at {:.2f}s {}; marks: {}",
                           id, clip.name, clip.duration, Brief(clip.hits), Window(clip), clip.playbackSpeed, clip.graph,
-                          firstPerson ? ", first person" : "", clip.localTime, clip.marks);
+                          firstPerson ? ", first person" : "", clip.localTime, SwingTag(id, a_swing), clip.marks);
             }
         } else {
             const float dt = Since(track.at, now);
@@ -314,29 +338,34 @@ namespace CombatAI::ClipTiming
                 now + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<float>(a_medianTimeToHit));
         }
         if (a_debug) {
-            LOG_DEBUG("ClipTiming 0x{:08X}: at {:.2f}s, rate {:.2f} (speed x ratio {:.2f}) -> HitFrame {:.2f} in {:.2f}s (median rule: {})", id,
-                      track.clip.localTime, track.rate, track.ratio, track.clip.hits[next], ahead,
-                      track.hasMedian ? std::format("{:.2f}s", a_medianTimeToHit) : std::string("none"));
+            LOG_DEBUG("ClipTiming 0x{:08X}: at {:.2f}s, rate {:.2f} (speed x ratio {:.2f}) -> HitFrame {:.2f} in {:.2f}s "
+                      "(median rule: {}) {}",
+                      id, track.clip.localTime, track.rate, track.ratio, track.clip.hits[next], ahead,
+                      track.hasMedian ? std::format("{:.2f}s", a_medianTimeToHit) : std::string("none"),
+                      SwingTag(id, a_swing));
         }
     }
 
-    bool Predict(RE::Actor *a_attacker, float &a_earliest, float &a_latest)
+    Eta Predict(RE::Actor *a_attacker, float &a_earliest, float &a_latest)
     {
         // The hit event comes this long after the clip reaches HitFrame (1.6.x runs, clip error median +0.02 to
         // +0.04 s)
         constexpr float kHitLag = 0.03f;
         if (!a_attacker) {
-            return false;
+            return Eta::kNoClip;
         }
         const auto now = Clock::now();
         std::scoped_lock lock(g_lock);
         const auto it = g_tracks.find(a_attacker->GetFormID());
         if (it == g_tracks.end()) {
-            return false;
+            return Eta::kNoClip;
         }
         const auto &track = it->second;
-        if (!track.clip.animation || track.rate < kMinRate || Since(track.at, now) > 0.15f) {
-            return false;
+        if (!track.clip.animation || Since(track.at, now) > 0.15f) {
+            return Eta::kNoClip;
+        }
+        if (track.rate < kMinRate) {
+            return Eta::kHeld;
         }
         const float position = track.clip.localTime + track.rate * Since(track.at, now);
         for (int i = track.consumed + 1; i < static_cast<int>(track.clip.hits.size()); ++i) {
@@ -348,15 +377,15 @@ namespace CombatAI::ClipTiming
             const float open = i == 0 && track.clip.open >= 0.0f && track.clip.open < hit ? track.clip.open : hit;
             a_latest = (std::max)(0.0f, (hit - position) / track.rate + kHitLag);
             a_earliest = (std::max)(0.0f, (std::min)((open - position) / track.rate, a_latest));
-            return true;
+            return Eta::kBlow;
         }
         // Every blow of the clip is past: none is coming from it. The median rule would still see one (1.7.1 run: 3
         // late defend posts right after the clip's HitFrame passed)
         a_earliest = a_latest = 999.0f;
-        return true;
+        return Eta::kPast;
     }
 
-    void OnHit(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power)
+    void OnHit(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power, std::uint32_t a_swing)
     {
         if (!a_attacker || !a_victim) {
             return;
@@ -400,9 +429,12 @@ namespace CombatAI::ClipTiming
             ++g_stats.stale;
             if (debug) {
                 LOG_DEBUG("ClipTiming 0x{:08X} -> 0x{:08X}: {} blow {:.2f}s after the predicted one (clip '{}' HitFrame "
-                          "{:.2f}): that swing missed, not scored",
+                          "{:.2f}): that swing missed, not scored. kind={} clip={} hf={:.2f} late={:.2f} result=missed "
+                          "{}",
                           a_attacker->GetFormID(), a_victim->GetFormID(), a_power ? "power" : "light", clipError,
-                          track.clip.name, track.clip.hits[track.hitIndex]);
+                          track.clip.name, track.clip.hits[track.hitIndex], a_power ? "power" : "light",
+                          track.clip.name, track.clip.hits[track.hitIndex], clipError,
+                          SwingTag(a_attacker->GetFormID(), a_swing));
             }
             track.predicted = false;
             return;
@@ -430,11 +462,14 @@ namespace CombatAI::ClipTiming
         }
         if (debug) {
             LOG_DEBUG("ClipTiming 0x{:08X} -> 0x{:08X}: {} blow, clip '{}' HitFrame {:.2f}: clip predicted it {:.2f}s "
-                      "ahead, off by {:+.2f}s; median rule {}; blow at clip {:.2f}s ({})",
+                      "ahead, off by {:+.2f}s; median rule {}; blow at clip {:.2f}s ({}). kind={} clip={} hf={:.2f} "
+                      "ahead={:.2f} clipErr={:+.2f} medErr={} at={:.2f} open={:.2f} close={:.2f} {}",
                       a_attacker->GetFormID(), a_victim->GetFormID(), a_power ? "power" : "light", track.clip.name,
                       hitFrame, track.horizon, clipError,
                       track.hasMedian ? std::format("off by {:+.2f}s", medianError) : std::string("had none"), blowTime,
-                      Window(track.clip));
+                      Window(track.clip), a_power ? "power" : "light", track.clip.name, hitFrame, track.horizon,
+                      clipError, track.hasMedian ? std::format("{:+.2f}", medianError) : std::string("na"), blowTime,
+                      track.clip.open, track.clip.close, SwingTag(a_attacker->GetFormID(), a_swing));
         }
         track.predicted = false; // a multi-hit clip predicts its next HitFrame afresh
         track.consumed = track.hitIndex;

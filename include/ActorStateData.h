@@ -234,6 +234,7 @@ namespace CombatAI
         float attackStartTime = -1.0f;        // When current attack started (relative time, -1 if not attacking)
         float estimatedAttackDuration = 0.0f; // Estimated total duration of current attack
         float timeUntilAttackHits = 999.0f;   // Estimated time until attack hits (999 if not attacking or already hit)
+        const char *timingSource = "median"; // what timeUntilAttackHits came from this tick: clip, median, none (log)
         float timeUntilEarliestHit = 999.0f;  // Earliest weapon contact (the clip's hit window opening, ClipTiming);
                                               // = timeUntilAttackHits without a clip
         std::uint32_t swingCount = 0;         // Counts the target's swings: the key for once-per-swing rolls

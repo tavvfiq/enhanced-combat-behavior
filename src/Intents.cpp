@@ -73,7 +73,8 @@ namespace CombatAI::Intents
         void Debug(RE::Actor *a_actor, const char *a_what, int a_kind)
         {
             if (Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
-                LOG_DEBUG("Intent 0x{:08X}: {} {}", static_cast<std::uint32_t>(a_actor->GetFormID()), a_what, a_kind);
+                LOG_DEBUG("Intent 0x{:08X}: {} {}{}{}", static_cast<std::uint32_t>(a_actor->GetFormID()), a_what, a_kind,
+                          t_swingTag.empty() ? "" : " ", t_swingTag);
             }
         }
     } // namespace

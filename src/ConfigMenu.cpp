@@ -170,6 +170,7 @@ namespace CombatAI
                 if (check("Enable debug log (select an NPC in the console to follow it)", &config.m_general.enableDebugLog)) {
                     applyLogLevel();
                 }
+                check("Debug log: per-tick dumps (full state, vanilla attack rolls; bulky)", &config.m_general.verboseTicks);
                 check("Include humanoid creatures (draugr, falmer, skeletons)", &config.m_decisionMatrix.includeHumanoidCreatures);
                 if (header("Integrations")) {
                     note("Precision and TK Dodge are detected on game load (restart to re-detect).");

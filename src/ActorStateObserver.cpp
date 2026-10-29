@@ -1356,15 +1356,19 @@ namespace CombatAI
         if (!a_attacker || !a_victim) {
             return;
         }
-        ClipTiming::OnHit(a_attacker, a_victim, a_power); // clip prediction vs the real blow (measurement only)
-        // The victim's view of its target's swing: elapsed at its last update plus the time since
+        // The victim's view of its target's swing: elapsed at its last update plus the time since, and which swing
         float sample = -1.0f;
+        std::uint32_t swing = 0;
         m_targetTemporalData.Modify(a_victim->GetFormID(), [&](TargetTemporalData &t) {
-            if (t.targetFormID == a_attacker->GetFormID() && t.attackStartTime >= 0.0f) {
-                sample = t.attackStartTime +
-                         std::chrono::duration<float>(std::chrono::steady_clock::now() - t.updatedAt).count();
+            if (t.targetFormID == a_attacker->GetFormID()) {
+                swing = t.swingCount;
+                if (t.attackStartTime >= 0.0f) {
+                    sample = t.attackStartTime +
+                             std::chrono::duration<float>(std::chrono::steady_clock::now() - t.updatedAt).count();
+                }
             }
         });
+        ClipTiming::OnHit(a_attacker, a_victim, a_power, swing); // clip prediction vs the real blow
         if (sample >= 0.0f) {
             DefenseTiming::OnHit(a_victim, a_attacker->GetFormID(), sample, a_blocked); // the defense timing log
         }
@@ -1396,9 +1400,11 @@ namespace CombatAI
             d.average[k] = average = sorted[n / 2];
         });
         if (Config::GetInstance().IsDebugTarget(a_victim->GetFormID())) {
-            LOG_DEBUG("HitTiming 0x{:08X} -> 0x{:08X}: swing start to {} hit {:.2f}s (median {:.2f}s over {})",
+            LOG_DEBUG("HitTiming 0x{:08X} -> 0x{:08X}: swing start to {} hit {:.2f}s (median {:.2f}s over {}). kind={} "
+                      "sample={:.2f} median={:.2f} n={} {}",
                       a_attacker->GetFormID(), a_victim->GetFormID(), a_power ? "power" : "light", sample, average,
-                      count);
+                      count, a_power ? "power" : "light", sample, average, count,
+                      SwingTag(a_attacker->GetFormID(), swing));
         }
     }
 

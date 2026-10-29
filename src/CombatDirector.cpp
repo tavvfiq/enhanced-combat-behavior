@@ -190,28 +190,43 @@ namespace CombatAI
                 LOG_DEBUG("DualBlock 0x{:08X}: target stopped attacking, ending the hold", static_cast<std::uint32_t>(formID));
             }
         }
+        // The swing this tick is about: tagged on the decision's log lines (Eta, Decision, Intent, Executed)
+        t_swingTag = debugEnabled && state.target.isAttacking && state.temporal.target.attackStartTime >= 0.0f
+                         ? SwingTag(state.target.targetFormID, state.temporal.target.swingCount)
+                         : std::string();
+        const struct SwingTagScope
+        {
+            ~SwingTagScope() { t_swingTag.clear(); }
+        } swingTagScope;
         // The player's attack clip predicts the blow (sampled for the clip timing log either way); parries and timed
         // blocks are timed from it, the learned median swing time is the fallback (1.6.x runs: mean miss 0.07 s vs
-        // 0.17 s, power attacks 0.07 vs 0.26)
+        // 0.17 s, power attacks 0.07 vs 0.26). timingSource: what this tick's time to the blow came from
+        const char *&timingSource = state.temporal.target.timingSource;
+        timingSource = "median";
         if (state.target.isPlayer && state.target.isAttacking) {
             if (auto target = RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID)) {
-                ClipTiming::Sample(target, state.temporal.target.timeUntilAttackHits, debugEnabled);
+                const float median = state.temporal.target.timeUntilAttackHits;
+                ClipTiming::Sample(target, median, debugEnabled, state.temporal.target.swingCount);
+                auto eta = ClipTiming::Eta::kOff;
                 float earliest = 0.0f, latest = 0.0f;
-                if (config.GetDecisionMatrix().usePlayerClipTiming && ClipTiming::Predict(target, earliest, latest)) {
-                    if (debugEnabled) {
-                        if (latest < 900.0f) {
-                            LOG_DEBUG("ClipTiming 0x{:08X}: blow in {:.2f}s, contact from {:.2f}s (median rule {:.2f}s)",
-                                      static_cast<std::uint32_t>(formID), latest, earliest,
-                                      state.temporal.target.timeUntilAttackHits);
-                        } else {
-                            LOG_DEBUG("ClipTiming 0x{:08X}: no blow ahead in the clip (median rule {:.2f}s)",
-                                      static_cast<std::uint32_t>(formID), state.temporal.target.timeUntilAttackHits);
-                        }
-                    }
+                if (config.GetDecisionMatrix().usePlayerClipTiming) {
+                    eta = ClipTiming::Predict(target, earliest, latest);
+                }
+                if (eta == ClipTiming::Eta::kBlow || eta == ClipTiming::Eta::kPast) {
+                    timingSource = eta == ClipTiming::Eta::kBlow ? "clip" : "none"; // none: the clip's blows are past
                     state.temporal.target.timeUntilAttackHits = latest;
                     state.temporal.target.timeUntilEarliestHit = earliest;
                 }
+                if (debugEnabled) {
+                    LOG_DEBUG("Eta 0x{:08X}: src={} clip={} blow={:.2f} contact={:.2f} median={:.2f} {}",
+                              static_cast<std::uint32_t>(formID), timingSource, ClipTiming::Name(eta),
+                              state.temporal.target.timeUntilAttackHits, state.temporal.target.timeUntilEarliestHit,
+                              median, t_swingTag);
+                }
             }
+        }
+        if (!t_swingTag.empty()) {
+            t_swingTag = std::format("src={} {}", timingSource, t_swingTag);
         }
         MaybeSwitchTarget(a_actor, formID, state);
         DecisionResult decision = m_decisionMatrix.Evaluate(a_actor, state);
@@ -287,8 +302,8 @@ namespace CombatAI
         }
 
         if (debugEnabled) {
-            LOG_DEBUG("Decision: actor=0x{:08X} action={} priority={:.2f}", static_cast<std::uint32_t>(formID),
-                      ActionName(decision.action), decision.priority);
+            LOG_DEBUG("Decision: actor=0x{:08X} action={} priority={:.2f}{}", static_cast<std::uint32_t>(formID),
+                      ActionName(decision.action), decision.priority, t_swingTag.empty() ? "" : " ", t_swingTag);
         }
 
         // Briefly let a successful timed block settle before locomotion can release it.
@@ -653,11 +668,11 @@ namespace CombatAI
         }
 
         if (Config::GetInstance().IsDebugTarget(a_formID)) {
-            LOG_DEBUG("Executed 0x{:08X}: {} (priority {:.2f}) target 0x{:08X} dist {:.0f} hp {:.0f}%/{:.0f}%",
+            LOG_DEBUG("Executed 0x{:08X}: {} (priority {:.2f}) target 0x{:08X} dist {:.0f} hp {:.0f}%/{:.0f}%{}{}",
                       static_cast<std::uint32_t>(a_formID), ActionName(executedDecision.action),
                       executedDecision.priority, static_cast<std::uint32_t>(a_state.target.targetFormID),
                       a_state.target.distance, a_state.self.healthPercent * 100.0f,
-                      a_state.target.healthPercent * 100.0f);
+                      a_state.target.healthPercent * 100.0f, t_swingTag.empty() ? "" : " ", t_swingTag);
         }
 
         switch (executedDecision.action) {
@@ -677,7 +692,7 @@ namespace CombatAI
         if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && a_state.temporal.target.attackStartTime >= 0.0f) {
             DefenseTiming::OnCommit(a_actor, a_state.target.targetFormID, executedDecision.action,
                                     a_state.temporal.target.attackStartTime, a_state.temporal.target.timeUntilAttackHits,
-                                    a_state.temporal.target.swingCount);
+                                    a_state.temporal.target.swingCount, a_state.temporal.target.timingSource);
         }
 
         m_processedActors.Insert(a_formID);

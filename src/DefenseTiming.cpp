@@ -26,6 +26,7 @@ namespace CombatAI::DefenseTiming
             float elapsed = 0.0f;   // seconds into the swing at commit
             float predicted = 0.0f; // expected seconds to the hit at commit
             std::uint32_t swing = 0;
+            const char *source = "median"; // what predicted came from (clip, median, none)
             Clock::time_point at{};
             float startDelay = -1.0f; // seconds from commit to the tree starting it (-1: not started)
             bool debug = false;
@@ -118,27 +119,38 @@ namespace CombatAI::DefenseTiming
                 }
             }
             if (a_pending.debug) {
+                // The same facts as fields (-1 = none), and the swing tag
+                std::string action = kNames[*kind];
+                std::ranges::replace(action, ' ', '_');
+                std::string verdictKey = hit && !started ? std::string("never_started") : std::string(verdict);
+                std::ranges::replace(verdictKey, ' ', '_');
+                const std::string tail = std::format(
+                    ". action={} commit={:.2f} start={:.2f} blow={:.2f} lead={:.2f} pred={:.2f} verdict={} result={} src={} {}",
+                    action, a_pending.elapsed, started ? a_pending.startDelay : -1.0f, hit ? a_elapsedAtHit : -1.0f,
+                    hit && started ? lead : -1.0f, a_pending.predicted, verdictKey,
+                    !hit ? "no_blow" : a_blocked ? "blocked" : "hit", a_pending.source,
+                    SwingTag(a_pending.target, a_pending.swing));
                 if (hit && started) {
                     LOG_DEBUG("Timing 0x{:08X}: {} committed {:.2f}s into the swing, started {:.2f}s later, blow at "
-                              "{:.2f}s -> {:.2f}s before it (predicted {:.2f}, window {:.2f}-{:.2f}: {}), {}",
+                              "{:.2f}s -> {:.2f}s before it (predicted {:.2f}, window {:.2f}-{:.2f}: {}), {}{}",
                               a_self, kNames[*kind], a_pending.elapsed, a_pending.startDelay, a_elapsedAtHit, lead,
-                              a_pending.predicted, start, end, verdict, a_blocked ? "blocked" : "took the hit");
+                              a_pending.predicted, start, end, verdict, a_blocked ? "blocked" : "took the hit", tail);
                 } else if (hit) {
                     LOG_DEBUG("Timing 0x{:08X}: {} committed {:.2f}s into the swing, the tree never started it before the "
-                              "blow at {:.2f}s, {}",
+                              "blow at {:.2f}s, {}{}",
                               a_self, kNames[*kind], a_pending.elapsed, a_elapsedAtHit,
-                              a_blocked ? "blocked (block already up)" : "took the hit");
+                              a_blocked ? "blocked (block already up)" : "took the hit", tail);
                 } else {
                     LOG_DEBUG("Timing 0x{:08X}: {} committed {:.2f}s into the swing, no blow came (dodged, missed or "
-                              "cancelled; predicted {:.2f}s before it: {})",
-                              a_self, kNames[*kind], a_pending.elapsed, a_pending.predicted, verdict);
+                              "cancelled; predicted {:.2f}s before it: {}){}",
+                              a_self, kNames[*kind], a_pending.elapsed, a_pending.predicted, verdict, tail);
                 }
             }
         }
     } // namespace
 
     void OnCommit(RE::Actor *a_self, RE::FormID a_target, ActionType a_action, float a_elapsed, float a_predicted,
-                  std::uint32_t a_swing)
+                  std::uint32_t a_swing, const char *a_source)
     {
         const auto kind = KindOf(a_action);
         if (!a_self || !kind) {
@@ -155,7 +167,7 @@ namespace CombatAI::DefenseTiming
                 Resolve(id, *old, -1.0f, false); // a new swing before the last one's blow
             }
         }
-        const Pending pending{a_target, a_action, a_elapsed, a_predicted, a_swing, Clock::now(),
+        const Pending pending{a_target, a_action, a_elapsed, a_predicted, a_swing, a_source, Clock::now(),
                               *kind == kDodge ? 0.0f : -1.0f, // a dodge starts at the commit; blocks and bashes at the tree
                               Config::GetInstance().IsDebugTarget(id)};
         g_pending.ModifyOrCreate(id, [&](Pending &p) { p = pending; });
