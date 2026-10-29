@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.3.5 (2026-10-29)
+
+- **Poisons go on before the fight or after backing off.** An NPC coats its weapon while its target is still at least `SafeDrinkDistance` (350) away, which is usually on engage. Closer than that, it backs off first, the same way as for a drink, and coats once clear or after `SafeDrinkMaxWaitSeconds`. Before, it coated mid-melee. A drink still comes first.
+- **No paralysis chains.** In testing, a bandit paralyzed the player (about 8 seconds) and recoated with Paralysis at once while the player was still down. Now paralysis poison is used at most once per `PoisonParalysisCooldownSeconds` (30) per NPC, and never on a target that is already knocked down or paralyzed; in between it uses its other poisons. Menu: Offense > "Paralysis poison cooldown (s)".
+- Fix: a dead NPC (killed in one hit) no longer gets a last potion, poison or shout tick (it logged a drink at 0% health; nothing happened in game).
+- Log: `Poison 0x..: backs off to coat its weapon with ...`, then `coats ... (target at D)` or `(target still at D after N s)`.
+
 ## Enhanced Combat Behavior 1.3.4 (2026-10-29)
 
 - **Self-buff shouts.** Vanilla NPCs never shout Become Ethereal, Elemental Fury, Battle Fury or Slow Time, even when they know them: the game's combat AI has no entry for those effects. Now an NPC that knows them uses them. Become Ethereal at 35% health or less (`PotionHealthThreshold`), so it is untouchable while it backs off and drinks. Elemental Fury or Battle Fury when a melee NPC closes in (target within 800 units). It uses the highest level it has, never while its voice recovers or the effect is already on it, and tries at most every 2 seconds.

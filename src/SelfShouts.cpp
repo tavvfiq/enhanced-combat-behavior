@@ -110,7 +110,7 @@ namespace CombatAI::SelfShouts
     void Update(RE::Actor *a_actor, const ActorStateData &a_state, bool a_debug)
     {
         const auto &matrix = Config::GetInstance().GetDecisionMatrix();
-        if (!matrix.enableSelfShouts) {
+        if (!matrix.enableSelfShouts || a_actor->IsDead() || a_state.self.healthPercent <= 0.0f) {
             return;
         }
         const auto now = Clock::now();

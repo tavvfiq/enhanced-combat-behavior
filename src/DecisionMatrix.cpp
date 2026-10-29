@@ -1486,7 +1486,7 @@ namespace CombatAI
             }
         }
 
-        // A potion is waiting for room (Potions::Update): get away from the target, then drink
+        // A potion or poison is waiting for room (Potions::Update): get away from the target, then drink or coat
         if (!shouldRetreat && Intents::WantsToDrink(a_actor)) {
             shouldRetreat = true;
             retreatPriority = 2.0f;

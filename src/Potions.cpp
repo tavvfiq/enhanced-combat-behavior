@@ -255,7 +255,8 @@ namespace CombatAI::Potions
 
         struct PoisonState
         {
-            Clock::time_point applied{}; // last poison we put on (cooldown)
+            Clock::time_point applied{};   // last poison we put on (cooldown)
+            Clock::time_point paralyzed{}; // last paralysis poison (PoisonParalysisCooldownSeconds)
             Clock::time_point scanned{};
             std::array<RE::AlchemyItem *, kPoisonKindCount> poison{}; // strongest per kind at that scan
         };
@@ -330,36 +331,42 @@ namespace CombatAI::Potions
             return nullptr;
         }
 
-        void UpdatePoison(RE::Actor *a_actor, const ActorStateData &a_state, bool a_debug)
+        // Coats with room to spare (on engage, the target still far), else backs off first like a drink (the same wait:
+        // the brain retreats) and coats once SafeDrinkDistance away or after SafeDrinkMaxWaitSeconds. True while backing off.
+        bool UpdatePoison(RE::Actor *a_actor, const ActorStateData &a_state, bool a_debug)
         {
             const auto &matrix = Config::GetInstance().GetDecisionMatrix();
             if (!matrix.enableNPCPoisons || g_otherMod || !a_state.target.isValid || !a_actor->AsActorState()->IsWeaponDrawn()) {
-                return;
+                return false;
             }
             const auto now = Clock::now();
             const RE::FormID id = a_actor->GetFormID();
             PoisonState s = g_poison.Find(id).value_or(PoisonState{});
             if (now - s.applied < std::chrono::duration<float>(matrix.poisonCooldownSeconds) || !PoisonableWeapon(a_actor)) {
-                return;
+                return false;
             }
             auto *target = RE::TESForm::LookupByID<RE::Actor>(a_state.target.targetFormID);
             auto *targetAV = target ? ActorUtils::SafeAsActorValueOwner(target) : nullptr;
             if (!targetAV || targetAV->GetActorValue(RE::ActorValue::kPoisonResist) >= 100.0f) {
-                return; // immune: keep the poison
+                return false; // immune: keep the poison
             }
             if (now - s.scanned >= std::chrono::seconds(1)) {
                 s.poison = BestPoisons(a_actor);
                 s.scanned = now;
             }
-            // Paralyze a strong target, drain a caster's magicka or a fighter's stamina, else damage health
-            const PoisonKind want = a_state.target.isPlayer || Boss::Get(target).boss          ? kParalyze
+            // Paralyze a strong target, drain a caster's magicka or a fighter's stamina, else damage health. No paralysis
+            // for a target already down, nor again within PoisonParalysisCooldownSeconds (run 1.3.4: ~8 s paralysis per
+            // dose, recoated at once while the player was still down: a paralysis chain)
+            const bool paralyzeOK = a_state.target.knockState == RE::KNOCK_STATE_ENUM::kNormal &&
+                                    now - s.paralyzed >= std::chrono::duration<float>(matrix.poisonParalysisCooldownSeconds);
+            const PoisonKind want = paralyzeOK && (a_state.target.isPlayer || Boss::Get(target).boss)        ? kParalyze
                                     : a_state.target.isCasting || a_state.target.weaponType == WeaponType::Spell ? kDamageMagicka
                                     : a_state.target.isMelee                                                     ? kDamageStamina
                                                                                                                  : kDamageHealth;
             RE::AlchemyItem *poison = nullptr;
             PoisonKind kind = want;
             for (const PoisonKind k : {want, kDamageHealth, kParalyze, kDamageStamina, kDamageMagicka, kOtherPoison}) {
-                if (s.poison[k]) {
+                if (s.poison[k] && (k != kParalyze || paralyzeOK)) {
                     poison = s.poison[k];
                     kind = k;
                     break;
@@ -367,14 +374,29 @@ namespace CombatAI::Potions
             }
             if (!poison) {
                 g_poison.ModifyOrCreate(id, [&](PoisonState &a_entry) { a_entry = s; });
-                return;
+                return false;
+            }
+            const bool room = a_state.target.distance >= matrix.safeDrinkDistance;
+            const float waited = room ? 0.0f : Intents::PostDrinkWait(a_actor);
+            if (!room && waited < matrix.safeDrinkMaxWaitSeconds) {
+                if (a_debug) {
+                    LOG_DEBUG("Poison 0x{:08X}: backs off to coat its weapon with {} ({}; target at {:.0f}, {:.1f} s)", id,
+                              poison->GetName(), kPoisonKindName[kind], a_state.target.distance, waited);
+                }
+                g_poison.ModifyOrCreate(id, [&](PoisonState &a_entry) { a_entry = s; });
+                return true;
             }
             s.applied = now;
+            if (kind == kParalyze) {
+                s.paralyzed = now;
+            }
             s.scanned = {}; // rescan next time: this one may have been the last
             g_poison.ModifyOrCreate(id, [&](PoisonState &a_entry) { a_entry = s; });
             if (a_debug) {
-                LOG_DEBUG("Poison 0x{:08X}: coats its weapon with {} ({}, wanted {}; target at {:.0f})", id, poison->GetName(),
-                          kPoisonKindName[kind], kPoisonKindName[want], a_state.target.distance);
+                LOG_DEBUG("Poison 0x{:08X}: coats its weapon with {} ({}, wanted {}; {})", id, poison->GetName(),
+                          kPoisonKindName[kind], kPoisonKindName[want],
+                          room ? std::format("target at {:.0f}", a_state.target.distance)
+                               : std::format("target still at {:.0f} after {:.1f} s", a_state.target.distance, waited));
             }
             // shortcut: one dose; Concentrated Poison (kModPoisonDoseCount) is not applied, add it once its call is RE'd
             SKSE::GetTaskInterface()->AddTask([handle = a_actor->GetHandle(), poison]() {
@@ -391,6 +413,7 @@ namespace CombatAI::Potions
                     actor->RemoveItem(poison, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
                 }
             });
+            return false;
         }
 
         // Slot 0x0F of CombatInventoryItemMagicT<CombatInventoryItemPotion, CombatMagicCasterRestore> (SE 265372 /
@@ -425,7 +448,8 @@ namespace CombatAI::Potions
         }
     }
 
-    static void UpdateDrink(RE::Actor *a_actor, const ActorStateData &a_state, bool a_debug)
+    // True while it backs off to drink (Update ends the wait when neither a drink nor a poison wants it)
+    static bool UpdateDrink(RE::Actor *a_actor, const ActorStateData &a_state, bool a_debug)
     {
         const auto now = Clock::now();
         const RE::FormID id = a_actor->GetFormID();
@@ -455,7 +479,6 @@ namespace CombatAI::Potions
             }
         }
         if (need == kNeedCount) {
-            Intents::EndDrinkWait(a_actor);
             // Resist the target's element first (the hits are coming), then fortify its own weapon skill
             auto *target = buffing ? RE::TESForm::LookupByID<RE::Actor>(a_state.target.targetFormID) : nullptr;
             const Buff element = target ? TargetElement(target) : kSkillBuff;
@@ -480,7 +503,7 @@ namespace CombatAI::Potions
                 }
                 Drink(a_actor, buff);
             }
-            return;
+            return false;
         }
         auto *potion = s.potion[need];
         const float level = need == kHealth ? a_state.self.healthPercent
@@ -496,10 +519,9 @@ namespace CombatAI::Potions
                           level * 100.0f, potion->GetName(), a_state.target.distance, waited);
             }
             g_state.ModifyOrCreate(id, [&](State &a_entry) { a_entry = s; });
-            return;
+            return true;
         }
 
-        Intents::EndDrinkWait(a_actor);
         s.drank = now;
         s.scanned = {}; // rescan next time: this one may have been the last
         g_state.ModifyOrCreate(id, [&](State &a_entry) { a_entry = s; });
@@ -509,6 +531,7 @@ namespace CombatAI::Potions
                            : std::format("target still at {:.0f} after {:.1f} s", a_state.target.distance, waited));
         }
         Drink(a_actor, potion);
+        return false;
     }
 
     void Update(RE::Actor *a_actor, const ActorStateData &a_state, bool a_debug)
@@ -516,8 +539,14 @@ namespace CombatAI::Potions
         if (!ActorUtils::SafeHasKeywordString(a_actor, "ActorTypeNPC")) {
             return; // creatures keep vanilla (no drink animations for them, no poisonable weapons)
         }
-        UpdateDrink(a_actor, a_state, a_debug);
-        UpdatePoison(a_actor, a_state, a_debug);
+        if (a_actor->IsDead() || a_state.self.healthPercent <= 0.0f) {
+            return; // run 1.3.4: one-shot NPC ticked once more at 0% and "drank"
+        }
+        const bool drinkWait = UpdateDrink(a_actor, a_state, a_debug);
+        const bool poisonWait = !drinkWait && UpdatePoison(a_actor, a_state, a_debug); // a drink goes first
+        if (!drinkWait && !poisonWait) {
+            Intents::EndDrinkWait(a_actor);
+        }
     }
 
     void Evict(RE::FormID a_formID)

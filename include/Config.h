@@ -127,6 +127,7 @@ namespace CombatAI
             bool enableBuffPotions = true;        // NPCs drink Fortify weapon-skill potions on engage, Resist vs an elemental target
             bool enableNPCPoisons = true;         // NPCs coat their weapon with a poison they carry (vanilla never does)
             float poisonCooldownSeconds = 10.0f;  // between poisons (one dose each: the next hit spends it)
+            float poisonParalysisCooldownSeconds = 30.0f; // between paralysis poisons (none on a target already down)
             float safeDrinkDistance = 350.0f;     // drink once this far from the target
             float safeDrinkMaxWaitSeconds = 3.0f; // or after backing off this long
             bool enableOffense = true;
