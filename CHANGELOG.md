@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.6.1 (2026-10-29)
+
+Untested in game. Measurement only: no behaviour change.
+
+- **Clip timing probe fixes.** A power attack started from a light swing is now read from the power clip (it stayed on the light clip and scored 0.4-0.7 s late). A missed swing's prediction is no longer scored against a later blow from another swing (counted as "after a missed prediction" in the summary). A doubled hit event for one blow is counted once.
+
 ## Enhanced Combat Behavior 1.6.0 (2026-10-29)
 
 Untested in game. Measurement only: no behaviour change.

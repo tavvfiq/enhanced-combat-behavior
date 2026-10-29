@@ -41,8 +41,10 @@ namespace CombatAI::ClipTiming
             kNoHitFrame
         };
 
-        // The first active clip that carries a HitFrame annotation (an attack clip); every graph of the manager is
-        // searched, the player's first-person graph included if the manager holds it
+        // The attack clip (an active clip with a HitFrame annotation) playing now; every graph of the manager is
+        // searched, the player's first-person graph included if the manager holds it. During a transition both clips
+        // are active: the newest one (lowest local time) with a HitFrame still ahead wins. 1.6.0 took the first one
+        // listed and stayed on the light clip a power attack started from (6 power blows read 0.4-0.7 s late)
         ReadResult Read(RE::Actor *a_actor, Clip &a_out)
         {
             RE::BSAnimationGraphManagerPtr manager;
@@ -50,6 +52,7 @@ namespace CombatAI::ClipTiming
                 return ReadResult::kNoGraph;
             }
             RE::BSSpinLockGuard lock(manager->GetRuntimeData().updateLock);
+            bool found = false, foundAhead = false;
             for (std::uint32_t g = 0; g < manager->graphs.size(); ++g) {
                 auto *graph = manager->graphs[g] ? manager->graphs[g]->behaviorGraph : nullptr;
                 auto *activeNodes = graph ? graph->activeNodes : nullptr;
@@ -78,13 +81,18 @@ namespace CombatAI::ClipTiming
                         continue;
                     }
                     std::ranges::sort(hits);
+                    const bool ahead = hits.back() > clip->localTime;
+                    if (found && (foundAhead > ahead || (foundAhead == ahead && clip->localTime >= a_out.localTime))) {
+                        continue; // the one kept is newer, or still has its blow ahead
+                    }
                     const char *name = clip->animationName.c_str();
                     a_out = {animation, name ? name : "", std::move(hits), animation->duration, clip->localTime,
                              clip->playbackSpeed, static_cast<int>(g)};
-                    return ReadResult::kFound;
+                    found = true;
+                    foundAhead = ahead;
                 }
             }
-            return ReadResult::kNoHitFrame;
+            return found ? ReadResult::kFound : ReadResult::kNoHitFrame;
         }
 
         // Per attacker: the clip seen last, and the predictions made for its next blow
@@ -100,6 +108,9 @@ namespace CombatAI::ClipTiming
             float horizon = 0.0f; // seconds before the predicted blow the prediction was made
             int hitIndex = -1;    // which HitFrame it was for
             bool debug = false;
+            // The last blow counted: a second hit event on the same victim right after is the same blow
+            RE::FormID lastVictim = 0;
+            Clock::time_point lastBlowAt{};
         };
 
         std::mutex g_lock;
@@ -107,7 +118,7 @@ namespace CombatAI::ClipTiming
 
         struct Stats
         {
-            int blows = 0, compared = 0, noPrediction = 0, noClip = 0;
+            int blows = 0, compared = 0, noPrediction = 0, noClip = 0, stale = 0;
             double clipSum = 0.0, clipSumSq = 0.0, clipAbs = 0.0;
             double medianSum = 0.0, medianSumSq = 0.0, medianAbs = 0.0;
             int medianCount = 0;
@@ -222,6 +233,12 @@ namespace CombatAI::ClipTiming
             return; // no brain NPC watched this swing
         }
         auto &track = it->second;
+        // 1.6.0 run: two hit events 1-24 ms apart for one blow; the second was scored against the next HitFrame
+        if (track.lastVictim == a_victim->GetFormID() && Since(track.lastBlowAt, now) < 0.1f) {
+            return;
+        }
+        track.lastVictim = a_victim->GetFormID();
+        track.lastBlowAt = now;
         ++g_stats.blows;
         if (!track.clip.animation) {
             ++g_stats.noClip;
@@ -232,6 +249,20 @@ namespace CombatAI::ClipTiming
             return;
         }
         const float clipError = Since(track.clipAt, now); // + = the blow came later than predicted
+        const bool debug = track.debug || Config::GetInstance().IsDebugTarget(a_victim->GetFormID());
+        if (clipError > 0.3f) {
+            // The predicted blow never landed (a miss) and this one came from a swing whose clip was not read
+            // (1.6.0 run: a missed special attack scored +0.78 s); the real lag after HitFrame is under ~0.15 s
+            ++g_stats.stale;
+            if (debug) {
+                LOG_DEBUG("ClipTiming 0x{:08X} -> 0x{:08X}: {} blow {:.2f}s after the predicted one (clip '{}' HitFrame "
+                          "{:.2f}): that swing missed, not scored",
+                          a_attacker->GetFormID(), a_victim->GetFormID(), a_power ? "power" : "light", clipError,
+                          track.clip.name, track.clip.hits[track.hitIndex]);
+            }
+            track.predicted = false;
+            return;
+        }
         ++g_stats.compared;
         g_stats.clipSum += clipError;
         g_stats.clipSumSq += static_cast<double>(clipError) * clipError;
@@ -245,7 +276,6 @@ namespace CombatAI::ClipTiming
             g_stats.medianSumSq += static_cast<double>(medianError) * medianError;
             g_stats.medianAbs += std::abs(medianError);
         }
-        const bool debug = track.debug || Config::GetInstance().IsDebugTarget(a_victim->GetFormID());
         if (debug) {
             LOG_DEBUG("ClipTiming 0x{:08X} -> 0x{:08X}: {} blow, clip '{}' HitFrame {:.2f}: clip predicted it {:.2f}s "
                       "ahead, off by {:+.2f}s; median rule {}",
@@ -285,10 +315,10 @@ namespace CombatAI::ClipTiming
         const auto [medianMean, medianSd] = meanSd(s.medianSum, s.medianSumSq, s.medianCount);
         LOG_INFO("Clip timing (last 60s): {} blows watched, {} compared ({:.2f}s ahead on average); clip error {:+.2f}s "
                  "+- {:.2f} (mean abs {:.2f}); median-rule error {:+.2f}s +- {:.2f} (mean abs {:.2f}, {} blows); no clip "
-                 "{}, too fast to predict {}",
+                 "{}, too fast to predict {}, after a missed prediction {}",
                  s.blows, s.compared, s.compared ? s.horizonSum / s.compared : 0.0, clipMean, clipSd,
                  s.compared ? s.clipAbs / s.compared : 0.0, medianMean, medianSd,
-                 s.medianCount ? s.medianAbs / s.medianCount : 0.0, s.medianCount, s.noClip, s.noPrediction);
+                 s.medianCount ? s.medianAbs / s.medianCount : 0.0, s.medianCount, s.noClip, s.noPrediction, s.stale);
     }
 
     void Evict(RE::FormID a_formID)
