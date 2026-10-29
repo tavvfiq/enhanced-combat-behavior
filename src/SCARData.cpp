@@ -286,6 +286,9 @@ namespace CombatAI::SCARData
             if (Intents::AttackVetoed(a_actor)) {
                 return "defending";
             }
+            if (Intents::WantsToDrink(a_actor)) {
+                return "backing off to drink";
+            }
             return nullptr;
         }
 

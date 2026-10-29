@@ -521,6 +521,28 @@ namespace CombatAI
             possibleDecisions.push_back(offenseResult);
         }
 
+        // Waiting for room to drink or coat (Potions::Update): only the retreat and defensive moves stay. Run 1.3.5:
+        // power attacks (4.15-4.45) and strafes beat the drink retreat (2.1-2.5); the NPC stayed at 79-209 units and
+        // drank in melee when the 3 s wait ran out.
+        if (survivalResult.action == ActionType::Retreat && Intents::WantsToDrink(a_actor)) {
+            std::erase_if(possibleDecisions, [](const DecisionResult &a_result) {
+                switch (a_result.action) {
+                case ActionType::Attack:
+                case ActionType::PowerAttack:
+                case ActionType::SprintAttack:
+                case ActionType::Bash:
+                case ActionType::Feint:
+                case ActionType::Advancing:
+                case ActionType::ForwardDodge:
+                case ActionType::Strafe:
+                case ActionType::Flanking:
+                    return true;
+                default:
+                    return false;
+                }
+            });
+        }
+
         // Moves the tree can't start right now. The Circle, Backoff and Fallback starts all refuse while the NPC's
         // movement is animation-driven (mid-swing, stagger, dodge recovery): 10 of 15 Circle and 2 of 5 Backoff
         // refusals (Somnium run, 2026-10-27). Those wait until the animation lets go; the brain asks again next

@@ -2,6 +2,7 @@
 #include "AttackCoordinator.h"
 #include "Boss.h"
 #include "Config.h"
+#include "Intents.h"
 #include "Logger.h"
 #include "SCARIntegration.h"
 #include "ThreadSafeMap.h"
@@ -192,6 +193,9 @@ namespace CombatAI::ComboFollowUp
         }
         if (!skip && AttackCoordinator::GetSingleton().IsHeld(formID)) {
             skip = "waiting its turn";
+        }
+        if (!skip && Intents::WantsToDrink(a_actor)) {
+            skip = "backing off to drink";
         }
         // A combo step lunges forward, so up to 1.3x the attack range (run 52: 81 skips, the Berserker's median
         // at 160 against a range of ~144)

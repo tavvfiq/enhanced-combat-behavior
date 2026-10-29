@@ -52,6 +52,10 @@ namespace CombatAI
         // An attack the brain asked for (taken by our Melee tree) picks only attack data of its
         // kind, and 1.0 passes StartAttack's second roll. No match leaves no candidate, which
         // StartAttack handles as a clean failure (SE 48139+0x328).
+        // Backing off to drink or coat (Potions::Update): no new swing, or it never leaves the swing (run 1.3.5)
+        if (a_attacker && a_data && a_chance > 0.0f && Intents::WantsToDrink(a_attacker)) {
+            return Logged(a_attacker, a_data, a_chance, 0.0f, "veto: backing off to drink");
+        }
         // Humanoid creatures mid-swing: their graph refuses a new start for ~2 s (attack state reads idle meanwhile)
         if (a_attacker && a_chance > 0.0f && ActorUtils::IsHumanoidCreature(a_attacker) &&
             Intents::SinceSwing(a_attacker) < Config::GetInstance().GetDecisionMatrix().creatureSwingSeconds) {

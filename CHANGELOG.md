@@ -1,5 +1,10 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.3.6 (2026-10-29)
+
+- **Fix: NPCs now really back off before drinking.** While an NPC waits for room to drink a potion or coat its weapon, it no longer attacks, power attacks, bashes, feints, advances or circles; only the retreat and defensive moves (dodge, block, parry) are left. Vanilla, SCAR and MCO combo attack starts are refused for the wait too. In testing the NPC kept chaining swings: the retreat can't start mid-swing, so it was held, nothing else stopped the next swing, and the NPC stayed in melee (82-209 units) and drank there when the 3-second wait ran out. Poison back-offs mostly worked already; they use the same wait.
+- Log: `VanillaAttack ... veto: backing off to drink`, `SCAR gate ...: attack start refused (backing off to drink)`, `Combo ...: no follow-up (backing off to drink)`.
+
 ## Enhanced Combat Behavior 1.3.5 (2026-10-29)
 
 - **Poisons go on before the fight or after backing off.** An NPC coats its weapon while its target is still at least `SafeDrinkDistance` (350) away, which is usually on engage. Closer than that, it backs off first, the same way as for a drink, and coats once clear or after `SafeDrinkMaxWaitSeconds`. Before, it coated mid-melee. A drink still comes first.
