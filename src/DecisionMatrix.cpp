@@ -3,6 +3,7 @@
 #include "Config.h"
 #include "BlockRules.h"
 #include "Intents.h"
+#include "TargetDanger.h"
 #include "Personality.h"
 #include "Boss.h"
 #include "Logger.h"
@@ -660,6 +661,10 @@ namespace CombatAI
         }
         if (Intents::WantsDualBlock(a_actor)) {
             return result; // holding a direct block already
+        }
+        // A giant's club, a mammoth's tusks, a dragon's bite: no bash, parry or block holds them; it dodges or backs off
+        if (TargetDanger::Of(a_actor).huge) {
+            return result;
         }
         // Without the Block tree there is no bash or parry, only our direct timed block. Run 38: a sword+spell NPC
         // posted 8 bashes that could never be taken, and the refusal guard below then shut its timed block off too.
@@ -1607,6 +1612,12 @@ namespace CombatAI
         if (shouldRetreat && outnumberingTarget && retreatPriority < 2.0f) {
             // Reduce retreat priority when outnumbering (unless survival retreat)
             retreatPriority *= 0.6f; // Reduce by 40% when outnumbering
+        }
+
+        // A werewolf, werebear or vampire lord outruns it: running only shows its back. A drink back-off still goes,
+        // and an exhausted NPC still steps back.
+        if (shouldRetreat && !exhausted && TargetDanger::Of(a_actor).beast && !Intents::WantsToDrink(a_actor)) {
+            shouldRetreat = false;
         }
 
         if (shouldRetreat) {

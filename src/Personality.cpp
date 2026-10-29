@@ -1,4 +1,5 @@
 #include "Personality.h"
+#include "TargetDanger.h"
 #include "Boss.h"
 #include "CombatStyleEnhancer.h"
 #include "Config.h"
@@ -154,8 +155,16 @@ namespace CombatAI::Personality
     {
         Traits t = Get(a_actor);
         switch (Boss::CurrentPhase(a_actor)) {
-        case Boss::Phase::None:
+        case Boss::Phase::None: {
+            // A dangerous target (TargetDanger.h) makes it warier; a Foolhardy NPC (Confidence 4) fears nothing
+            const float danger = TargetDanger::Of(a_actor).score * Config::GetInstance().GetDecisionMatrix().targetDangerInfluence;
+            auto *av = danger > 0.0f ? a_actor->AsActorValueOwner() : nullptr;
+            if (av && av->GetActorValue(RE::ActorValue::kConfidence) < 4.0f) {
+                t.risk *= 1.0f - danger;
+                t.caution += (1.0f - t.caution) * danger;
+            }
             return t;
+        }
         case Boss::Phase::Enraged:
             t.risk = (std::min)(1.0f, t.risk + 0.2f);
             break;

@@ -13,6 +13,7 @@
 #include "Personality.h"
 #include "Potions.h"
 #include "SelfShouts.h"
+#include "TargetDanger.h"
 #include "ComboFollowUp.h"
 #include "Trees.h"
 #include "Logger.h"
@@ -171,6 +172,7 @@ namespace CombatAI
         // Gather state and evaluate the decision matrix (the heavy per-actor work)
         ActorStateData state = m_observer.GatherState(a_actor, elapsed);
         Boss::UpdatePhase(a_actor, state.self.healthPercent); // detection (logged once) and health phase
+        TargetDanger::Update(a_actor, state, debugEnabled);   // before the decision: caution and threat read it
         Potions::Update(a_actor, state, debugEnabled);         // before the decision: a drink wait makes it retreat
         SelfShouts::Update(a_actor, state, debugEnabled);
         // A held dual block ends when the swing stops without hitting; a landed blow ends it from the hit event
@@ -415,7 +417,10 @@ namespace CombatAI
         const auto hit = m_retaliation.Find(a_formID);
         const bool retaliating =
             hit && hit->attacker == target && m_time.load(std::memory_order_relaxed) < hit->until;
-        if (retaliating || coordinator.TryAcquire(target, a_formID, pacing.maxSimultaneousAttackers,
+        // A giant or a werewolf (the player transformed, too) is ganged up on: more slots at once
+        const auto danger = TargetDanger::Of(a_actor);
+        const int slots = pacing.maxSimultaneousAttackers + (danger.huge || danger.beast ? pacing.dangerExtraAttackers : 0);
+        if (retaliating || coordinator.TryAcquire(target, a_formID, slots,
                                                   pacing.slotWindowMinSeconds, pacing.slotWindowMaxSeconds)) {
             coordinator.ClearHeld(a_formID);
             if (debug && wasHeld) {
@@ -737,6 +742,7 @@ namespace CombatAI
         Intents::Evict(a_formID);
         Potions::Evict(a_formID);
         SelfShouts::Evict(a_formID);
+        TargetDanger::Evict(a_formID);
         m_observer.EvictActor(a_formID);
     }
 

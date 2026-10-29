@@ -1,5 +1,13 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.4.0 (2026-10-29)
+
+- **NPCs size up what they fight.** Each NPC rates its target's danger (0-1) from: a level or max health well above its own, a huge body (giant, mammoth, dwarven centurion, lurker, dragon), a beast (werewolf, werebear, vampire lord) or a boss. The more dangerous the target, the less risk and the more caution the NPC takes: more dodging, blocking and backing off, fewer reckless power attacks, earlier tactical retreats. Foolhardy NPCs (Confidence 4) fear nothing, and bosses keep their own phases. A giant also counts as a crowd for the threat level.
+- **Giants and other huge targets:** no bash, parry or timed block against their swings (nothing holds a giant's club); NPCs dodge or back off instead, and up to 2 more of them may attack it at once.
+- **Werewolves, werebears, vampire lords (the player transformed, too):** no running away from them, they are faster; NPCs stand and fight, and gang up on them the same way. Backing off to drink still happens.
+- Settings: `EnableTargetDanger`, `TargetDangerInfluence` (0.5), `TargetDangerStrengthWeight` (0.4) under `[DecisionMatrix]`; `DangerExtraAttackers` (2) under `[CombatPacing]`. Menu: NPC Character > "Fear dangerous targets", Advanced: personality and Advanced: pacing.
+- Log (selected NPC): `Danger 0x..: target 0x.. <name> -> 0.72 (level 30 vs 10, health 600 vs 150, strength 0.40, huge)` on each new target.
+
 ## Enhanced Combat Behavior 1.3.8 (2026-10-29)
 
 - **Menu: search settings.** A search box above the tabs. Type part of a name (`potion`, `parry`, `stamina`) and every matching setting from all tabs and Advanced sections is listed under its "Tab > Section" heading; a section name matches too, so `bosses` lists the whole boss section. Clear the box (or press Clear) to get the tabs back.

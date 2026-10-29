@@ -103,6 +103,9 @@ namespace CombatAI
             float creatureSwingSeconds = 3.0f;      // such a creature starts no new attack this soon after a swing start
             float personalityJitter = 0.15f;        // fixed per-NPC spread added to risk / caution / patience
             float tacticalRetreatMinCaution = 0.3f; // retreat from a crowd (not low health) only this careful or more
+            bool enableTargetDanger = true;           // fear giants, beasts, bosses and much stronger targets (TargetDanger.h)
+            float targetDangerInfluence = 0.5f;       // how far danger lowers risk / raises caution (0 = rating only)
+            float targetDangerStrengthWeight = 0.4f;  // danger from a target far above the NPC's level or max health
             float flankingMaxReach = 2.5f;          // flank only within this x the attack range
             float shotHoldMaxSeconds = 3.0f;        // longest an archer / caster holds fire for an ally in the way
             float closeDodgeChance = 0.3f;        // Chance to dodge each melee swing aimed at it from within reach
@@ -218,6 +221,7 @@ namespace CombatAI
         {
             bool enableCombatPacing = true;      // Master toggle
             int maxSimultaneousAttackers = 3;    // How many may attack a target at once
+            int dangerExtraAttackers = 2;        // more may attack a huge or beast target at once (they gang up)
             float slotWindowMinSeconds = 2.0f;   // Min time a slot is held before rotating
             float slotWindowMaxSeconds = 4.0f;   // Max time a slot is held before rotating
             bool paceTargetPlayerOnly = true;    // Only pace attacks against the player

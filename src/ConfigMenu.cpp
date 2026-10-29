@@ -320,6 +320,7 @@ namespace CombatAI
                     liveFloat("Slot window min (s)", &config.m_combatPacing.slotWindowMinSeconds, 0.5f, 10.0f, "%.1f");
                     liveFloat("Slot window max (s)", &config.m_combatPacing.slotWindowMaxSeconds, 0.5f, 12.0f, "%.1f");
                     check("Pace player target only", &config.m_combatPacing.paceTargetPlayerOnly);
+                    sliderInt("Extra attackers vs giants / beasts", &config.m_combatPacing.dangerExtraAttackers, 0, 6);
                     liveFloat("Engage margin beyond reach", &config.m_combatPacing.engageMargin, 0.0f, 600.0f, "%.0f");
                     liveFloat("Waiting circle margin beyond reach", &config.m_combatPacing.waitDistanceMargin, 0.0f, 1000.0f, "%.0f");
                     liveFloat("Retaliate min (s)", &config.m_combatPacing.retaliateMinSeconds, 0.0f, 10.0f, "%.1f");
@@ -355,6 +356,7 @@ namespace CombatAI
             // ---- NPC Character: personality, skill, bosses, creatures, momentum
             if (tab("NPC Character")) {
                 check("Enable personality (Confidence / Aggression / combat style)", &config.m_decisionMatrix.enablePersonality);
+                check("Fear dangerous targets (giants, werewolves, bosses, much stronger foes)", &config.m_decisionMatrix.enableTargetDanger);
                 if (check("Enable skill rolls (level-scaled mistakes)", &config.m_humanizer.enableSkillRolls)) {
                     config.MarkHumanizerDirty();
                 }
@@ -364,6 +366,8 @@ namespace CombatAI
                 if (header("Advanced: personality")) {
                     liveFloat("Per-NPC spread (+-)", &config.m_decisionMatrix.personalityJitter, 0.0f, 0.5f);
                     liveFloat("Tactical retreat: min caution", &config.m_decisionMatrix.tacticalRetreatMinCaution, 0.0f, 1.0f);
+                    liveFloat("Target danger: caution influence", &config.m_decisionMatrix.targetDangerInfluence, 0.0f, 1.0f);
+                    liveFloat("Target danger: level / health weight", &config.m_decisionMatrix.targetDangerStrengthWeight, 0.0f, 1.0f);
                     check("Enable armor style", &config.m_armorStyle.enableArmorStyle);
                     liveFloat("Light armor: evasion bonus", &config.m_armorStyle.lightEvasionBonus, 0.0f, 1.0f);
                     liveFloat("Heavy armor: evasion penalty", &config.m_armorStyle.heavyEvasionPenalty, 0.0f, 1.0f);

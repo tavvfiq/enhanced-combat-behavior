@@ -189,6 +189,9 @@ namespace CombatAI
         D("DecisionMatrix", "CreatureSwingSeconds", m_decisionMatrix.creatureSwingSeconds);
         D("DecisionMatrix", "PersonalityJitter", m_decisionMatrix.personalityJitter);
         D("DecisionMatrix", "TacticalRetreatMinCaution", m_decisionMatrix.tacticalRetreatMinCaution);
+        B("DecisionMatrix", "EnableTargetDanger", m_decisionMatrix.enableTargetDanger);
+        D("DecisionMatrix", "TargetDangerInfluence", m_decisionMatrix.targetDangerInfluence);
+        D("DecisionMatrix", "TargetDangerStrengthWeight", m_decisionMatrix.targetDangerStrengthWeight);
         D("DecisionMatrix", "FlankingMaxReach", m_decisionMatrix.flankingMaxReach);
         D("DecisionMatrix", "ShotHoldMaxSeconds", m_decisionMatrix.shotHoldMaxSeconds);
         D("DecisionMatrix", "CloseDodgeChance", m_decisionMatrix.closeDodgeChance);
@@ -276,6 +279,7 @@ namespace CombatAI
         // Combat pacing (Wait Your Turn)
         B("CombatPacing", "EnableCombatPacing", m_combatPacing.enableCombatPacing);
         L("CombatPacing", "MaxSimultaneousAttackers", static_cast<long>(m_combatPacing.maxSimultaneousAttackers));
+        L("CombatPacing", "DangerExtraAttackers", static_cast<long>(m_combatPacing.dangerExtraAttackers));
         D("CombatPacing", "SlotWindowMinSeconds", m_combatPacing.slotWindowMinSeconds);
         D("CombatPacing", "SlotWindowMaxSeconds", m_combatPacing.slotWindowMaxSeconds);
         B("CombatPacing", "PaceTargetPlayerOnly", m_combatPacing.paceTargetPlayerOnly);
@@ -682,6 +686,10 @@ namespace CombatAI
         dmFloat("CreatureSwingSeconds", m_decisionMatrix.creatureSwingSeconds, 0.0f, 10.0f);
         dmFloat("PersonalityJitter", m_decisionMatrix.personalityJitter, 0.0f, 0.5f);
         dmFloat("TacticalRetreatMinCaution", m_decisionMatrix.tacticalRetreatMinCaution, 0.0f, 1.0f);
+        m_decisionMatrix.enableTargetDanger =
+            a_ini.GetBoolValue("DecisionMatrix", "EnableTargetDanger", m_decisionMatrix.enableTargetDanger);
+        dmFloat("TargetDangerInfluence", m_decisionMatrix.targetDangerInfluence, 0.0f, 1.0f);
+        dmFloat("TargetDangerStrengthWeight", m_decisionMatrix.targetDangerStrengthWeight, 0.0f, 1.0f);
         dmFloat("FlankingMaxReach", m_decisionMatrix.flankingMaxReach, 1.0f, 10.0f);
         dmFloat("ShotHoldMaxSeconds", m_decisionMatrix.shotHoldMaxSeconds, 0.0f, 30.0f);
         m_decisionMatrix.enableNPCPotions = a_ini.GetBoolValue("DecisionMatrix", "EnableNPCPotions", m_decisionMatrix.enableNPCPotions);
@@ -924,6 +932,8 @@ namespace CombatAI
 
         // Clamp
         m_combatPacing.maxSimultaneousAttackers = (std::max)(0, m_combatPacing.maxSimultaneousAttackers);
+        m_combatPacing.dangerExtraAttackers = std::clamp(
+            static_cast<int>(a_ini.GetLongValue("CombatPacing", "DangerExtraAttackers", m_combatPacing.dangerExtraAttackers)), 0, 6);
         m_combatPacing.slotWindowMinSeconds = (std::max)(0.1f, m_combatPacing.slotWindowMinSeconds);
         m_combatPacing.slotWindowMaxSeconds =
             (std::max)(m_combatPacing.slotWindowMinSeconds, m_combatPacing.slotWindowMaxSeconds);
