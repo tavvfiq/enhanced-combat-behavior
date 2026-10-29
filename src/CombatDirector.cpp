@@ -199,9 +199,14 @@ namespace CombatAI
                 float earliest = 0.0f, latest = 0.0f;
                 if (config.GetDecisionMatrix().usePlayerClipTiming && ClipTiming::Predict(target, earliest, latest)) {
                     if (debugEnabled) {
-                        LOG_DEBUG("ClipTiming 0x{:08X}: blow in {:.2f}s, contact from {:.2f}s (median rule {:.2f}s)",
-                                  static_cast<std::uint32_t>(formID), latest, earliest,
-                                  state.temporal.target.timeUntilAttackHits);
+                        if (latest < 900.0f) {
+                            LOG_DEBUG("ClipTiming 0x{:08X}: blow in {:.2f}s, contact from {:.2f}s (median rule {:.2f}s)",
+                                      static_cast<std::uint32_t>(formID), latest, earliest,
+                                      state.temporal.target.timeUntilAttackHits);
+                        } else {
+                            LOG_DEBUG("ClipTiming 0x{:08X}: no blow ahead in the clip (median rule {:.2f}s)",
+                                      static_cast<std::uint32_t>(formID), state.temporal.target.timeUntilAttackHits);
+                        }
                     }
                     state.temporal.target.timeUntilAttackHits = latest;
                     state.temporal.target.timeUntilEarliestHit = earliest;

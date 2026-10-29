@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.7.2 (2026-10-30)
+
+Untested in game.
+
+- **No late parries or blocks after your swing's blow has passed.** Once your attack clip is past its `HitFrame` (the swing missed, or already hit), NPCs no longer fall back to the learned swing time, which still expected a blow and posted a block or parry too late (3 of 15 in the 1.7.1 run).
+
 ## Enhanced Combat Behavior 1.7.1 (2026-10-29)
 
 Untested in game.

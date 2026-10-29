@@ -350,7 +350,10 @@ namespace CombatAI::ClipTiming
             a_earliest = (std::max)(0.0f, (std::min)((open - position) / track.rate, a_latest));
             return true;
         }
-        return false;
+        // Every blow of the clip is past: none is coming from it. The median rule would still see one (1.7.1 run: 3
+        // late defend posts right after the clip's HitFrame passed)
+        a_earliest = a_latest = 999.0f;
+        return true;
     }
 
     void OnHit(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power)

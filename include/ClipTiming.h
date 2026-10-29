@@ -14,8 +14,8 @@ namespace CombatAI::ClipTiming
 
     // Time to the attacker's next blow from its clip, as read by the last Sample (at most 0.15 s ago). a_latest: the
     // HitFrame plus the measured lag of the hit event; a_earliest: when weapon contact can first land (Precision's hit
-    // window opening, else the HitFrame). False: no attack clip, rate not measured yet, or no blow ahead (callers keep
-    // the median rule)
+    // window opening, else the HitFrame); both 999 when the clip's blows are all past (it missed or already hit).
+    // False: no attack clip, or the clip is held (callers keep the median rule)
     bool Predict(RE::Actor *a_attacker, float &a_earliest, float &a_latest);
 
     // A melee blow from a_attacker landed on a_victim
