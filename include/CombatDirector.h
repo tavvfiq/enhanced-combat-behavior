@@ -123,8 +123,9 @@ namespace CombatAI
 
         // Minimum time before processing newly spawned actors (safety delay)
         static constexpr float SPAWN_WARMUP_DELAY = 0.5f; // 500ms delay
-        // Real windups and bashes last under ~1.5 s; a kDraw or kBash this old has no attack behind it
-        static constexpr float STALE_DRAW_TIMEOUT = 3.0f;
+        // Real windups and bashes last under ~1.5 s (1.5.3 run: longest kDraw 1.21 s); a kDraw or kBash this old has
+        // no attack behind it. 3 s left stuck NPCs idle too long (3 clears in 4.5 min)
+        static constexpr float STALE_DRAW_TIMEOUT = 2.0f;
         // A waiting NPC within this of its wait ring circles; closer in it falls back first (pacing)
         static constexpr float kWaitRingTolerance = 150.0f;
     };

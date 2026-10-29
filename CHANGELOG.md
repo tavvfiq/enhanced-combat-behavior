@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.5.4 (2026-10-29)
+
+Untested in game.
+
+- **Stuck NPCs recover sooner.** An NPC left stuck in an attack windup or a bash (no attack playing) is now freed after 2 s instead of 3 s. Real windups and bashes stay under about 1.5 s (longest seen: 1.21 s). The 1.5.3 run freed 3 stuck NPCs in 4.5 minutes.
+
 ## Enhanced Combat Behavior 1.5.3 (2026-10-29)
 
 Untested in game.
