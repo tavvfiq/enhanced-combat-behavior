@@ -1,5 +1,9 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.3.8 (2026-10-29)
+
+- **Menu: search settings.** A search box above the tabs. Type part of a name (`potion`, `parry`, `stamina`) and every matching setting from all tabs and Advanced sections is listed under its "Tab > Section" heading; a section name matches too, so `bosses` lists the whole boss section. Clear the box (or press Clear) to get the tabs back.
+
 ## Enhanced Combat Behavior 1.3.7 (2026-10-29)
 
 - **Fix: enraged bosses back off to drink too.** An enraged boss (or a brave one going all-in) never retreats from the fight, and that rule also removed its short back-off for a potion or poison. In testing, an enraged Bandit Chief at 32% health had its attacks held for the drink but no retreat, so it circled and advanced for 3 seconds and drank at 242 units. Now the drink/poison back-off (at most `SafeDrinkMaxWaitSeconds`) goes through for bosses; they still don't run from damage.
