@@ -10,6 +10,7 @@
 #include "Intents.h"
 #include "SCARData.h"
 #include "Boss.h"
+#include "ClipTiming.h"
 #include "Personality.h"
 #include "Potions.h"
 #include "SelfShouts.h"
@@ -187,6 +188,12 @@ namespace CombatAI
             Intents::EndDualBlockHold(a_actor);
             if (debugEnabled) {
                 LOG_DEBUG("DualBlock 0x{:08X}: target stopped attacking, ending the hold", static_cast<std::uint32_t>(formID));
+            }
+        }
+        // Measurement only: the player's attack clip predicts the blow; compared with the median rule at the hit
+        if (state.target.isPlayer && state.target.isAttacking) {
+            if (auto target = RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID)) {
+                ClipTiming::Sample(target, state.temporal.target.timeUntilAttackHits, debugEnabled);
             }
         }
         MaybeSwitchTarget(a_actor, formID, state);
@@ -670,6 +677,7 @@ namespace CombatAI
         m_humanizer.Update(a_deltaTime);
         Intents::LogSummary(a_deltaTime);
         DefenseTiming::Update(a_deltaTime);
+        ClipTiming::Update(a_deltaTime);
         SCARIntegration::GetInstance().Update(a_deltaTime);
         m_executor.UpdateJumps(a_deltaTime);
         m_observer.Update(a_deltaTime);
@@ -771,6 +779,7 @@ namespace CombatAI
         m_retaliation.Erase(a_formID);
         m_humanizer.Evict(a_formID);
         DefenseTiming::Evict(a_formID);
+        ClipTiming::Evict(a_formID);
         AttackCoordinator::GetSingleton().ClearHeld(a_formID);
         m_nextTargetSwitchTime.Erase(a_formID);
         m_drawStart.Erase(a_formID);

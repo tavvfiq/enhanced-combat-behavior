@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "ClipTiming.h"
 #include "DefenseTiming.h"
 
 // Undefine Windows macros that conflict with std functions
@@ -1354,6 +1355,7 @@ namespace CombatAI
         if (!a_attacker || !a_victim) {
             return;
         }
+        ClipTiming::OnHit(a_attacker, a_victim, a_power); // clip prediction vs the real blow (measurement only)
         // The victim's view of its target's swing: elapsed at its last update plus the time since
         float sample = -1.0f;
         m_targetTemporalData.Modify(a_victim->GetFormID(), [&](TargetTemporalData &t) {

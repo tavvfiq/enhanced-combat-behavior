@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.6.0 (2026-10-29)
+
+Untested in game. Measurement only: no behaviour change.
+
+- **Clip timing probe (debug log).** While you swing at an NPC, the mod now reads your playing attack animation (the clip OAR picked, with its `HitFrame` marks), how far into it you are and how fast it plays, and predicts when the blow lands. When it lands, the log compares that prediction and the current one (the learned median swing time) with the real moment. A 60 s summary line ("Clip timing ...") gives both errors. This decides whether NPCs should time their defenses from your animation instead of from past swings (first step of the moveset-aware proposal).
+
 ## Enhanced Combat Behavior 1.5.4 (2026-10-29)
 
 Untested in game.
