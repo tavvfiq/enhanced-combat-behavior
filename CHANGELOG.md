@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.5.3 (2026-10-29)
+
+Untested in game.
+
+- **Fixed: the second swing of a fast combo was read as part of the first.** NPCs check their opponent's swing every 0.1 s; when the next swing started within that time of the last hit, they kept timing from the first swing and expected the blow far too soon (1.5.2 run: a light-then-power combo predicted 0.10 s away, landed 0.55 s later; about 1 in 7 of your light hits measured 0.8-1.4 s instead of ~0.4 s). A landed blow now ends the swing for every NPC watching that attacker, so the next wind-up is a new swing: it is timed from its own start, power attacks are recognised, and it gets its own defense roll.
+- Defense timing log: a dual-wield block counts as started when it goes up (it showed as "never started, block already up").
+
 ## Enhanced Combat Behavior 1.5.2 (2026-10-29)
 
 Untested in game.

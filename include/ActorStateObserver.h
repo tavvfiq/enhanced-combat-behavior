@@ -197,6 +197,7 @@ namespace CombatAI
             bool isPowerAttack = false;           // Track if current attack is a power attack
             std::chrono::steady_clock::time_point updatedAt{}; // when attackStartTime was last advanced
             std::uint32_t swingCount = 0;         // One id per swing (attackStartTime is elapsed time, not an id)
+            bool blowLanded = false;              // this swing hit someone: the next wind-up is a new (combo) swing
 
             // Previous states for duration tracking
             bool wasBlocking = false;

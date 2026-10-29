@@ -2,6 +2,7 @@
 #include "ActorUtils.h"
 #include "AttackCoordinator.h"
 #include "Config.h"
+#include "DefenseTiming.h"
 #include "Intents.h"
 #include "Logger.h"
 #include "TreeNodes.h"
@@ -232,6 +233,9 @@ namespace CombatAI::Trees
             if (actor && Intents::StartDualBlock(actor)) {
                 SetWantBlocking(actor, true);
                 const bool started = actor->NotifyAnimationGraph("blockStart");
+                if (started) {
+                    DefenseTiming::OnStart(actor->GetFormID());
+                }
                 if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
                     LOG_DEBUG("DualBlock 0x{:08X}: blockStart {}", actor->GetFormID(), started ? "accepted" : "rejected");
                 }

@@ -1258,8 +1258,14 @@ namespace CombatAI
                     const auto windUp = [](RE::ATTACK_STATE_ENUM s) {
                         return s == RE::ATTACK_STATE_ENUM::kDraw || s == RE::ATTACK_STATE_ENUM::kSwing;
                     };
-                    if (windUp(targetAttackState) && !windUp(targetTemporal.previousAttackState)) {
+                    // A combo swing can start between two ticks right after the last one hit (kSwing, hit, kDraw
+                    // inside 0.1 s): the landed blow marks the swing over (1.5.2 run: ~11 of 74 player light hits
+                    // read 0.8-1.4 s, timed from the swing before; a light-then-power combo predicted 0.10 s, hit
+                    // 0.55 s later)
+                    if (windUp(targetAttackState) &&
+                        (!windUp(targetTemporal.previousAttackState) || targetTemporal.blowLanded)) {
                         // Target just started attacking
+                        targetTemporal.blowLanded = false;
                         targetTemporal.timeSinceLastAttack = 0.0f;
                         targetTemporal.attackStartTime = 0.0f; // Reset attack start time
                         ++targetTemporal.swingCount;
@@ -1295,6 +1301,7 @@ namespace CombatAI
                         }
                     } else {
                         // Not attacking anymore, reset timing
+                        targetTemporal.blowLanded = false;
                         targetTemporal.attackStartTime = -1.0f;
                         targetTemporal.timeUntilAttackHits = 999.0f;
                         targetTemporal.estimatedAttackDuration = 0.0f;
@@ -1358,6 +1365,15 @@ namespace CombatAI
         if (sample >= 0.0f) {
             DefenseTiming::OnHit(a_victim, a_attacker->GetFormID(), sample, a_blocked); // the defense timing log
         }
+        // Everyone watching this attacker: its swing is over, the next wind-up is a new swing
+        const RE::FormID attackerID = a_attacker->GetFormID();
+        m_targetTemporalData.WithWriteLock([&](auto &a_map) {
+            for (auto &[id, t] : a_map) {
+                if (t.targetFormID == attackerID && t.attackStartTime >= 0.0f) {
+                    t.blowLanded = true;
+                }
+            }
+        });
         if (sample < 0.05f || sample > 1.5f) {
             return; // no swing seen, or a hit from an earlier swing
         }
