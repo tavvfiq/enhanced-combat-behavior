@@ -1,5 +1,9 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.2.9 (2026-10-29)
+
+- **Fix: NPCs no longer die waiting to drink.** 1.2.8 made an NPC wait for 350 units of room before drinking. In melee it rarely gets that: in testing, an NPC at 7% health stood 2.7 seconds next to a greatsword, waiting, and died with the potion in hand. Now it only waits out the target's attack (wind-up and swing, within 350 units) and drinks in its follow-through, and never waits longer than 2 seconds (`SafeDrinkMaxWaitSeconds`, was 5). Menu: Defense > "Drink potions between the target's swings".
+
 ## Enhanced Combat Behavior 1.2.8 (2026-10-29)
 
 - **NPCs step away before drinking a potion.** The game let an NPC drink with you swinging at it from arm's length. Now, when it wants to drink and its target is closer than 350 units, it retreats first and drinks once it has room. If you keep up with it, it drinks anyway after 5 seconds. Settings under `[DecisionMatrix]`: `EnableSafeDrink`, `SafeDrinkDistance`, `SafeDrinkMaxWaitSeconds`; menu: Defense > "Step away before drinking a potion" (distance and wait under Advanced: retreat and back off).

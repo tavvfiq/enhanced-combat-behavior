@@ -1103,11 +1103,13 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
-        // Potions (1.2.8): vanilla drinks whenever its UsePotion branch comes up, even next to a swinging target
-        // (1.2.6 run: a bandit drank at 15% health 86 units from the attacking player). The drink now waits while
-        // the target is within SafeDrinkDistance; the brain retreats meanwhile (WantsToDrink), and after
-        // SafeDrinkMaxWaitSeconds it drinks anyway. A refused drink fails the DrinkPotion leaf (SetFailed, as when
-        // vanilla's own drink fails): the tree idles and tries again on its next pass.
+        // Potions: vanilla drinks whenever its UsePotion branch comes up, even into a swing (1.2.6 run: a bandit
+        // drank at 15% health 86 units from the attacking player). The drink waits while the target's attack is
+        // coming (wind-up to combo, within SafeDrinkDistance) and goes in its follow-through; the brain steps away
+        // meanwhile (WantsToDrink), and after SafeDrinkMaxWaitSeconds it drinks anyway. 1.2.8 waited for distance
+        // instead: run 1.2.8's NPC at 7% health couldn't get away from a greatsword, stood 2.7 s waiting and died.
+        // A refused drink fails the DrinkPotion leaf (SetFailed, as when vanilla's own drink fails): the tree idles
+        // and tries again on its next pass (~0.27 s).
         bool AllowDrink(RE::Actor *a_actor, const RE::TESForm *a_potion)
         {
             const auto &matrix = Config::GetInstance().GetDecisionMatrix();
@@ -1117,9 +1119,12 @@ namespace CombatAI::Trees
             auto *controller = RE::CombatBehaviorController::GetCurrentCombatController();
             const auto target = controller ? controller->targetHandle.get() : RE::NiPointer<RE::Actor>();
             const float dist = target ? a_actor->GetPosition().GetDistance(target->GetPosition()) : 0.0f;
+            using AS = RE::ATTACK_STATE_ENUM;
+            const auto attack = target ? target->AsActorState()->actorState1.meleeAttackState : AS::kNone;
+            const bool incoming = attack >= AS::kDraw && attack <= AS::kNextAttack;
             const bool debug = Config::GetInstance().IsDebugTarget(a_actor->GetFormID());
             const char *name = a_potion ? a_potion->GetName() : "?";
-            if (!target || dist >= matrix.safeDrinkDistance) {
+            if (!target || !incoming || dist >= matrix.safeDrinkDistance) {
                 Intents::EndDrinkWait(a_actor);
                 if (debug) {
                     LOG_DEBUG("Potion 0x{:08X}: drinks {} ({})", a_actor->GetFormID(), name, ProbeState(a_actor));
@@ -1136,7 +1141,7 @@ namespace CombatAI::Trees
                 return true;
             }
             if (debug) {
-                LOG_DEBUG("Potion 0x{:08X}: waits to drink {}, target too close ({:.1f} s; {})", a_actor->GetFormID(),
+                LOG_DEBUG("Potion 0x{:08X}: waits to drink {}, target swinging in reach ({:.1f} s; {})", a_actor->GetFormID(),
                           name, waited, ProbeState(a_actor));
             }
             return false;

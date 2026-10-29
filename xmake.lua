@@ -7,7 +7,7 @@ includes(path.join(commonlibsse_ng_dir, "xmake.lua"))
 
 -- set project
 set_project("EnhancedCombatBehavior")
-set_version("1.2.8")
+set_version("1.2.9")
 set_license("GPL-3.0-or-later")
 
 -- set defaults

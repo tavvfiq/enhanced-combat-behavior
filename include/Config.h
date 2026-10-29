@@ -117,9 +117,9 @@ namespace CombatAI
             float powerAttackMinStamina = 0.7f;  // Power/sprint attacks and power bashes need this stamina fraction
             float healthThreshold = 0.3f;
             bool enableSurvivalRetreat = true;
-            bool enableSafeDrink = true;          // A potion waits until the target is SafeDrinkDistance away (the NPC retreats)
+            bool enableSafeDrink = true;          // A potion waits out the target's swing within SafeDrinkDistance (the NPC steps away)
             float safeDrinkDistance = 350.0f;
-            float safeDrinkMaxWaitSeconds = 5.0f; // then it drinks anyway
+            float safeDrinkMaxWaitSeconds = 2.0f; // then it drinks anyway
             bool enableOffense = true;
             float offenseReachMultiplier = 1.0f;
             float offenseReachSafetyMargin = 20.0f;
