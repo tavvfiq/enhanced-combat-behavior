@@ -203,6 +203,8 @@ namespace CombatAI
         D("DecisionMatrix", "PotionMagickaThreshold", m_decisionMatrix.potionMagickaThreshold);
         D("DecisionMatrix", "PotionStaminaThreshold", m_decisionMatrix.potionStaminaThreshold);
         D("DecisionMatrix", "PotionCooldownSeconds", m_decisionMatrix.potionCooldownSeconds);
+        B("DecisionMatrix", "EnableNPCPoisons", m_decisionMatrix.enableNPCPoisons);
+        D("DecisionMatrix", "PoisonCooldownSeconds", m_decisionMatrix.poisonCooldownSeconds);
         D("DecisionMatrix", "SafeDrinkDistance", m_decisionMatrix.safeDrinkDistance);
         D("DecisionMatrix", "SafeDrinkMaxWaitSeconds", m_decisionMatrix.safeDrinkMaxWaitSeconds);
         B("DecisionMatrix", "EnableOffense", m_decisionMatrix.enableOffense);
@@ -681,6 +683,8 @@ namespace CombatAI
         dmFloat("PotionMagickaThreshold", m_decisionMatrix.potionMagickaThreshold, 0.0f, 1.0f);
         dmFloat("PotionStaminaThreshold", m_decisionMatrix.potionStaminaThreshold, 0.0f, 1.0f);
         dmFloat("PotionCooldownSeconds", m_decisionMatrix.potionCooldownSeconds, 0.0f, 60.0f);
+        m_decisionMatrix.enableNPCPoisons = a_ini.GetBoolValue("DecisionMatrix", "EnableNPCPoisons", m_decisionMatrix.enableNPCPoisons);
+        dmFloat("PoisonCooldownSeconds", m_decisionMatrix.poisonCooldownSeconds, 0.0f, 120.0f);
         dmFloat("SafeDrinkDistance", m_decisionMatrix.safeDrinkDistance, 0.0f, 2000.0f);
         dmFloat("SafeDrinkMaxWaitSeconds", m_decisionMatrix.safeDrinkMaxWaitSeconds, 0.0f, 30.0f);
         m_decisionMatrix.tradeBlowsChance = std::clamp(

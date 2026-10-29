@@ -1,6 +1,7 @@
 #include "Potions.h"
 #include "ActorStateData.h"
 #include "ActorUtils.h"
+#include "Boss.h"
 #include "Config.h"
 #include "Intents.h"
 #include "Logger.h"
@@ -109,6 +110,152 @@ namespace CombatAI::Potions
             return Config::GetInstance().GetDecisionMatrix().enableNPCPotions && !g_otherMod;
         }
 
+        // ---- Poisons (1.3.2). Vanilla combat AI never poisons a weapon (no poison CombatInventoryItem), so NPCs
+        // carrying poisons (MIFN and the like hand them out) never used them. Instant, like the player's: no animation.
+        enum PoisonKind : std::size_t { kParalyze, kDamageHealth, kDamageMagicka, kDamageStamina, kOtherPoison, kPoisonKindCount };
+        constexpr std::array<const char *, kPoisonKindCount> kPoisonKindName{"paralyze", "damage health", "damage magicka",
+                                                                             "damage stamina", "other"};
+
+        struct PoisonState
+        {
+            Clock::time_point applied{}; // last poison we put on (cooldown)
+            Clock::time_point scanned{};
+            std::array<RE::AlchemyItem *, kPoisonKindCount> poison{}; // strongest per kind at that scan
+        };
+        ThreadSafeMap<RE::FormID, PoisonState> g_poison;
+
+        // A poison's kind (paralysis wins, else its strongest Damage Health/Magicka/Stamina) and strength in that kind
+        // (paralysis: seconds; damage: magnitude x duration)
+        std::pair<PoisonKind, float> Classify(const RE::AlchemyItem *a_poison)
+        {
+            bool paralyze = false;
+            float seconds = 0.0f, damage = 0.0f, other = 0.0f;
+            PoisonKind damageKind = kOtherPoison;
+            for (const auto *effect : a_poison->effects) {
+                const auto *base = effect ? effect->baseEffect : nullptr;
+                if (!base) {
+                    continue;
+                }
+                if (base->GetArchetype() == RE::EffectSetting::Archetype::kParalysis) {
+                    paralyze = true;
+                    seconds = (std::max)(seconds, static_cast<float>(effect->GetDuration()));
+                    continue;
+                }
+                const float strength = effect->GetMagnitude() * static_cast<float>((std::max)(effect->GetDuration(), 1u));
+                other = (std::max)(other, strength);
+                if (!base->IsDetrimental() || base->GetArchetype() != RE::EffectSetting::Archetype::kValueModifier || strength <= damage) {
+                    continue;
+                }
+                const auto av = base->data.primaryAV;
+                const PoisonKind k = av == RE::ActorValue::kHealth    ? kDamageHealth
+                                     : av == RE::ActorValue::kMagicka ? kDamageMagicka
+                                     : av == RE::ActorValue::kStamina ? kDamageStamina
+                                                                      : kOtherPoison;
+                if (k != kOtherPoison) {
+                    damageKind = k;
+                    damage = strength;
+                }
+            }
+            if (paralyze) {
+                return {kParalyze, seconds};
+            }
+            return damageKind != kOtherPoison ? std::pair{damageKind, damage} : std::pair{kOtherPoison, other};
+        }
+
+        std::array<RE::AlchemyItem *, kPoisonKindCount> BestPoisons(RE::Actor *a_actor)
+        {
+            std::array<RE::AlchemyItem *, kPoisonKindCount> best{};
+            std::array<float, kPoisonKindCount> strength{};
+            const auto items = a_actor->GetInventory([](RE::TESBoundObject &a_object) { return a_object.Is(RE::FormType::AlchemyItem); });
+            for (const auto &[object, data] : items) {
+                auto *poison = object->As<RE::AlchemyItem>();
+                if (!poison || data.first <= 0 || !poison->IsPoison()) {
+                    continue;
+                }
+                if (const auto [kind, s] = Classify(poison); !best[kind] || s > strength[kind]) {
+                    best[kind] = poison;
+                    strength[kind] = s;
+                }
+            }
+            return best;
+        }
+
+        // The first equipped weapon a poison can go on (right hand first): not fists, staff or bound
+        RE::InventoryEntryData *PoisonableWeapon(RE::Actor *a_actor)
+        {
+            for (const bool left : {false, true}) {
+                auto *entry = a_actor->GetEquippedEntryData(left);
+                const auto *weapon = entry && entry->object ? entry->object->As<RE::TESObjectWEAP>() : nullptr;
+                if (weapon && !weapon->IsHandToHandMelee() && !weapon->IsStaff() && !weapon->IsBound() && !entry->IsPoisoned()) {
+                    return entry;
+                }
+            }
+            return nullptr;
+        }
+
+        void UpdatePoison(RE::Actor *a_actor, const ActorStateData &a_state, bool a_debug)
+        {
+            const auto &matrix = Config::GetInstance().GetDecisionMatrix();
+            if (!matrix.enableNPCPoisons || g_otherMod || !a_state.target.isValid || !a_actor->AsActorState()->IsWeaponDrawn()) {
+                return;
+            }
+            const auto now = Clock::now();
+            const RE::FormID id = a_actor->GetFormID();
+            PoisonState s = g_poison.Find(id).value_or(PoisonState{});
+            if (now - s.applied < std::chrono::duration<float>(matrix.poisonCooldownSeconds) || !PoisonableWeapon(a_actor)) {
+                return;
+            }
+            auto *target = RE::TESForm::LookupByID<RE::Actor>(a_state.target.targetFormID);
+            auto *targetAV = target ? ActorUtils::SafeAsActorValueOwner(target) : nullptr;
+            if (!targetAV || targetAV->GetActorValue(RE::ActorValue::kPoisonResist) >= 100.0f) {
+                return; // immune: keep the poison
+            }
+            if (now - s.scanned >= std::chrono::seconds(1)) {
+                s.poison = BestPoisons(a_actor);
+                s.scanned = now;
+            }
+            // Paralyze a strong target, drain a caster's magicka or a fighter's stamina, else damage health
+            const PoisonKind want = a_state.target.isPlayer || Boss::Get(target).boss          ? kParalyze
+                                    : a_state.target.isCasting || a_state.target.weaponType == WeaponType::Spell ? kDamageMagicka
+                                    : a_state.target.isMelee                                                     ? kDamageStamina
+                                                                                                                 : kDamageHealth;
+            RE::AlchemyItem *poison = nullptr;
+            PoisonKind kind = want;
+            for (const PoisonKind k : {want, kDamageHealth, kParalyze, kDamageStamina, kDamageMagicka, kOtherPoison}) {
+                if (s.poison[k]) {
+                    poison = s.poison[k];
+                    kind = k;
+                    break;
+                }
+            }
+            if (!poison) {
+                g_poison.ModifyOrCreate(id, [&](PoisonState &a_entry) { a_entry = s; });
+                return;
+            }
+            s.applied = now;
+            s.scanned = {}; // rescan next time: this one may have been the last
+            g_poison.ModifyOrCreate(id, [&](PoisonState &a_entry) { a_entry = s; });
+            if (a_debug) {
+                LOG_DEBUG("Poison 0x{:08X}: coats its weapon with {} ({}, wanted {}; target at {:.0f})", id, poison->GetName(),
+                          kPoisonKindName[kind], kPoisonKindName[want], a_state.target.distance);
+            }
+            // shortcut: one dose; Concentrated Poison (kModPoisonDoseCount) is not applied, add it once its call is RE'd
+            SKSE::GetTaskInterface()->AddTask([handle = a_actor->GetHandle(), poison]() {
+                const auto actor = handle.get();
+                if (!actor || actor->IsDead()) {
+                    return;
+                }
+                const auto items = actor->GetInventory([poison](RE::TESBoundObject &a_object) { return &a_object == poison; });
+                if (const auto it = items.find(poison); it == items.end() || it->second.first <= 0) {
+                    return;
+                }
+                if (auto *entry = PoisonableWeapon(actor.get())) {
+                    entry->PoisonObject(poison, 1);
+                    actor->RemoveItem(poison, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+                }
+            });
+        }
+
         // Slot 0x0F of CombatInventoryItemMagicT<CombatInventoryItemPotion, CombatMagicCasterRestore> (SE 265372 /
         // AE 211590): SE 44776 / AE 46277 = base check && the Restore caster's check; false keeps the item unequipped
         struct PotionShouldEquip
@@ -134,17 +281,15 @@ namespace CombatAI::Potions
         REL::Relocation<std::uintptr_t> vtable{RE::VTABLE_CombatInventoryItemMagicT_CombatInventoryItemPotion_CombatMagicCasterRestore_[0]};
         PotionShouldEquip::func = vtable.write_vfunc(0x0F, PotionShouldEquip::thunk);
         if (g_otherMod) {
-            LOG_INFO("Potions: NPCs Use Potions is loaded - it runs NPC potions, ours stay off");
+            LOG_INFO("Potions: NPCs Use Potions is loaded - it runs NPC potions and poisons, ours stay off");
         } else {
-            LOG_INFO("Potions: vanilla restore-potion pick off for brain NPCs (health/magicka back off, stamina in place)");
+            LOG_INFO("Potions: vanilla restore-potion pick off for brain NPCs (health/magicka back off, stamina in place); poisons {}",
+                     Config::GetInstance().GetDecisionMatrix().enableNPCPoisons ? "on" : "off");
         }
     }
 
-    void Update(RE::Actor *a_actor, const ActorStateData &a_state, bool a_debug)
+    static void UpdateDrink(RE::Actor *a_actor, const ActorStateData &a_state, bool a_debug)
     {
-        if (!ActorUtils::SafeHasKeywordString(a_actor, "ActorTypeNPC")) {
-            return; // creatures keep vanilla (no drink animations for them)
-        }
         const auto now = Clock::now();
         const RE::FormID id = a_actor->GetFormID();
         State s = g_state.Find(id).value_or(State{});
@@ -211,8 +356,18 @@ namespace CombatAI::Potions
         });
     }
 
+    void Update(RE::Actor *a_actor, const ActorStateData &a_state, bool a_debug)
+    {
+        if (!ActorUtils::SafeHasKeywordString(a_actor, "ActorTypeNPC")) {
+            return; // creatures keep vanilla (no drink animations for them, no poisonable weapons)
+        }
+        UpdateDrink(a_actor, a_state, a_debug);
+        UpdatePoison(a_actor, a_state, a_debug);
+    }
+
     void Evict(RE::FormID a_formID)
     {
         g_state.Erase(a_formID);
+        g_poison.Erase(a_formID);
     }
 } // namespace CombatAI::Potions

@@ -122,6 +122,8 @@ namespace CombatAI
             float potionMagickaThreshold = 0.25f; // spellcasters back off and drink a magicka potion at or below this
             float potionStaminaThreshold = 0.2f;  // melee fighters drink a stamina potion where they stand at or below this
             float potionCooldownSeconds = 5.0f;   // between drinks (the effect, or an animation, takes a moment)
+            bool enableNPCPoisons = true;         // NPCs coat their weapon with a poison they carry (vanilla never does)
+            float poisonCooldownSeconds = 10.0f;  // between poisons (one dose each: the next hit spends it)
             float safeDrinkDistance = 350.0f;     // drink once this far from the target
             float safeDrinkMaxWaitSeconds = 3.0f; // or after backing off this long
             bool enableOffense = true;

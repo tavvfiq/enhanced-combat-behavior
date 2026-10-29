@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.3.2 (2026-10-29)
+
+- **NPCs poison their weapons.** Vanilla NPCs never use poisons, even when they carry them (MIFN and similar mods hand them out). Now an NPC in combat with a drawn, unpoisoned weapon coats it with a poison it carries, picked for its target: paralysis against the player or a boss, Damage Magicka against a caster, Damage Stamina against a melee fighter, otherwise Damage Health. If it lacks that kind it uses what it has (Damage Health first). One dose (the next hit spends it), at most once per `PoisonCooldownSeconds` (10), and never against a target with 100% poison resistance. Instant, like the player's; no animation.
+- Off by itself while NPCs Use Potions is installed (it has its own poison logic).
+- Settings: `EnableNPCPoisons`, `PoisonCooldownSeconds`. Menu: Offense > "NPCs poison their weapons" and "Poison cooldown (s)".
+- Log: `Poison 0x..: coats its weapon with <poison> (<kind>, wanted <kind>; target at D)`.
+
 ## Enhanced Combat Behavior 1.3.1 (2026-10-29)
 
 - **Magicka and stamina potions.** Spellcasters at 25% magicka or less back off and drink their strongest Restore Magicka potion, the same way as healing potions. Melee fighters at 20% stamina or less drink a Restore Stamina potion where they stand, so the next power attack is there. Health comes first, then magicka, then stamina; one drink per `PotionCooldownSeconds`. Vanilla no longer drinks restore potions on its own for these NPCs (before, it still drank magicka and stamina potions mid-melee).
