@@ -7,6 +7,25 @@
 // Which equipment lets an NPC block, and how: through vanilla's Block tree, or through our direct block node.
 namespace CombatAI::BlockRules
 {
+    // Two copies of one one-handed weapon: both hands report the same form, as a two-handed weapon does, but it is
+    // dual wield (1.5.1 run: a bandit with two iron daggers was sent to the Block tree 7 times, never taken)
+    inline bool SameOneHanderInBothHands(const RE::TESForm *a_left, const RE::TESForm *a_right)
+    {
+        const auto *weapon = a_left && a_left == a_right ? a_left->As<RE::TESObjectWEAP>() : nullptr;
+        if (!weapon) {
+            return false;
+        }
+        switch (weapon->GetWeaponType()) {
+        case RE::WEAPON_TYPE::kOneHandSword:
+        case RE::WEAPON_TYPE::kOneHandDagger:
+        case RE::WEAPON_TYPE::kOneHandAxe:
+        case RE::WEAPON_TYPE::kOneHandMace:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     // Whether vanilla runs the Block tree (bash, block, parry, timed block) for this NPC. Its left-hand slot links the
     // Block tree for an item of type Shield: a real shield, or CombatInventoryItemOneHandedBlock, which reports the
     // same type (shared GetType SE 43824). Every humanoid race gets that item (SE 43626 -> 24852: race can equip a
@@ -20,7 +39,7 @@ namespace CombatAI::BlockRules
         if (leftHand && leftHand->IsArmor()) {
             return true;
         }
-        if (leftHand && leftHand != rightHand) {
+        if ((leftHand && leftHand != rightHand) || SameOneHanderInBothHands(leftHand, rightHand)) {
             return false; // a spell, torch or second weapon holds the left slot
         }
         const auto *weapon = rightHand ? rightHand->As<RE::TESObjectWEAP>() : nullptr;
@@ -48,7 +67,8 @@ namespace CombatAI::BlockRules
     {
         RE::TESForm *leftHand = ActorUtils::SafeGetEquippedObject(a_actor, true);
         RE::TESForm *rightHand = ActorUtils::SafeGetEquippedObject(a_actor, false);
-        if (!leftHand || leftHand->IsArmor() || leftHand == rightHand || CanRunBlockTree(a_actor)) {
+        if (!leftHand || leftHand->IsArmor() || (leftHand == rightHand && !SameOneHanderInBothHands(leftHand, rightHand)) ||
+            CanRunBlockTree(a_actor)) {
             return false;
         }
         const auto *weapon = rightHand ? rightHand->As<RE::TESObjectWEAP>() : nullptr;

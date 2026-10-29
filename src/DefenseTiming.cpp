@@ -182,7 +182,9 @@ namespace CombatAI::DefenseTiming
             return;
         }
         g_pending.Erase(id);
-        Resolve(id, *pending, a_elapsed, a_blocked);
+        // A blow earlier in its swing than the commit is from another swing (1.5.1 run: a bash "0.59 s late"): the
+        // committed swing never landed
+        Resolve(id, *pending, a_elapsed < pending->elapsed ? -1.0f : a_elapsed, a_blocked);
     }
 
     void Update(float a_deltaTime)

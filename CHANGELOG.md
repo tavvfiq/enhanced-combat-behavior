@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.5.2 (2026-10-29)
+
+Untested in game.
+
+- **Fixed: NPCs dual-wielding two copies of the same weapon never blocked.** Two identical daggers (or swords, axes, maces) look like one weapon held in both hands, so the NPC was treated as a sword-and-board fighter and sent to vanilla's block, which never runs for a dual-wielder (1.5.1 run: a bandit with two iron daggers, 7 block/bash requests, none happened). They now block through the dual-wield block, like any other dual-wielder, and no longer try to bash.
+- Defense timing log: a blow from a different swing than the one defended against no longer counts against the defense (it showed as a bash "0.59 s late").
+
 ## Enhanced Combat Behavior 1.5.1 (2026-10-29)
 
 Untested in game.
