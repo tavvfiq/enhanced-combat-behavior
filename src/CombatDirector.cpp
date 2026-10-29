@@ -210,16 +210,26 @@ namespace CombatAI
         // A dodge, bash or sprint change that cuts an attack's windup can leave the engine
         // in kDraw with no attack playing. Vanilla AI then never starts another swing until
         // a hit reaction resets it, so clear a kDraw that outlives any real windup.
-        if (state.self.attackState == RE::ATTACK_STATE_ENUM::kDraw && state.self.isMelee) {
+        // kBash too: 1.4.1 run, a vanilla bash right after a forward dodge, then a blocked hit, left a bandit in kBash
+        // for ~50 s, holding its block, never attacking and never backing off ("no Retreat mid-swing" x249).
+        const auto attackState = state.self.attackState;
+        if ((attackState == RE::ATTACK_STATE_ENUM::kDraw || attackState == RE::ATTACK_STATE_ENUM::kBash) &&
+            state.self.isMelee) {
             const float now = m_time.load(std::memory_order_relaxed);
-            m_drawStart.Emplace(formID, now);
-            const float drawSince = m_drawStart.Find(formID).value_or(now);
+            float drawSince = now;
+            m_drawStart.ModifyOrCreate(formID, [&](AttackStateSince &a_entry) {
+                if (a_entry.state != attackState) {
+                    a_entry = {attackState, now};
+                }
+                drawSince = a_entry.since;
+            });
             if (now - drawSince > STALE_DRAW_TIMEOUT) {
                 if (auto *actorState = ActorUtils::SafeAsActorState(a_actor)) {
                     actorState->actorState1.meleeAttackState = RE::ATTACK_STATE_ENUM::kNone;
                     state.self.attackState = RE::ATTACK_STATE_ENUM::kNone;
-                    LOG_DEBUG("Cleared stale kDraw on 0x{:08X} after {:.1f}s", static_cast<std::uint32_t>(formID),
-                              now - drawSince);
+                    LOG_DEBUG("Cleared stale {} on 0x{:08X} after {:.1f}s",
+                              attackState == RE::ATTACK_STATE_ENUM::kBash ? "kBash" : "kDraw",
+                              static_cast<std::uint32_t>(formID), now - drawSince);
                 }
                 m_drawStart.Erase(formID);
             }

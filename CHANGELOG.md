@@ -1,5 +1,9 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.4.2 (2026-10-29)
+
+- **Fixed: an NPC stuck "mid-bash" for good.** A bash cut short (here: right after a forward dodge, then a blocked hit) could leave the engine thinking the NPC was still bashing. It then held its block for ~50 s, never attacked and never backed off. A bash state older than 3 s is now cleared, as a stuck attack windup already was. Log (selected NPC): `Cleared stale kBash on 0x... after 3.1s`.
+
 ## Enhanced Combat Behavior 1.4.1 (2026-10-29)
 
 Skill roll fixes:

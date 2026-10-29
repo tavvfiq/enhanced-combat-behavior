@@ -108,8 +108,13 @@ namespace CombatAI
         };
         ThreadSafeMap<RE::FormID, Retaliation> m_retaliation;
         ThreadSafeMap<RE::FormID, float> m_nextTargetSwitchTime;
-        // When each actor entered its current melee kDraw (stale-windup watchdog)
-        ThreadSafeMap<RE::FormID, float> m_drawStart;
+        // When each actor entered its current melee kDraw or kBash (stale attack-state watchdog)
+        struct AttackStateSince
+        {
+            RE::ATTACK_STATE_ENUM state = RE::ATTACK_STATE_ENUM::kNone;
+            float since = 0.0f;
+        };
+        ThreadSafeMap<RE::FormID, AttackStateSince> m_drawStart;
         std::atomic<float> m_time{0.0f}; // Seconds since load, advanced in Update()
 
         // Processing throttle (don't process every frame)
@@ -118,7 +123,7 @@ namespace CombatAI
 
         // Minimum time before processing newly spawned actors (safety delay)
         static constexpr float SPAWN_WARMUP_DELAY = 0.5f; // 500ms delay
-        // Real windups last under ~1s; a kDraw this old has no attack behind it
+        // Real windups and bashes last under ~1.5 s; a kDraw or kBash this old has no attack behind it
         static constexpr float STALE_DRAW_TIMEOUT = 3.0f;
         // A waiting NPC within this of its wait ring circles; closer in it falls back first (pacing)
         static constexpr float kWaitRingTolerance = 150.0f;
