@@ -386,6 +386,8 @@ namespace CombatAI
                     humanFloat("Skill min", &config.m_humanizer.skillMin, 0.0f, 1.0f);
                     humanFloat("Skill max", &config.m_humanizer.skillMax, 0.0f, 1.0f);
                     humanFloat("Re-roll window (s)", &config.m_humanizer.skillRerollSeconds, 0.1f, 5.0f);
+                    humanFloat("Skill per 100 actor-value gap", &config.m_humanizer.skillActorValueWeight, 0.0f, 2.0f);
+                    humanFloat("Actor-value gap cap", &config.m_humanizer.skillActorValueMaxGap, 0.0f, 200.0f, "%.0f");
                     humanFloat("Base reaction delay (ms)", &config.m_humanizer.baseReactionDelayMs, 0.0f, 500.0f, "%.0f");
                     humanFloat("Reaction variance (ms)", &config.m_humanizer.reactionVarianceMs, 0.0f, 300.0f, "%.0f");
                     humanFloat("Reaction reduction/level (ms)", &config.m_humanizer.reactionDelayReductionPerLevelMs, 0.0f, 10.0f);
@@ -393,6 +395,10 @@ namespace CombatAI
                     if (check("Enable fatigue", &config.m_humanizer.enableFatigue)) {
                         config.MarkHumanizerDirty();
                     }
+                    if (check("Fatigue from stamina spent (off: combat time)", &config.m_humanizer.fatigueFromExertion)) {
+                        config.MarkHumanizerDirty();
+                    }
+                    humanFloat("Fatigue: full bar spent within (s)", &config.m_humanizer.fatigueExertionSeconds, 1.0f, 300.0f, "%.0f");
                     humanFloat("Fatigue onset (s)", &config.m_humanizer.fatigueOnsetSeconds, 0.0f, 300.0f, "%.0f");
                     humanFloat("Fatigue full (s)", &config.m_humanizer.fatigueFullSeconds, 1.0f, 600.0f, "%.0f");
                     humanFloat("Low-stamina threshold", &config.m_humanizer.fatigueStaminaThreshold, 0.0f, 1.0f);

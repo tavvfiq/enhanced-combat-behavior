@@ -37,7 +37,7 @@ namespace CombatAI
         // Notify that an action was executed (for temporal tracking)
         void NotifyActionExecuted(RE::Actor *a_actor, ActionType a_action);
         // A melee hit landed (blocked or not): learn the attacker's swing-start-to-hit time from the victim's view
-        void OnHitLanded(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power);
+        void OnHitLanded(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power, bool a_blocked);
         // The NPC blocked a melee hit: open its counter window (read as isGuardCounterActive)
         void OnHitBlocked(RE::Actor *a_victim);
         // Starts the anti-spam action timer when an attack/bash actually starts (any thread)

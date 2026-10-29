@@ -40,9 +40,13 @@ namespace CombatAI
             float skillMin = 0.2f;
             float skillMax = 0.95f;
             float skillRerollSeconds = 1.0f;  // Openings that aren't one swing re-roll this often
+            float skillActorValueWeight = 0.4f;  // skill per 100 points of actor-value gap to the target (0 = level only)
+            float skillActorValueMaxGap = 50.0f; // the gap counts up to this many points either way
 
             // Fatigue: long fights and low stamina make the actor sloppier
             bool enableFatigue = true;
+            bool fatigueFromExertion = true;       // fatigue = stamina spent lately (off: the combat-time ramp below)
+            float fatigueExertionSeconds = 30.0f;  // spending a full stamina bar within about this long = full fatigue
             float fatigueOnsetSeconds = 45.0f;     // Combat time before fatigue starts building
             float fatigueFullSeconds = 180.0f;     // Combat time at full fatigue
             float fatigueStaminaThreshold = 0.25f; // Below this stamina fraction, fatigue rises to full at 0

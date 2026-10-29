@@ -101,7 +101,8 @@ namespace CombatAI
         AttackDefenseFeedbackTracker::GetInstance().OnRaceHit(attacker, target); // the player's hits count too
         if (a_event->projectile == 0) { // melee only: a shot's timing has nothing to do with a swing
             CombatDirector::GetInstance().OnHitLanded(attacker, target,
-                                                      a_event->flags.any(RE::TESHitEvent::Flag::kPowerAttack));
+                                                      a_event->flags.any(RE::TESHitEvent::Flag::kPowerAttack),
+                                                      a_event->flags.any(RE::TESHitEvent::Flag::kHitBlocked));
             // Blocked a melee blow: the counter window opens (a strong attack while the attacker recovers)
             if (a_event->flags.any(RE::TESHitEvent::Flag::kHitBlocked) && !ActorUtils::SafeIsPlayerRef(target)) {
                 CombatDirector::GetInstance().OnHitBlocked(target);

@@ -41,8 +41,29 @@ namespace CombatAI
         bool PassesSkillCheck(RE::Actor *a_actor, RE::FormID a_formID, ActionType a_action,
                               const ActorStateData &a_state, float a_combatTime);
 
-        // Skill chance for this actor right now (level, fatigue, panic; a boss panics only when desperate)
-        float SkillChance(RE::Actor *a_actor, ActionType a_action, float a_combatTime, const SelfState &a_self) const;
+        // What a skill chance is made of: level skill, the actor-value gap to the target, then fatigue and panic
+        struct SkillParts
+        {
+            float level = 0.0f;       // SkillBase + SkillPerLevel * (level - 1), clamped
+            float selfValue = 0.0f;   // the NPC's actor value for this action (0 = none)
+            float targetValue = 0.0f; // the target's opposing actor value (0 = none)
+            float gapSkill = 0.0f;    // skill added by the gap (SkillActorValueWeight)
+            float fatigue = 0.0f;     // 0..1
+            float panic = 0.0f;       // 0..1
+            float chance = 1.0f;      // the pass chance
+        };
+        SkillParts ExplainSkill(RE::Actor *a_actor, ActionType a_action, float a_combatTime,
+                                const ActorStateData &a_state) const;
+
+        // Skill chance for this actor right now (level, actor-value gap, fatigue, panic; a boss panics only when
+        // desperate)
+        float SkillChance(RE::Actor *a_actor, ActionType a_action, float a_combatTime, const ActorStateData &a_state) const
+        {
+            return ExplainSkill(a_actor, a_action, a_combatTime, a_state).chance;
+        }
+
+        // Exertion: stamina spent, decaying over FatigueExertionSeconds (call once per brain tick)
+        void TrackExertion(RE::FormID a_formID, float a_stamina, float a_maxStamina, float a_elapsed);
 
         // One roll per opportunity a_key (e.g. one swing): the same key returns the stored result. Backoff only.
         bool RollBackoff(RE::FormID a_formID, std::uint64_t a_key, float a_chance);
@@ -60,7 +81,11 @@ namespace CombatAI
         // Cleanup invalid actors (call periodically)
         void Cleanup();
 
-        void Evict(RE::FormID a_formID) { m_skillRolls.Erase(a_formID); }
+        void Evict(RE::FormID a_formID)
+        {
+            m_skillRolls.Erase(a_formID);
+            m_exertion.Erase(a_formID);
+        }
 
         // Configuration
         void SetConfig(const Settings &a_config) { m_config = a_config; }
@@ -101,10 +126,18 @@ namespace CombatAI
 
         ThreadSafeMap<RE::FormID, ActorReactionState> m_reactionStates;
         ThreadSafeMap<RE::FormID, SkillState> m_skillRolls;
+        struct Exertion
+        {
+            float last = -1.0f; // stamina at the last tick (-1: none yet)
+            float spent = 0.0f; // stamina spent, decaying
+            float fraction = 0.0f; // spent / max stamina, 0..1
+        };
+        ThreadSafeMap<RE::FormID, Exertion> m_exertion;
         ThreadSafeMap<RE::FormID, ActorCooldownState> m_cooldownStates;
 
-        // Extra skill penalty from fatigue (combat time, low stamina) and panic (low health, a_panics)
-        float CalculateStress(ActionType a_action, float a_combatTime, const SelfState &a_self, bool a_panics) const;
+        // Fatigue (exertion or combat time, and low stamina) and panic (low health, if a_panics), each 0..1
+        std::pair<float, float> CalculateStress(RE::FormID a_formID, ActionType a_action, float a_combatTime,
+                                                const SelfState &a_self, bool a_panics) const;
 
         // Level-scaled delay plus random variance, in seconds
         float RollReactionDelaySeconds(RE::Actor *a_actor) const;

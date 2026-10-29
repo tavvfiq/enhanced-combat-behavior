@@ -1,5 +1,14 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.5.0 (2026-10-29)
+
+Untested in game.
+
+- **Skill now depends on who is fighting whom, not only on level.** On top of the level skill, the gap between the NPC's skill and its target's moves its chance: parry, timed block and bash roll on Block against the target's weapon skill; dodge on the NPC's best of One-Handed/Two-Handed/Block against the target's weapon skill; attacks and feints on the NPC's weapon skill against the target's Block. 0.4 skill per 100 points, the gap capped at 50 points either way (at most +-0.2), so a player with fortified skills past 100 doesn't make every NPC fall apart. Creatures without those skills keep the level skill. INI: `SkillActorValueWeight`, `SkillActorValueMaxGap` (Advanced in the config menu).
+- **Fatigue comes from effort, not the clock.** Fatigue is now the stamina an NPC spent lately (a full bar within about 30 s = full fatigue, fading as it rests) instead of how long the fight has lasted, so a long boss fight no longer makes a boss sloppy by itself. Low stamina still adds fatigue as before. INI: `FatigueFromExertion` (false = the old combat-time ramp), `FatigueExertionSeconds`.
+- **Defense timing log (measurement only).** For every parry, timed block, bash and dodge committed against a swing, the log records how long before the blow it came, against the window it needs, and whether the blow was blocked, landed or never came. Selected NPC: one `Timing` line each. All NPCs: a `Defense timing (last 60s...)` summary each minute (mean +- sd, early / in window / late). This is the data for tuning defense timing; nothing changes in play.
+- Debug log (selected NPC): each new skill roll is logged with its parts: `Roll 0x...: defense Parry skill 0.71 (level 0.55, actor value 45 vs 60 -> -0.06, fatigue 0.30, panic 0.00) -> pass`.
+
 ## Enhanced Combat Behavior 1.4.2 (2026-10-29)
 
 - **Fixed: an NPC stuck "mid-bash" for good.** A bash cut short (here: right after a forward dodge, then a blocked hit) could leave the engine thinking the NPC was still bashing. It then held its block for ~50 s, never attacked and never backed off. A bash state older than 3 s is now cleared, as a stuck attack windup already was. Log (selected NPC): `Cleared stale kBash on 0x... after 3.1s`.

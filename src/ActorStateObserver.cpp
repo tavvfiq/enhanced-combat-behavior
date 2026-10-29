@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "DefenseTiming.h"
 
 // Undefine Windows macros that conflict with std functions
 // Must be done after pch.h (which includes RE/Skyrim.h that may include Windows
@@ -1341,7 +1342,7 @@ namespace CombatAI
         return temporal;
     }
 
-    void ActorStateObserver::OnHitLanded(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power)
+    void ActorStateObserver::OnHitLanded(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power, bool a_blocked)
     {
         if (!a_attacker || !a_victim) {
             return;
@@ -1354,6 +1355,9 @@ namespace CombatAI
                          std::chrono::duration<float>(std::chrono::steady_clock::now() - t.updatedAt).count();
             }
         });
+        if (sample >= 0.0f) {
+            DefenseTiming::OnHit(a_victim, a_attacker->GetFormID(), sample, a_blocked); // the defense timing log
+        }
         if (sample < 0.05f || sample > 1.5f) {
             return; // no swing seen, or a hit from an earlier swing
         }

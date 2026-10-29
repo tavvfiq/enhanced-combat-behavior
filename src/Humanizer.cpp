@@ -2,10 +2,13 @@
 #include "ActorUtils.h"
 #include "Config.h"
 #include "Boss.h"
+#include "Logger.h"
 #include "pch.h"
 #include <algorithm>
 #include <bit>
+#include <cmath>
 #include <random>
+#include <tuple>
 
 namespace CombatAI
 {
@@ -75,6 +78,60 @@ namespace CombatAI
         static_assert(Skill(0.95f, 0.15f, true) == kBossSkillCap && Skill(0.5f, 0.25f, true) == 0.75f &&
                       Skill(0.95f, 0.15f, false) == 0.95f);
 
+        // The skill an NPC's weapon uses (fists: one-handed)
+        RE::ActorValue WeaponSkill(RE::Actor *a_actor)
+        {
+            const auto *object = a_actor ? a_actor->GetEquippedObject(false) : nullptr;
+            const auto *weapon = object ? object->As<RE::TESObjectWEAP>() : nullptr;
+            return weapon ? weapon->weaponData.skill.get() : RE::ActorValue::kOneHanded;
+        }
+
+        float Value(RE::Actor *a_actor, RE::ActorValue a_value)
+        {
+            auto *owner = a_value != RE::ActorValue::kNone ? ActorUtils::SafeAsActorValueOwner(a_actor) : nullptr;
+            return owner ? owner->GetActorValue(a_value) : 0.0f;
+        }
+
+        // The NPC's actor value an action rolls on, and the target's value it is measured against:
+        // parry / timed block / bash: Block vs the target's weapon skill; dodge / jump: the best of OneHanded,
+        // TwoHanded and Block vs the target's weapon skill; attacks and feints: its weapon skill vs the target's Block
+        std::pair<float, float> Values(RE::Actor *a_self, RE::Actor *a_target, ActionType a_action)
+        {
+            if (!a_self || !a_target) {
+                return {0.0f, 0.0f};
+            }
+            switch (a_action) {
+            case ActionType::Parry:
+            case ActionType::TimedBlock:
+            case ActionType::Bash:
+                return {Value(a_self, RE::ActorValue::kBlock), Value(a_target, WeaponSkill(a_target))};
+            case ActionType::Dodge:
+            case ActionType::Jump:
+                return {(std::max)({Value(a_self, RE::ActorValue::kOneHanded), Value(a_self, RE::ActorValue::kTwoHanded),
+                                    Value(a_self, RE::ActorValue::kBlock)}),
+                        Value(a_target, WeaponSkill(a_target))};
+            default:
+                return {Value(a_self, WeaponSkill(a_self)), Value(a_target, RE::ActorValue::kBlock)};
+            }
+        }
+
+        // Skill from the actor-value gap: a_weight per 100 points, the gap clamped to +-a_maxGap (a player with
+        // fortified skills past 100 would otherwise make NPCs fail half their rolls); 0 when either side has none
+        constexpr float GapSkill(float a_self, float a_target, float a_weight, float a_maxGap)
+        {
+            return a_self > 0.0f && a_target > 0.0f ? std::clamp(a_self - a_target, -a_maxGap, a_maxGap) * a_weight / 100.0f
+                                                    : 0.0f;
+        }
+        static_assert(GapSkill(50.0f, 30.0f, 0.4f, 50.0f) == 0.08f && GapSkill(20.0f, 120.0f, 0.4f, 50.0f) == -0.2f &&
+                      GapSkill(0.0f, 50.0f, 0.4f, 50.0f) == 0.0f);
+
+        // Exertion: stamina spent decays with time constant a_seconds; returns the new spent amount
+        float Decayed(float a_spent, float a_last, float a_now, float a_elapsed, float a_seconds)
+        {
+            const float decayed = a_spent * std::exp(-a_elapsed / (std::max)(1.0f, a_seconds));
+            return decayed + (a_last >= 0.0f && a_now < a_last ? a_last - a_now : 0.0f);
+        }
+
         // Each actor's offense window starts at its own offset (0..1 window): they used to re-roll on one shared tick
         constexpr float WindowPhase(RE::FormID a_formID)
         {
@@ -103,17 +160,26 @@ namespace CombatAI
             key = (static_cast<std::uint64_t>(target.targetFormID) << 32) | a_state.temporal.target.swingCount;
         }
 
-        const float chance = SkillChance(a_actor, a_action, a_combatTime, a_state.self);
+        const auto parts = ExplainSkill(a_actor, a_action, a_combatTime, a_state);
         bool passed = true;
+        bool rolled = false;
         m_skillRolls.ModifyOrCreate(a_formID, [&](SkillState &state) {
             auto &storedKey = skillClass == SkillClass::Defense ? state.defenseKey : state.offenseKey;
             auto &storedPassed = skillClass == SkillClass::Defense ? state.defensePassed : state.offensePassed;
             if (storedKey != key) {
                 storedKey = key;
-                storedPassed = std::uniform_real_distribution<float>(0.0f, 1.0f)(g_gen) < chance;
+                storedPassed = std::uniform_real_distribution<float>(0.0f, 1.0f)(g_gen) < parts.chance;
+                rolled = true;
             }
             passed = storedPassed;
         });
+        if (rolled && Config::GetInstance().IsDebugTarget(a_formID)) {
+            LOG_DEBUG("Roll 0x{:08X}: {} {} skill {:.2f} (level {:.2f}, actor value {:.0f} vs {:.0f} -> {:+.2f}, fatigue "
+                      "{:.2f}, panic {:.2f}) -> {}",
+                      a_formID, skillClass == SkillClass::Defense ? "defense" : "offense", ActionName(a_action),
+                      parts.chance, parts.level, parts.selfValue, parts.targetValue, parts.gapSkill, parts.fatigue,
+                      parts.panic, passed ? "pass" : "fail");
+        }
         return passed;
     }
 
@@ -130,44 +196,75 @@ namespace CombatAI
         return passed;
     }
 
-    float Humanizer::SkillChance(RE::Actor *a_actor, ActionType a_action, float a_combatTime,
-                                 const SelfState &a_self) const
+    Humanizer::SkillParts Humanizer::ExplainSkill(RE::Actor *a_actor, ActionType a_action, float a_combatTime,
+                                                  const ActorStateData &a_state) const
     {
+        SkillParts parts;
         const float level = static_cast<float>(ActorUtils::SafeGetLevel(a_actor));
+        parts.level = (std::clamp)(m_config.skillBase + m_config.skillPerLevel * (level - 1.0f), m_config.skillMin,
+                                   m_config.skillMax);
+        // Level sets the baseline; the actor-value gap to this target moves it (two bandits of one level now differ by
+        // class, and a strong opponent makes an NPC sloppier). A gap on top of level, not instead: replacing level
+        // would drop every level 26+ NPC from 95% to ~75% skill.
+        if (m_config.skillActorValueWeight > 0.0f && a_state.target.isValid) {
+            auto *target = RE::TESForm::LookupByID<RE::Actor>(a_state.target.targetFormID);
+            std::tie(parts.selfValue, parts.targetValue) = Values(a_actor, target, a_action);
+            parts.gapSkill = GapSkill(parts.selfValue, parts.targetValue, m_config.skillActorValueWeight,
+                                      m_config.skillActorValueMaxGap);
+        }
         // A boss makes fewer mistakes (+0.15 skill, capped at 0.97)
         const bool boss = Boss::Get(a_actor).boss;
-        const float skill = Skill((std::clamp)(m_config.skillBase + m_config.skillPerLevel * (level - 1.0f), m_config.skillMin,
-                                               m_config.skillMax),
+        const float skill = Skill((std::clamp)(parts.level + parts.gapSkill, m_config.skillMin, m_config.skillMax),
                                   Config::GetInstance().GetBoss().skillBonus, boss);
         // Fatigue and panic scale the failure chance: x(1 + penalty) at full fatigue/panic.
         // (Dividing skill instead turned a 95% veteran into 63% after three minutes.)
         // A boss keeps its nerve until the desperate phase, where it turns reckless.
         const bool panics = !boss || Boss::CurrentPhase(a_actor) == Boss::Phase::Desperate;
-        const float failure = (1.0f - skill) * (1.0f + CalculateStress(a_action, a_combatTime, a_self, panics));
-        return (std::max)(0.0f, 1.0f - failure);
+        std::tie(parts.fatigue, parts.panic) =
+            CalculateStress(a_actor ? a_actor->GetFormID() : 0, a_action, a_combatTime, a_state.self, panics);
+        const float failure = (1.0f - skill) * (1.0f + parts.fatigue * m_config.fatigueSkillPenalty +
+                                                parts.panic * m_config.panicSkillPenalty);
+        parts.chance = (std::max)(0.0f, 1.0f - failure);
+        return parts;
     }
 
-    float Humanizer::CalculateStress(ActionType a_action, float a_combatTime, const SelfState &a_self, bool a_panics) const
+    void Humanizer::TrackExertion(RE::FormID a_formID, float a_stamina, float a_maxStamina, float a_elapsed)
     {
-        float stress = 0.0f;
+        const float seconds = m_config.fatigueExertionSeconds;
+        m_exertion.ModifyOrCreate(a_formID, [&](Exertion &e) {
+            e.spent = Decayed(e.spent, e.last, a_stamina, a_elapsed, seconds);
+            e.last = a_stamina;
+            e.fraction = a_maxStamina > 0.0f ? (std::min)(1.0f, e.spent / a_maxStamina) : 0.0f;
+        });
+    }
 
+    std::pair<float, float> Humanizer::CalculateStress(RE::FormID a_formID, ActionType a_action, float a_combatTime,
+                                                       const SelfState &a_self, bool a_panics) const
+    {
+        float fatigue = 0.0f;
         if (m_config.enableFatigue) {
-            const float span = (std::max)(1.0f, m_config.fatigueFullSeconds - m_config.fatigueOnsetSeconds);
-            float fatigue = (std::clamp)((a_combatTime - m_config.fatigueOnsetSeconds) / span, 0.0f, 1.0f);
+            if (m_config.fatigueFromExertion) {
+                // Stamina spent lately (a full bar within ~FatigueExertionSeconds = full fatigue), not the fight's
+                // length: a 3-minute boss fight no longer makes the boss sloppy from the clock alone
+                fatigue = m_exertion.Find(a_formID).value_or(Exertion{}).fraction;
+            } else {
+                const float span = (std::max)(1.0f, m_config.fatigueFullSeconds - m_config.fatigueOnsetSeconds);
+                fatigue = (std::clamp)((a_combatTime - m_config.fatigueOnsetSeconds) / span, 0.0f, 1.0f);
+            }
             if (m_config.fatigueStaminaThreshold > 0.0f && a_self.staminaPercent < m_config.fatigueStaminaThreshold) {
                 fatigue = (std::max)(fatigue, 1.0f - a_self.staminaPercent / m_config.fatigueStaminaThreshold);
             }
-            stress += fatigue * m_config.fatigueSkillPenalty;
         }
 
         // Panic makes fighting sloppier, not running away.
+        float panic = 0.0f;
         const bool fleeing = a_action == ActionType::Retreat || a_action == ActionType::Backoff;
         if (m_config.enablePanic && a_panics && !fleeing && m_config.panicHealthThreshold > 0.0f &&
             a_self.healthPercent < m_config.panicHealthThreshold) {
-            stress += (1.0f - a_self.healthPercent / m_config.panicHealthThreshold) * m_config.panicSkillPenalty;
+            panic = 1.0f - a_self.healthPercent / m_config.panicHealthThreshold;
         }
 
-        return stress;
+        return {fatigue, panic};
     }
 
     bool Humanizer::IsOnCooldown(RE::FormID a_formID, ActionType a_action)

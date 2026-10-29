@@ -135,7 +135,11 @@ namespace CombatAI
         D("Humanizer", "SkillMin", m_humanizer.skillMin);
         D("Humanizer", "SkillMax", m_humanizer.skillMax);
         D("Humanizer", "SkillRerollSeconds", m_humanizer.skillRerollSeconds);
+        D("Humanizer", "SkillActorValueWeight", m_humanizer.skillActorValueWeight);
+        D("Humanizer", "SkillActorValueMaxGap", m_humanizer.skillActorValueMaxGap);
         B("Humanizer", "EnableFatigue", m_humanizer.enableFatigue);
+        B("Humanizer", "FatigueFromExertion", m_humanizer.fatigueFromExertion);
+        D("Humanizer", "FatigueExertionSeconds", m_humanizer.fatigueExertionSeconds);
         D("Humanizer", "FatigueOnsetSeconds", m_humanizer.fatigueOnsetSeconds);
         D("Humanizer", "FatigueFullSeconds", m_humanizer.fatigueFullSeconds);
         D("Humanizer", "FatigueStaminaThreshold", m_humanizer.fatigueStaminaThreshold);
@@ -553,6 +557,11 @@ namespace CombatAI
         H("SkillMin", m_humanizer.skillMin, 0.0f, 1.0f);
         H("SkillMax", m_humanizer.skillMax, 0.0f, 1.0f);
         H("SkillRerollSeconds", m_humanizer.skillRerollSeconds, 0.1f, 10.0f);
+        H("SkillActorValueWeight", m_humanizer.skillActorValueWeight, 0.0f, 2.0f);
+        H("SkillActorValueMaxGap", m_humanizer.skillActorValueMaxGap, 0.0f, 200.0f);
+        m_humanizer.fatigueFromExertion =
+            a_ini.GetBoolValue("Humanizer", "FatigueFromExertion", m_humanizer.fatigueFromExertion);
+        H("FatigueExertionSeconds", m_humanizer.fatigueExertionSeconds, 1.0f, 300.0f);
         m_humanizer.skillMax = (std::max)(m_humanizer.skillMax, m_humanizer.skillMin);
 
 

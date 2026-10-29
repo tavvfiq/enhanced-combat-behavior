@@ -13,6 +13,7 @@
 #include "Personality.h"
 #include "Potions.h"
 #include "SelfShouts.h"
+#include "DefenseTiming.h"
 #include "TargetDanger.h"
 #include "ComboFollowUp.h"
 #include "Trees.h"
@@ -173,6 +174,10 @@ namespace CombatAI
         ActorStateData state = m_observer.GatherState(a_actor, elapsed);
         Boss::UpdatePhase(a_actor, state.self.healthPercent); // detection (logged once) and health phase
         TargetDanger::Update(a_actor, state, debugEnabled);   // before the decision: caution and threat read it
+        if (state.self.staminaPercent > 0.0f) {                // exertion fatigue: stamina spent lately
+            m_humanizer.TrackExertion(formID, state.self.currentStamina,
+                                      state.self.currentStamina / state.self.staminaPercent, elapsed);
+        }
         Potions::Update(a_actor, state, debugEnabled);         // before the decision: a drink wait makes it retreat
         SelfShouts::Update(a_actor, state, debugEnabled);
         // A held dual block ends when the swing stops without hitting; a landed blow ends it from the hit event
@@ -362,7 +367,7 @@ namespace CombatAI
             if (debugEnabled) {
                 LOG_DEBUG("Skip 0x{:08X}: failed skill roll on {} (skill {:.0f}%, combat time {:.0f}s) - {} instead{}",
                           static_cast<std::uint32_t>(formID), ActionName(failed),
-                          m_humanizer.SkillChance(a_actor, failed, combatTime, state.self) * 100.0f, combatTime,
+                          m_humanizer.SkillChance(a_actor, failed, combatTime, state) * 100.0f, combatTime,
                           ActionName(mistake.action), fallbacksFailed ? " (the fallback failed its roll too)" : "");
             }
             if (mistake.action == ActionType::None) {
@@ -644,6 +649,12 @@ namespace CombatAI
             break;
         }
 
+        // Defense timing log: how long before the blow it committed (resolved by the hit event, or "no blow")
+        if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && a_state.temporal.target.attackStartTime >= 0.0f) {
+            DefenseTiming::OnCommit(a_actor, a_state.target.targetFormID, executedDecision.action,
+                                    a_state.temporal.target.attackStartTime, a_state.temporal.target.timeUntilAttackHits);
+        }
+
         m_processedActors.Insert(a_formID);
         m_humanizer.MarkActionUsed(a_formID, executedDecision.action);
         m_observer.NotifyActionExecuted(a_actor, executedDecision.action);
@@ -657,6 +668,7 @@ namespace CombatAI
         // Update per-frame systems (must be called once per frame, not per actor)
         m_humanizer.Update(a_deltaTime);
         Intents::LogSummary(a_deltaTime);
+        DefenseTiming::Update(a_deltaTime);
         SCARIntegration::GetInstance().Update(a_deltaTime);
         m_executor.UpdateJumps(a_deltaTime);
         m_observer.Update(a_deltaTime);
@@ -757,6 +769,7 @@ namespace CombatAI
         m_recentHits.Erase(a_formID);
         m_retaliation.Erase(a_formID);
         m_humanizer.Evict(a_formID);
+        DefenseTiming::Evict(a_formID);
         AttackCoordinator::GetSingleton().ClearHeld(a_formID);
         m_nextTargetSwitchTime.Erase(a_formID);
         m_drawStart.Erase(a_formID);
