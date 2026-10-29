@@ -43,33 +43,44 @@ namespace CombatAI
         return canReact;
     }
 
+    Humanizer::SkillClass Humanizer::ClassOf(ActionType a_action)
+    {
+        switch (a_action) {
+        case ActionType::Dodge:
+        case ActionType::Parry:
+        case ActionType::TimedBlock:
+        case ActionType::Bash:
+        case ActionType::Jump:
+            return SkillClass::Defense;
+        case ActionType::Attack:
+        case ActionType::PowerAttack:
+        case ActionType::SprintAttack:
+        case ActionType::Feint:
+            return SkillClass::Offense;
+        default:
+            return SkillClass::None;
+        }
+    }
+
     namespace
     {
-        enum class SkillClass
-        {
-            None,    // movement and the like: never rolls
-            Defense, // reacting to the target: dodge, parry, timed block, bash, jump
-            Offense  // committing to an attack or feint
-        };
+        // A boss's skill tops out here, so it can still err (the bonus used to push level 14+ bosses to 1.0: no
+        // failures, and fatigue and panic multiplied 0)
+        constexpr float kBossSkillCap = 0.97f;
 
-        SkillClass ClassOf(ActionType a_action)
+        constexpr float Skill(float a_levelSkill, float a_bossBonus, bool a_boss)
         {
-            switch (a_action) {
-            case ActionType::Dodge:
-            case ActionType::Parry:
-            case ActionType::TimedBlock:
-            case ActionType::Bash:
-            case ActionType::Jump:
-                return SkillClass::Defense;
-            case ActionType::Attack:
-            case ActionType::PowerAttack:
-            case ActionType::SprintAttack:
-            case ActionType::Feint:
-                return SkillClass::Offense;
-            default:
-                return SkillClass::None;
-            }
+            return a_boss ? std::clamp(a_levelSkill + a_bossBonus, 0.0f, kBossSkillCap) : std::clamp(a_levelSkill, 0.0f, 1.0f);
         }
+        static_assert(Skill(0.95f, 0.15f, true) == kBossSkillCap && Skill(0.5f, 0.25f, true) == 0.75f &&
+                      Skill(0.95f, 0.15f, false) == 0.95f);
+
+        // Each actor's offense window starts at its own offset (0..1 window): they used to re-roll on one shared tick
+        constexpr float WindowPhase(RE::FormID a_formID)
+        {
+            return static_cast<float>((a_formID * 2654435761u) >> 8) / 16777216.0f;
+        }
+        static_assert(WindowPhase(0) == 0.0f && WindowPhase(0xFFFFFFFF) < 1.0f && WindowPhase(1) != WindowPhase(2));
     } // namespace
 
     bool Humanizer::PassesSkillCheck(RE::Actor *a_actor, RE::FormID a_formID, ActionType a_action,
@@ -85,7 +96,7 @@ namespace CombatAI
         // passes on that opening and a new one comes after the window.
         const float now = m_time.load(std::memory_order_relaxed);
         const float window = (std::max)(0.1f, m_config.skillRerollSeconds);
-        std::uint64_t key = static_cast<std::uint64_t>(now / window) | (1ull << 63);
+        std::uint64_t key = static_cast<std::uint64_t>(now / window + WindowPhase(a_formID)) | (1ull << 63);
         const auto &target = a_state.target;
         if (skillClass == SkillClass::Defense && target.isValid && (target.isAttacking || target.isPowerAttacking) &&
             a_state.temporal.target.attackStartTime >= 0.0f) {
@@ -123,17 +134,20 @@ namespace CombatAI
                                  const SelfState &a_self) const
     {
         const float level = static_cast<float>(ActorUtils::SafeGetLevel(a_actor));
-        // A boss makes fewer mistakes (+0.15 skill)
-        const float skill = (std::min)(1.0f, (std::clamp)(m_config.skillBase + m_config.skillPerLevel * (level - 1.0f),
-                                                          m_config.skillMin, m_config.skillMax) +
-                                                 (Boss::Get(a_actor).boss ? Config::GetInstance().GetBoss().skillBonus : 0.0f));
+        // A boss makes fewer mistakes (+0.15 skill, capped at 0.97)
+        const bool boss = Boss::Get(a_actor).boss;
+        const float skill = Skill((std::clamp)(m_config.skillBase + m_config.skillPerLevel * (level - 1.0f), m_config.skillMin,
+                                               m_config.skillMax),
+                                  Config::GetInstance().GetBoss().skillBonus, boss);
         // Fatigue and panic scale the failure chance: x(1 + penalty) at full fatigue/panic.
         // (Dividing skill instead turned a 95% veteran into 63% after three minutes.)
-        const float failure = (1.0f - skill) * (1.0f + CalculateStress(a_action, a_combatTime, a_self));
+        // A boss keeps its nerve until the desperate phase, where it turns reckless.
+        const bool panics = !boss || Boss::CurrentPhase(a_actor) == Boss::Phase::Desperate;
+        const float failure = (1.0f - skill) * (1.0f + CalculateStress(a_action, a_combatTime, a_self, panics));
         return (std::max)(0.0f, 1.0f - failure);
     }
 
-    float Humanizer::CalculateStress(ActionType a_action, float a_combatTime, const SelfState &a_self) const
+    float Humanizer::CalculateStress(ActionType a_action, float a_combatTime, const SelfState &a_self, bool a_panics) const
     {
         float stress = 0.0f;
 
@@ -148,7 +162,7 @@ namespace CombatAI
 
         // Panic makes fighting sloppier, not running away.
         const bool fleeing = a_action == ActionType::Retreat || a_action == ActionType::Backoff;
-        if (m_config.enablePanic && !fleeing && m_config.panicHealthThreshold > 0.0f &&
+        if (m_config.enablePanic && a_panics && !fleeing && m_config.panicHealthThreshold > 0.0f &&
             a_self.healthPercent < m_config.panicHealthThreshold) {
             stress += (1.0f - a_self.healthPercent / m_config.panicHealthThreshold) * m_config.panicSkillPenalty;
         }

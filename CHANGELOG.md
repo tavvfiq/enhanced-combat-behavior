@@ -1,5 +1,14 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.4.1 (2026-10-29)
+
+Skill roll fixes:
+- **Bosses can err again.** The boss skill bonus pushed every boss of level 14 or more to a perfect skill roll (no failed parry, dodge or attack ever). Boss skill now tops out at 97%.
+- **Bosses panic only when desperate.** Low-health panic no longer makes a boss sloppier until its desperate phase, where it turns reckless.
+- **A failed roll is a real mistake.** A failed parry used to fall straight back to a timed block or a dodge in the same moment, with no roll. Now nothing from the failed group (defense or offense) is picked instead, and a fallback from the other group takes its own roll. Plain blocking and movement stay as fallbacks.
+- **Attack re-rolls no longer line up.** Each NPC's 1 s attack-roll window now starts at its own offset instead of one shared clock tick.
+- Log (selected NPC): `failed skill roll on Parry ... - Strafe instead (the fallback failed its roll too)` when the fallback also failed.
+
 ## Enhanced Combat Behavior 1.4.0 (2026-10-29)
 
 - **NPCs size up what they fight.** Each NPC rates its target's danger (0-1) from: a level or max health well above its own, a huge body (giant, mammoth, dwarven centurion, lurker, dragon), a beast (werewolf, werebear, vampire lord) or a boss. The more dangerous the target, the less risk and the more caution the NPC takes: more dodging, blocking and backing off, fewer reckless power attacks, earlier tactical retreats. Foolhardy NPCs (Confidence 4) fear nothing, and bosses keep their own phases. A giant also counts as a crowd for the threat level.

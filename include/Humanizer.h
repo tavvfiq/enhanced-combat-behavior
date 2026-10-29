@@ -21,6 +21,15 @@ namespace CombatAI
       public:
         using Settings = Config::HumanizerSettings;
 
+        // Which roll an action takes: one cached result per class per opportunity
+        enum class SkillClass
+        {
+            None,    // movement and the like: never rolls
+            Defense, // reacting to the target: dodge, parry, timed block, bash, jump
+            Offense  // committing to an attack or feint
+        };
+        static SkillClass ClassOf(ActionType a_action);
+
         Humanizer() = default;
         ~Humanizer() = default;
 
@@ -32,7 +41,7 @@ namespace CombatAI
         bool PassesSkillCheck(RE::Actor *a_actor, RE::FormID a_formID, ActionType a_action,
                               const ActorStateData &a_state, float a_combatTime);
 
-        // Skill chance for this actor right now (level, fatigue, panic)
+        // Skill chance for this actor right now (level, fatigue, panic; a boss panics only when desperate)
         float SkillChance(RE::Actor *a_actor, ActionType a_action, float a_combatTime, const SelfState &a_self) const;
 
         // One roll per opportunity a_key (e.g. one swing): the same key returns the stored result. Backoff only.
@@ -94,8 +103,8 @@ namespace CombatAI
         ThreadSafeMap<RE::FormID, SkillState> m_skillRolls;
         ThreadSafeMap<RE::FormID, ActorCooldownState> m_cooldownStates;
 
-        // Extra skill penalty from fatigue (combat time, low stamina) and panic (low health)
-        float CalculateStress(ActionType a_action, float a_combatTime, const SelfState &a_self) const;
+        // Extra skill penalty from fatigue (combat time, low stamina) and panic (low health, a_panics)
+        float CalculateStress(ActionType a_action, float a_combatTime, const SelfState &a_self, bool a_panics) const;
 
         // Level-scaled delay plus random variance, in seconds
         float RollReactionDelaySeconds(RE::Actor *a_actor) const;

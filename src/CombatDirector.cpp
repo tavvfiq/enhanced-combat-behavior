@@ -266,15 +266,15 @@ namespace CombatAI
         // Check if should make mistake (humanizer)
         const float combatTime = m_actorCombatTimes.Find(formID).value_or(0.0f);
         // Skill roll, once per opportunity (a projectile sidestep has its own roll)
-        // The next-best option the brain had this tick, never the excluded action, never a pull-back mid-swing
-        const auto nextBest = [&](ActionType a_excluded) {
+        // The next-best option the brain had this tick, never an excluded one, never a pull-back mid-swing
+        const auto nextBest = [&](auto &&a_excluded) {
             const bool midSwing = state.self.attackState != RE::ATTACK_STATE_ENUM::kNone &&
                                   state.self.attackState != RE::ATTACK_STATE_ENUM::kNextAttack &&
                                   state.self.attackState != RE::ATTACK_STATE_ENUM::kFollowThrough;
             DecisionResult best;
             for (const auto &option : DecisionMatrix::LastCandidates()) {
                 const bool pullsBack = option.action == ActionType::Retreat || option.action == ActionType::Backoff;
-                if (option.action != a_excluded && option.action != ActionType::None && !(midSwing && pullsBack) &&
+                if (!a_excluded(option) && option.action != ActionType::None && !(midSwing && pullsBack) &&
                     (best.action == ActionType::None || option.priority > best.priority)) {
                     best = option;
                 }
@@ -307,7 +307,8 @@ namespace CombatAI
             }
             if (rolled && !*rolled) {
                 // Not a sidestep either: run 19 swapped 177 of 273 failed rolls for Strafe, so it still disengaged
-                DecisionResult instead = nextBest(ActionType::Backoff);
+                DecisionResult instead =
+                    nextBest([](const DecisionResult &a_option) { return a_option.action == ActionType::Backoff; });
                 if (IsMovementAction(instead.action)) {
                     instead = DecisionResult();
                 }
@@ -326,16 +327,33 @@ namespace CombatAI
         // skipped as "defending" on a Backoff that roll then dropped)
         ComboFollowUp::Update(a_actor, state, decision);
 
-        // A failed roll is a mistake, not a freeze: the NPC takes the next-best option it had this tick.
+        // A failed roll is a mistake, not a freeze: the NPC takes the next-best option it had this tick. That option
+        // isn't a free pass: nothing from the failed class (a failed parry no longer turns into a timed block or a
+        // dodge), and an option from the other rolled class takes that class's roll (a reflex keeps its own).
         if (decision.action != ActionType::None && !decision.reflex &&
             !m_humanizer.PassesSkillCheck(a_actor, formID, decision.action, state, combatTime)) {
             const ActionType failed = decision.action;
-            const DecisionResult mistake = nextBest(failed);
+            std::array<bool, 3> classFailed{};
+            classFailed[static_cast<std::size_t>(Humanizer::ClassOf(failed))] = true;
+            int fallbacksFailed = 0;
+            DecisionResult mistake;
+            while (true) {
+                mistake = nextBest([&](const DecisionResult &a_option) {
+                    return a_option.action == failed ||
+                           (!a_option.reflex && classFailed[static_cast<std::size_t>(Humanizer::ClassOf(a_option.action))]);
+                });
+                if (mistake.action == ActionType::None || mistake.reflex ||
+                    m_humanizer.PassesSkillCheck(a_actor, formID, mistake.action, state, combatTime)) {
+                    break;
+                }
+                classFailed[static_cast<std::size_t>(Humanizer::ClassOf(mistake.action))] = true; // at most 2 rounds
+                ++fallbacksFailed;
+            }
             if (debugEnabled) {
-                LOG_DEBUG("Skip 0x{:08X}: failed skill roll on {} (skill {:.0f}%, combat time {:.0f}s) - {} instead",
+                LOG_DEBUG("Skip 0x{:08X}: failed skill roll on {} (skill {:.0f}%, combat time {:.0f}s) - {} instead{}",
                           static_cast<std::uint32_t>(formID), ActionName(failed),
                           m_humanizer.SkillChance(a_actor, failed, combatTime, state.self) * 100.0f, combatTime,
-                          ActionName(mistake.action));
+                          ActionName(mistake.action), fallbacksFailed ? " (the fallback failed its roll too)" : "");
             }
             if (mistake.action == ActionType::None) {
                 return;
