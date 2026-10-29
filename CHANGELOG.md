@@ -1,5 +1,13 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.3.4 (2026-10-29)
+
+- **Self-buff shouts.** Vanilla NPCs never shout Become Ethereal, Elemental Fury, Battle Fury or Slow Time, even when they know them: the game's combat AI has no entry for those effects. Now an NPC that knows them uses them. Become Ethereal at 35% health or less (`PotionHealthThreshold`), so it is untouchable while it backs off and drinks. Elemental Fury or Battle Fury when a melee NPC closes in (target within 800 units). It uses the highest level it has, never while its voice recovers or the effect is already on it, and tries at most every 2 seconds.
+- The shout starts through the same call vanilla's own shout behavior uses, so the animation, sound and voice recovery are the game's.
+- Slow Time (at low health or 3+ enemies) is there but off by default (`SelfShoutSlowTime`): what an NPC's Slow Time does to the world is untested.
+- Settings: `EnableSelfShouts`, `SelfShoutSlowTime`. Menu: Offense > "Self-buff shouts (Become Ethereal, Elemental Fury)" and "Slow Time too".
+- Log: `SelfShout 0x..: shouts <shout> (<ethereal|attack speed|slow time>, level N)` or `could not shout ...`.
+
 ## Enhanced Combat Behavior 1.3.3 (2026-10-29)
 
 - **NPCs drink buff potions.** Vanilla NPCs never drink Fortify skill or Resist potions: the game's table of potions and spells its combat AI can use has no entry for them. Now an NPC with room (its target at least `SafeDrinkDistance` away, usually while closing in) drinks a Resist Fire, Frost or Shock potion against a target whose spell, enchanted weapon or shout (a dragon's breath) deals that element. Otherwise it drinks a Fortify potion for its own weapon skill (One-Handed, Two-Handed, Archery, or Destruction with a spell in hand). It never drinks one whose effect is already on it, and buffs share the potion cooldown. They never make it back off.

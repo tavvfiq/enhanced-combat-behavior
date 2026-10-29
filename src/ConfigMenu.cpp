@@ -127,6 +127,9 @@ namespace CombatAI
                 ImGuiMCP::Checkbox("Enable offense", &config.m_decisionMatrix.enableOffense);
                 ImGuiMCP::Checkbox("Enable sprint attack", &config.m_decisionMatrix.enableSprintAttack);
                 ImGuiMCP::Checkbox("Time shouts (stagger an open target, disarm an armed one)", &config.m_decisionMatrix.enableShoutTiming);
+                ImGuiMCP::Checkbox("Self-buff shouts (Become Ethereal, Elemental Fury)", &config.m_decisionMatrix.enableSelfShouts);
+                ImGuiMCP::SameLine();
+                ImGuiMCP::Checkbox("Slow Time too", &config.m_decisionMatrix.selfShoutSlowTime);
                 ImGuiMCP::Checkbox("NPCs poison their weapons", &config.m_decisionMatrix.enableNPCPoisons);
                 liveFloat("Poison cooldown (s)", &config.m_decisionMatrix.poisonCooldownSeconds, 0.0f, 120.0f, "%.0f");
                 ImGuiMCP::Checkbox("Enable combo follow-up (MCO / BFCO, without SCAR)", &config.m_modIntegrations.enableComboFollowUp);

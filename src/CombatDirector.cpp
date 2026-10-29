@@ -12,6 +12,7 @@
 #include "Boss.h"
 #include "Personality.h"
 #include "Potions.h"
+#include "SelfShouts.h"
 #include "ComboFollowUp.h"
 #include "Trees.h"
 #include "Logger.h"
@@ -171,6 +172,7 @@ namespace CombatAI
         ActorStateData state = m_observer.GatherState(a_actor, elapsed);
         Boss::UpdatePhase(a_actor, state.self.healthPercent); // detection (logged once) and health phase
         Potions::Update(a_actor, state, debugEnabled);         // before the decision: a drink wait makes it retreat
+        SelfShouts::Update(a_actor, state, debugEnabled);
         // A held dual block ends when the swing stops without hitting; a landed blow ends it from the hit event
         // (ModEventSinks). Not on the attacker's recovery state: between combo swings it is set before the next blow,
         // and run 40 dropped 30 blocks ~0.15 s in that way (5 of 73 hits blocked).
@@ -734,6 +736,7 @@ namespace CombatAI
         }
         Intents::Evict(a_formID);
         Potions::Evict(a_formID);
+        SelfShouts::Evict(a_formID);
         m_observer.EvictActor(a_formID);
     }
 
