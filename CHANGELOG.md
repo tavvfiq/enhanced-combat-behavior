@@ -129,6 +129,8 @@
 - **No more standing still when circling can't start.** When the NPC's Circle is refused (still in a dodge or jump animation, not facing the target, no path), melee NPCs don't ask for Circle or Flanking again for 2 s and pick another move. Before, the brain kept asking and the NPC stood in place (14 decisions at the same spot).
 - **Debug log: Backoff start checks.** With the debug log on, MoveNode lines for the selected NPC now say why a Backoff refused to start (animation-driven, too far, or no straight path), as Circle and Fallback lines already did. Backoffs failed at once 17 of 24 times in the same fight.
 
+## Enhanced Combat Behavior 1.0.0 (2026-10-26)
+
 - **First public release.** Same behavior as 0.35.0.
 - **License files ship in the download:** `SKSE/Plugins/EnhancedCombatBehavior/` holds `LICENSE.txt` (GPL-3.0), `THIRD_PARTY.md` (MIT notices of the code this builds on, library licenses, source link) and `CREDITS.md`.
 - `THIRD_PARTY.md`: the SKSE Menu Framework API header's origin and license are recorded (an older revision of the official header, LGPL-2.1 today; compatible with GPL-3.0).
