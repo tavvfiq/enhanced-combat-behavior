@@ -1,5 +1,10 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.2.8 (2026-10-29)
+
+- **NPCs step away before drinking a potion.** The game let an NPC drink with you swinging at it from arm's length. Now, when it wants to drink and its target is closer than 350 units, it retreats first and drinks once it has room. If you keep up with it, it drinks anyway after 5 seconds. Settings under `[DecisionMatrix]`: `EnableSafeDrink`, `SafeDrinkDistance`, `SafeDrinkMaxWaitSeconds`; menu: Defense > "Step away before drinking a potion" (distance and wait under Advanced: retreat and back off).
+- Log: per selected NPC `Potion 0x..: waits to drink <potion>, target too close`, `drinks <potion>` or `drinks <potion> anyway after waiting N s`. The 1.2.6 `DrinkPotion entered` line is gone.
+
 ## Enhanced Combat Behavior 1.2.7 (2026-10-29)
 
 - **Shouts are timed.** Unrelenting Force (and other stagger shouts) is now mostly kept for when it breaks something: the target is blocking, drawing a bow, casting or winding up a power attack (1.5x the game's chance; 0.5x otherwise). Disarm is never wasted on an empty-handed target and comes more often mid-swing. No NPC shouts at a player it hasn't detected, or while it is waiting its turn in combat pacing (bosses never wait). Other shouts (Fire Breath, Frost Breath and so on) keep the game's timing. Toggle: `EnableShoutTiming` under `[DecisionMatrix]`, or Offense > "Time shouts" in the menu.

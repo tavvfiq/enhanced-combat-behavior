@@ -96,6 +96,12 @@ namespace CombatAI::Intents
     float PostRangedShot(RE::Actor *a_actor, float a_factor);
     float RangedShotFactor(RE::Actor *a_actor);
 
+    // Potions: vanilla wants a drink but the target is too close. Each refused drink keeps the wait 1 s (the brain
+    // retreats meanwhile, see WantsToDrink); returns how long this wait has lasted (s).
+    float PostDrinkWait(RE::Actor *a_actor);
+    void EndDrinkWait(RE::Actor *a_actor);
+    bool WantsToDrink(RE::Actor *a_actor);
+
     // Pending (not consumed) attack/defend intents exist - keeps vanilla branches out of the way.
     bool HasPending(RE::Actor *a_actor);
 

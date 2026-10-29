@@ -39,6 +39,7 @@ namespace CombatAI::Intents
             Clock::time_point refusedAt{};
             Clock::time_point attackVetoUntil{};
             Clock::time_point swingAt{};
+            Clock::time_point drinkSince{}, drinkUntil{}; // current drink wait (PostDrinkWait)
             bool dualBlockStarted = false;
         };
 
@@ -232,6 +233,39 @@ namespace CombatAI::Intents
         }
         const auto e = g_board.Find(a_actor->GetFormID());
         return e && Clock::now() < e->shotUntil ? e->shotFactor : 1.0f;
+    }
+
+    float PostDrinkWait(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return 0.0f;
+        }
+        const auto now = Clock::now();
+        float waited = 0.0f;
+        g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
+            if (now >= e.drinkUntil) {
+                e.drinkSince = now; // a new wait (the last one lapsed or ended)
+            }
+            e.drinkUntil = now + std::chrono::seconds(1);
+            waited = std::chrono::duration<float>(now - e.drinkSince).count();
+        });
+        return waited;
+    }
+
+    void EndDrinkWait(RE::Actor *a_actor)
+    {
+        if (a_actor) {
+            g_board.Modify(a_actor->GetFormID(), [](Entry &e) { e.drinkUntil = {}; });
+        }
+    }
+
+    bool WantsToDrink(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return false;
+        }
+        const auto e = g_board.Find(a_actor->GetFormID());
+        return e && Clock::now() < e->drinkUntil;
     }
 
     void EndDualBlockHold(RE::Actor *a_actor)

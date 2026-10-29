@@ -947,7 +947,7 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
-        // ---- Shouts and potions (1.2.6 probe; 1.2.7 times shouts, potions still vanilla). Vanilla trees (RE
+        // ---- Shouts and potions (1.2.6 probe; 1.2.7 times shouts; 1.2.8 gates drinks). Vanilla trees (RE
         // 2026-10-29): Shout = Context > Repeat > Fallback{ rand(CalcCastMagicChance) > Sequence{CastShout, Wait}, Idle },
         // UsePotion = Context > Repeat > Fallback{ Sequence{DrinkPotion, Wait}, Idle }; the equipment selector picks
         // either when the NPC's inventory scores a shout or a potion highest.
@@ -1080,9 +1080,8 @@ namespace CombatAI::Trees
             return chance;
         }
 
-        // Enter (slot 2) of the CastShout and DrinkPotion leaves: the shout starts / the potion is drunk in it
-        template <bool Potion>
-        struct ProbeEnter
+        // Enter (slot 2) of the CastShout leaf: the shout starts in it
+        struct CastShoutEnter
         {
             static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
             {
@@ -1094,20 +1093,106 @@ namespace CombatAI::Trees
                 const auto before = ProbeState(actor);
                 const float recovery = actor->GetVoiceRecoveryTime();
                 func(a_node, a_thread);
-                if constexpr (Potion) {
-                    LOG_DEBUG("Potion 0x{:08X}: DrinkPotion entered ({}) -> after: {}", actor->GetFormID(), before,
-                              ProbeState(actor));
-                } else {
-                    // Vanilla enters CastShout while the voice still recovers (CombatInventoryItemShout equips up to
-                    // fCombatInventoryShoutMaxRecoveryTime); the start fails and the tree idles, as after a lost roll
-                    const auto *power = actor->GetActorRuntimeData().selectedPower;
-                    LOG_DEBUG("Shout 0x{:08X}: CastShout entered, {}, voice recovery {:.1f} -> {:.1f} ({})",
-                              actor->GetFormID(), power ? power->GetName() : "?", recovery,
-                              actor->GetVoiceRecoveryTime(), before);
-                }
+                // Vanilla enters CastShout while the voice still recovers (CombatInventoryItemShout equips up to
+                // fCombatInventoryShoutMaxRecoveryTime); the start fails and the tree idles, as after a lost roll
+                const auto *power = actor->GetActorRuntimeData().selectedPower;
+                LOG_DEBUG("Shout 0x{:08X}: CastShout entered, {}, voice recovery {:.1f} -> {:.1f} ({})",
+                          actor->GetFormID(), power ? power->GetName() : "?", recovery,
+                          actor->GetVoiceRecoveryTime(), before);
             }
             static inline REL::Relocation<decltype(thunk)> func;
         };
+
+        // Potions (1.2.8): vanilla drinks whenever its UsePotion branch comes up, even next to a swinging target
+        // (1.2.6 run: a bandit drank at 15% health 86 units from the attacking player). The drink now waits while
+        // the target is within SafeDrinkDistance; the brain retreats meanwhile (WantsToDrink), and after
+        // SafeDrinkMaxWaitSeconds it drinks anyway. A refused drink fails the DrinkPotion leaf (SetFailed, as when
+        // vanilla's own drink fails): the tree idles and tries again on its next pass.
+        bool AllowDrink(RE::Actor *a_actor, const RE::TESForm *a_potion)
+        {
+            const auto &matrix = Config::GetInstance().GetDecisionMatrix();
+            if (!a_actor || !matrix.enableSafeDrink) {
+                return true;
+            }
+            auto *controller = RE::CombatBehaviorController::GetCurrentCombatController();
+            const auto target = controller ? controller->targetHandle.get() : RE::NiPointer<RE::Actor>();
+            const float dist = target ? a_actor->GetPosition().GetDistance(target->GetPosition()) : 0.0f;
+            const bool debug = Config::GetInstance().IsDebugTarget(a_actor->GetFormID());
+            const char *name = a_potion ? a_potion->GetName() : "?";
+            if (!target || dist >= matrix.safeDrinkDistance) {
+                Intents::EndDrinkWait(a_actor);
+                if (debug) {
+                    LOG_DEBUG("Potion 0x{:08X}: drinks {} ({})", a_actor->GetFormID(), name, ProbeState(a_actor));
+                }
+                return true;
+            }
+            const float waited = Intents::PostDrinkWait(a_actor);
+            if (waited >= matrix.safeDrinkMaxWaitSeconds) {
+                Intents::EndDrinkWait(a_actor);
+                if (debug) {
+                    LOG_DEBUG("Potion 0x{:08X}: drinks {} anyway after waiting {:.1f} s ({})", a_actor->GetFormID(), name,
+                              waited, ProbeState(a_actor));
+                }
+                return true;
+            }
+            if (debug) {
+                LOG_DEBUG("Potion 0x{:08X}: waits to drink {}, target too close ({:.1f} s; {})", a_actor->GetFormID(),
+                          name, waited, ProbeState(a_actor));
+            }
+            return false;
+        }
+
+        // SE DrinkPotion::Enter 48987 +0x58 calls helper 48984(context) (-> Actor vslot 0x10F DrinkPotion)
+        struct DrinkPotionSE
+        {
+            static bool thunk(void *a_context)
+            {
+                if (!AllowDrink(RE::CombatBehaviorController::GetCurrentAttacker(), nullptr)) {
+                    return false;
+                }
+                return func(a_context);
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+
+        // AE DrinkPotion::Enter 49928 +0xE6 (1.6.1170 and 1.7.104) inlines `call [rax+0x878]` = Actor vslot 0x10F
+        // DrinkPotion(potion, nullptr); it becomes `call [rip+slot]` to this
+        bool DrinkPotionAE(RE::Actor *a_actor, RE::AlchemyItem *a_potion, RE::ExtraDataList *a_extra)
+        {
+            return AllowDrink(a_actor, a_potion) && a_actor->DrinkPotion(a_potion, a_extra);
+        }
+
+        void InstallDrinkGate(SKSE::Trampoline &a_trampoline)
+        {
+            if (!REL::Module::IsAE()) {
+                const auto site = REL::ID(48987).address() + 0x58;
+                if (!CallsTarget(site, REL::ID(48984).address())) {
+                    LOG_ERROR("Tree: DrinkPotion site does not match - NPCs drink with vanilla timing");
+                    return;
+                }
+                DrinkPotionSE::func = a_trampoline.write_call<5>(site, DrinkPotionSE::thunk);
+            } else {
+                const auto site = REL::ID(49928).address() + 0xE6;
+                constexpr std::uint8_t expected[6] = {0xFF, 0x90, 0x78, 0x08, 0x00, 0x00}; // call [rax+0x878]
+                if (std::memcmp(reinterpret_cast<const void *>(site), expected, 6) != 0) {
+                    LOG_ERROR("Tree: DrinkPotion site does not match - NPCs drink with vanilla timing");
+                    return;
+                }
+                auto *slot = static_cast<std::uintptr_t *>(a_trampoline.allocate(sizeof(std::uintptr_t)));
+                *slot = reinterpret_cast<std::uintptr_t>(&DrinkPotionAE);
+                const auto disp = static_cast<std::int64_t>(reinterpret_cast<std::uintptr_t>(slot)) -
+                                  static_cast<std::int64_t>(site + 6);
+                if (disp < INT32_MIN || disp > INT32_MAX) {
+                    LOG_ERROR("Tree: DrinkPotion slot out of reach - NPCs drink with vanilla timing");
+                    return;
+                }
+                std::uint8_t call[6] = {0xFF, 0x15}; // call [rip+disp]
+                const auto disp32 = static_cast<std::int32_t>(disp);
+                std::memcpy(call + 2, &disp32, 4);
+                REL::safe_write(site, call, 6);
+            }
+            LOG_INFO("Tree: DrinkPotion gated (NPCs step away from the target before drinking)");
+        }
 
         void InstallShoutPotionProbe(SKSE::Trampoline &a_trampoline)
         {
@@ -1117,12 +1202,11 @@ namespace CombatAI::Trees
             if (!g_vanillaShoutChance) {
                 LOG_ERROR("Tree: Shout tree chance site does not match - shouts keep vanilla timing");
             }
-            REL::Relocation<std::uintptr_t> castShout{RE::VTABLE_CombatBehaviorTreeNodeObject_CombatBehaviorCastShout_[0]},
-                drinkPotion{RE::VTABLE_CombatBehaviorTreeNodeObject_CombatBehaviorDrinkPotion_[0]};
-            ProbeEnter<false>::func = castShout.write_vfunc(2, ProbeEnter<false>::thunk);
-            ProbeEnter<true>::func = drinkPotion.write_vfunc(2, ProbeEnter<true>::thunk);
-            LOG_INFO("Tree: shout chance{} redirected (shout timing); CastShout/DrinkPotion starts logged for the selected NPC",
+            REL::Relocation<std::uintptr_t> castShout{RE::VTABLE_CombatBehaviorTreeNodeObject_CombatBehaviorCastShout_[0]};
+            CastShoutEnter::func = castShout.write_vfunc(2, CastShoutEnter::thunk);
+            LOG_INFO("Tree: shout chance{} redirected (shout timing); CastShout starts logged for the selected NPC",
                      g_vanillaShoutChance ? "" : " not");
+            InstallDrinkGate(a_trampoline);
         }
 
         // Vanilla Magic (0.18.3 dump): Context > ValueNode "Casting Type Selector" > one ValueNode case per casting

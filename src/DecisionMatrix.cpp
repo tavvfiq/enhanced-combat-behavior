@@ -1486,6 +1486,12 @@ namespace CombatAI
             }
         }
 
+        // A potion is waiting for room (Trees AllowDrink): get away from the target, then drink
+        if (!shouldRetreat && Intents::WantsToDrink(a_actor)) {
+            shouldRetreat = true;
+            retreatPriority = 2.0f;
+        }
+
         // Losing the damage race: a few more of the target's hits would kill it, so it gets out even above the
         // health threshold (up to RaceRetreatMaxHealth)
         if (!shouldRetreat && race.losing && !cornered) {
