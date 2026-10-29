@@ -19,6 +19,7 @@ namespace CombatAI::ClipTiming
         kOff,    // clip timing is off (UsePlayerClipTiming); Predict never returns it
         kNoClip, // no attack clip read in the last 0.15 s
         kHeld,   // the clip is held (BFCO deciding light or power): no timing yet
+        kStale,  // the clip read is the previous swing's, its blows past (the new swing's clip not read yet)
         kBlow,   // a blow ahead: a_earliest/a_latest set
         kPast    // the clip's blows are all past (it missed or already hit): none coming, both 999
     };
@@ -26,8 +27,9 @@ namespace CombatAI::ClipTiming
 
     // Time to the attacker's next blow from its clip, as read by the last Sample (at most 0.15 s ago). a_latest: the
     // HitFrame plus the measured lag of the hit event; a_earliest: when weapon contact can first land (Precision's hit
-    // window opening, else the HitFrame). kNoClip/kHeld: callers keep the median rule
-    Eta Predict(RE::Actor *a_attacker, float &a_earliest, float &a_latest);
+    // window opening, else the HitFrame). kNoClip/kHeld/kStale: callers keep the median rule. a_swingElapsed: seconds
+    // since the caller saw this swing start (< 0: unknown)
+    Eta Predict(RE::Actor *a_attacker, float a_swingElapsed, float &a_earliest, float &a_latest);
 
     // A melee blow from a_attacker landed on a_victim; a_swing: the victim's count of the attacker's swings
     void OnHit(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power, std::uint32_t a_swing);

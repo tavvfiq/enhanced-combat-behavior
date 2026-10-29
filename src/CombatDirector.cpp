@@ -210,7 +210,7 @@ namespace CombatAI
                 auto eta = ClipTiming::Eta::kOff;
                 float earliest = 0.0f, latest = 0.0f;
                 if (config.GetDecisionMatrix().usePlayerClipTiming) {
-                    eta = ClipTiming::Predict(target, earliest, latest);
+                    eta = ClipTiming::Predict(target, state.temporal.target.attackStartTime, earliest, latest);
                 }
                 if (eta == ClipTiming::Eta::kBlow || eta == ClipTiming::Eta::kPast) {
                     timingSource = eta == ClipTiming::Eta::kBlow ? "clip" : "none"; // none: the clip's blows are past
@@ -218,8 +218,9 @@ namespace CombatAI
                     state.temporal.target.timeUntilEarliestHit = earliest;
                 }
                 if (debugEnabled) {
-                    LOG_DEBUG("Eta 0x{:08X}: src={} clip={} blow={:.2f} contact={:.2f} median={:.2f} {}",
+                    LOG_DEBUG("Eta 0x{:08X}: src={} clip={} t={:.2f} blow={:.2f} contact={:.2f} median={:.2f} {}",
                               static_cast<std::uint32_t>(formID), timingSource, ClipTiming::Name(eta),
+                              state.temporal.target.attackStartTime,
                               state.temporal.target.timeUntilAttackHits, state.temporal.target.timeUntilEarliestHit,
                               median, t_swingTag);
                 }
@@ -302,7 +303,7 @@ namespace CombatAI
         }
 
         if (debugEnabled) {
-            LOG_DEBUG("Decision: actor=0x{:08X} action={} priority={:.2f}{}", static_cast<std::uint32_t>(formID),
+            LOG_DEBUG("Decision: actor=0x{:08X} action={} priority={:.2f}{}{}", static_cast<std::uint32_t>(formID),
                       ActionName(decision.action), decision.priority, t_swingTag.empty() ? "" : " ", t_swingTag);
         }
 

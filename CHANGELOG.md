@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.7.4 (2026-10-30)
+
+Untested in game.
+
+- **Fixed: NPCs missed the start of your swings (since 1.7.2).** When a new swing starts, its attack animation shows up a tick or more after the swing, while the last swing's animation is still playing out. 1.7.2 read that old animation as "no blow coming", so NPCs held back their parries and timed blocks for 1 to 6 ticks at the start of most swings (97 of 174 in the 1.7.3 run, with timed blocks down by about half). The learned swing time is used again until the new animation is read.
+- Debug log: the decision line now carries its swing tag (1.7.3 left it out); the `Eta` line shows the time into the swing (`t=`) and `clip=stale` for the case above.
+
 ## Enhanced Combat Behavior 1.7.3 (2026-10-30)
 
 Untested in game. Debug log only; no gameplay change.

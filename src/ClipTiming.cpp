@@ -175,6 +175,7 @@ namespace CombatAI::ClipTiming
         {
             Clip clip;
             Clock::time_point at{};
+            Clock::time_point since{}; // when this clip was first read
             // Clip seconds per second: playbackSpeed x ratio, known from the first read of a clip. 1.7.0 measured the
             // rate between two reads, too late for most commits (47 of 48 came at the swing's first tick)
             float rate = 0.0f;
@@ -236,6 +237,8 @@ namespace CombatAI::ClipTiming
             return "noclip";
         case Eta::kHeld:
             return "held";
+        case Eta::kStale:
+            return "stale";
         case Eta::kBlow:
             return "blow";
         default:
@@ -281,6 +284,7 @@ namespace CombatAI::ClipTiming
         const bool sameClip = clip.animation == track.clip.animation && clip.localTime >= track.clip.localTime;
         if (!sameClip) {
             // A new swing (or the same clip restarted): predictions start over
+            track.since = now;
             track.predicted = false;
             track.consumed = -1;
             track.debug = a_debug;
@@ -346,7 +350,7 @@ namespace CombatAI::ClipTiming
         }
     }
 
-    Eta Predict(RE::Actor *a_attacker, float &a_earliest, float &a_latest)
+    Eta Predict(RE::Actor *a_attacker, float a_swingElapsed, float &a_earliest, float &a_latest)
     {
         // The hit event comes this long after the clip reaches HitFrame (1.6.x runs, clip error median +0.02 to
         // +0.04 s)
@@ -379,7 +383,14 @@ namespace CombatAI::ClipTiming
             a_earliest = (std::max)(0.0f, (std::min)((open - position) / track.rate, a_latest));
             return Eta::kBlow;
         }
-        // Every blow of the clip is past: none is coming from it. The median rule would still see one (1.7.1 run: 3
+        // Every blow of the clip is past. A clip read since before this swing started is the last swing's, still
+        // playing out while the new one's isn't read yet (1.7.3 run: 97 of 174 swings began with 1-6 such ticks):
+        // nothing known, the median rule stands. 0.15 s: another NPC may have seen the swing (and read its clip) a
+        // tick earlier
+        if (a_swingElapsed >= 0.0f && Since(track.since, now) > a_swingElapsed + 0.15f) {
+            return Eta::kStale;
+        }
+        // The clip's blows are all past: none is coming from it. The median rule would still see one (1.7.1 run: 3
         // late defend posts right after the clip's HitFrame passed)
         a_earliest = a_latest = 999.0f;
         return Eta::kPast;
