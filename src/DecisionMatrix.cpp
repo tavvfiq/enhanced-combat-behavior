@@ -458,8 +458,9 @@ namespace CombatAI
         // Evaluate all potential actions
         DecisionResult survivalResult = EvaluateSurvival(a_actor, a_state);
         // An enraged boss, or a brave desperate one going all-in, doesn't run from the damage race (run 56: the
-        // "all-in" chief still retreated 35 times below 25% health, 13 times enraged)
-        if (survivalResult.action == ActionType::Retreat) {
+        // "all-in" chief still retreated 35 times below 25% health, 13 times enraged). The short back-off for a drink or
+        // poison stays: run 1.3.6's enraged Bandit Chief lost it, stood 3 s with its attacks vetoed, then drank at 242.
+        if (survivalResult.action == ActionType::Retreat && !Intents::WantsToDrink(a_actor)) {
             const auto phase = Boss::CurrentPhase(a_actor);
             if (phase == Boss::Phase::Enraged || (phase == Boss::Phase::Desperate && Boss::Brave(a_actor))) {
                 survivalResult = DecisionResult();

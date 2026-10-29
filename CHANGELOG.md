@@ -1,5 +1,10 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.3.7 (2026-10-29)
+
+- **Fix: enraged bosses back off to drink too.** An enraged boss (or a brave one going all-in) never retreats from the fight, and that rule also removed its short back-off for a potion or poison. In testing, an enraged Bandit Chief at 32% health had its attacks held for the drink but no retreat, so it circled and advanced for 3 seconds and drank at 242 units. Now the drink/poison back-off (at most `SafeDrinkMaxWaitSeconds`) goes through for bosses; they still don't run from damage.
+- Confirmed in game (1.3.6): attack starts are refused during the wait (`veto: backing off to drink`, combo `no follow-up (backing off to drink)`); a bandit backed off from 202 to 361 units in 0.7 s and drank; poison back-offs reached 411.
+
 ## Enhanced Combat Behavior 1.3.6 (2026-10-29)
 
 - **Fix: NPCs now really back off before drinking.** While an NPC waits for room to drink a potion or coat its weapon, it no longer attacks, power attacks, bashes, feints, advances or circles; only the retreat and defensive moves (dodge, block, parry) are left. Vanilla, SCAR and MCO combo attack starts are refused for the wait too. In testing the NPC kept chaining swings: the retreat can't start mid-swing, so it was held, nothing else stopped the next swing, and the NPC stayed in melee (82-209 units) and drank there when the 3-second wait ran out. Poison back-offs mostly worked already; they use the same wait.
