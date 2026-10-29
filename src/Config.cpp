@@ -203,6 +203,7 @@ namespace CombatAI
         D("DecisionMatrix", "PotionMagickaThreshold", m_decisionMatrix.potionMagickaThreshold);
         D("DecisionMatrix", "PotionStaminaThreshold", m_decisionMatrix.potionStaminaThreshold);
         D("DecisionMatrix", "PotionCooldownSeconds", m_decisionMatrix.potionCooldownSeconds);
+        B("DecisionMatrix", "EnableBuffPotions", m_decisionMatrix.enableBuffPotions);
         B("DecisionMatrix", "EnableNPCPoisons", m_decisionMatrix.enableNPCPoisons);
         D("DecisionMatrix", "PoisonCooldownSeconds", m_decisionMatrix.poisonCooldownSeconds);
         D("DecisionMatrix", "SafeDrinkDistance", m_decisionMatrix.safeDrinkDistance);
@@ -683,6 +684,7 @@ namespace CombatAI
         dmFloat("PotionMagickaThreshold", m_decisionMatrix.potionMagickaThreshold, 0.0f, 1.0f);
         dmFloat("PotionStaminaThreshold", m_decisionMatrix.potionStaminaThreshold, 0.0f, 1.0f);
         dmFloat("PotionCooldownSeconds", m_decisionMatrix.potionCooldownSeconds, 0.0f, 60.0f);
+        m_decisionMatrix.enableBuffPotions = a_ini.GetBoolValue("DecisionMatrix", "EnableBuffPotions", m_decisionMatrix.enableBuffPotions);
         m_decisionMatrix.enableNPCPoisons = a_ini.GetBoolValue("DecisionMatrix", "EnableNPCPoisons", m_decisionMatrix.enableNPCPoisons);
         dmFloat("PoisonCooldownSeconds", m_decisionMatrix.poisonCooldownSeconds, 0.0f, 120.0f);
         dmFloat("SafeDrinkDistance", m_decisionMatrix.safeDrinkDistance, 0.0f, 2000.0f);

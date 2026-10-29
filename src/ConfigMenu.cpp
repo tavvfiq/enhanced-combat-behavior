@@ -183,6 +183,7 @@ namespace CombatAI
                 ImGuiMCP::Checkbox("Enable survival retreat", &config.m_decisionMatrix.enableSurvivalRetreat);
                 ImGuiMCP::SameLine();
                 ImGuiMCP::Checkbox("NPCs back off, then drink potions", &config.m_decisionMatrix.enableNPCPotions);
+                ImGuiMCP::Checkbox("NPCs drink Fortify / Resist potions (at range)", &config.m_decisionMatrix.enableBuffPotions);
                 if (ImGuiMCP::CollapsingHeader("Advanced: parry and timed block windows")) {
                     liveFloat("Parry window start (s)", &config.m_parry.parryWindowStart, 0.0f, 0.5f, "%.3f");
                     liveFloat("Parry window end (s)", &config.m_parry.parryWindowEnd, 0.0f, 0.5f, "%.3f");

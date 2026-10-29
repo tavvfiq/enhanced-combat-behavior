@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.3.3 (2026-10-29)
+
+- **NPCs drink buff potions.** Vanilla NPCs never drink Fortify skill or Resist potions: the game's table of potions and spells its combat AI can use has no entry for them. Now an NPC with room (its target at least `SafeDrinkDistance` away, usually while closing in) drinks a Resist Fire, Frost or Shock potion against a target whose spell, enchanted weapon or shout (a dragon's breath) deals that element. Otherwise it drinks a Fortify potion for its own weapon skill (One-Handed, Two-Handed, Archery, or Destruction with a spell in hand). It never drinks one whose effect is already on it, and buffs share the potion cooldown. They never make it back off.
+- Setting `EnableBuffPotions`. Menu: Defense > "NPCs drink Fortify / Resist potions (at range)".
+- Log: `Potion 0x..: drinks <potion> (<resist fire|...|fortify skill>; target at D)`.
+- Correction to 1.3.1: vanilla drank magicka potions on its own, but most likely never stamina potions (no stamina entry in that table).
+
 ## Enhanced Combat Behavior 1.3.2 (2026-10-29)
 
 - **NPCs poison their weapons.** Vanilla NPCs never use poisons, even when they carry them (MIFN and similar mods hand them out). Now an NPC in combat with a drawn, unpoisoned weapon coats it with a poison it carries, picked for its target: paralysis against the player or a boss, Damage Magicka against a caster, Damage Stamina against a melee fighter, otherwise Damage Health. If it lacks that kind it uses what it has (Damage Health first). One dose (the next hit spends it), at most once per `PoisonCooldownSeconds` (10), and never against a target with 100% poison resistance. Instant, like the player's; no animation.
@@ -9,7 +16,7 @@
 
 ## Enhanced Combat Behavior 1.3.1 (2026-10-29)
 
-- **Magicka and stamina potions.** Spellcasters at 25% magicka or less back off and drink their strongest Restore Magicka potion, the same way as healing potions. Melee fighters at 20% stamina or less drink a Restore Stamina potion where they stand, so the next power attack is there. Health comes first, then magicka, then stamina; one drink per `PotionCooldownSeconds`. Vanilla no longer drinks restore potions on its own for these NPCs (before, it still drank magicka and stamina potions mid-melee).
+- **Magicka and stamina potions.** Spellcasters at 25% magicka or less back off and drink their strongest Restore Magicka potion, the same way as healing potions. Melee fighters at 20% stamina or less drink a Restore Stamina potion where they stand, so the next power attack is there. Health comes first, then magicka, then stamina; one drink per `PotionCooldownSeconds`. Vanilla no longer drinks restore potions on its own for these NPCs (before, it still drank magicka potions mid-melee).
 - A spellcaster is an NPC with a spell in hand or a cast spell in its spell list; non-casters keep their magicka potions.
 - Settings: `PotionMagickaThreshold` (0.25), `PotionStaminaThreshold` (0.2). Menu: Advanced: retreat and back off.
 - Log: `Potion 0x..: <health|magicka|stamina> N%, backs off to drink ...` / `drinks ...`.

@@ -23,6 +23,13 @@ namespace CombatAI::Potions
                                                                  RE::ActorValue::kStamina};
         constexpr std::array<const char *, kNeedCount> kNeedName{"health", "magicka", "stamina"};
 
+        // Buff potions (1.3.3). Vanilla's archetype -> combat caster table (SE .data 0x141DF2B00 / AE 0x1420B98D0, 23
+        // rows) has no row for Fortify skill or Resist potions, so vanilla NPCs never drink them; the brain does.
+        enum Buff : std::size_t { kSkillBuff, kFireBuff, kFrostBuff, kShockBuff, kBuffCount };
+        constexpr std::array<RE::ActorValue, kBuffCount> kBuffAV{RE::ActorValue::kNone, RE::ActorValue::kResistFire,
+                                                                 RE::ActorValue::kResistFrost, RE::ActorValue::kResistShock};
+        constexpr std::array<const char *, kBuffCount> kBuffName{"fortify skill", "resist fire", "resist frost", "resist shock"};
+
         struct State
         {
             Clock::time_point seen{};    // last brain tick: vanilla's restore-potion pick is off while recent
@@ -30,6 +37,7 @@ namespace CombatAI::Potions
             Clock::time_point scanned{}; // last inventory scan
             std::array<RE::AlchemyItem *, kNeedCount> potion{}; // best potion per need at that scan
             bool caster = false;         // has spells to spend magicka on (at that scan)
+            std::array<RE::AlchemyItem *, kBuffCount> buff{}; // best buff potion per kind at that scan
         };
         ThreadSafeMap<RE::FormID, State> g_state;
         bool g_otherMod = false; // NPCs Use Potions is loaded
@@ -108,6 +116,135 @@ namespace CombatAI::Potions
         bool Enabled()
         {
             return Config::GetInstance().GetDecisionMatrix().enableNPCPotions && !g_otherMod;
+        }
+
+        // How much a potion fortifies an actor value (skill or resist): its largest beneficial Value Modifier on it.
+        // 0 for a potion with any harmful effect.
+        float Fortifies(const RE::MagicItem *a_magic, RE::ActorValue a_av)
+        {
+            float best = 0.0f;
+            for (const auto *effect : a_magic->effects) {
+                const auto *base = effect ? effect->baseEffect : nullptr;
+                if (!base) {
+                    continue;
+                }
+                if (base->IsDetrimental()) {
+                    return 0.0f;
+                }
+                const auto arch = base->GetArchetype();
+                if ((arch == RE::EffectSetting::Archetype::kValueModifier || arch == RE::EffectSetting::Archetype::kPeakValueModifier) &&
+                    base->data.primaryAV == a_av) {
+                    best = (std::max)(best, effect->GetMagnitude());
+                }
+            }
+            return best;
+        }
+
+        // The skill its weapon uses (Fortify Destruction for a spell in hand: it makes spells cheaper)
+        RE::ActorValue WeaponSkill(const ActorStateData &a_state)
+        {
+            return a_state.self.isOneHanded              ? RE::ActorValue::kOneHanded
+                   : a_state.self.isTwoHanded            ? RE::ActorValue::kTwoHanded
+                   : a_state.self.isRanged               ? RE::ActorValue::kArchery
+                   : a_state.self.weaponType == WeaponType::Spell ? RE::ActorValue::kDestruction
+                                                         : RE::ActorValue::kNone;
+        }
+
+        std::array<RE::AlchemyItem *, kBuffCount> BuffPotions(RE::Actor *a_actor, RE::ActorValue a_skill)
+        {
+            std::array<RE::AlchemyItem *, kBuffCount> best{};
+            std::array<float, kBuffCount> amount{};
+            const auto items = a_actor->GetInventory([](RE::TESBoundObject &a_object) { return a_object.Is(RE::FormType::AlchemyItem); });
+            for (const auto &[object, data] : items) {
+                auto *potion = object->As<RE::AlchemyItem>();
+                if (!potion || data.first <= 0 || potion->IsFood() || potion->IsPoison()) {
+                    continue;
+                }
+                for (std::size_t b = 0; b < kBuffCount; ++b) {
+                    const auto av = b == kSkillBuff ? a_skill : kBuffAV[b];
+                    if (av == RE::ActorValue::kNone) {
+                        continue;
+                    }
+                    if (const float v = Fortifies(potion, av); v > amount[b]) {
+                        amount[b] = v;
+                        best[b] = potion;
+                    }
+                }
+            }
+            return best;
+        }
+
+        // The element the target hits with: a harmful effect resisted by Resist Fire/Frost/Shock on the spell or
+        // enchanted weapon in its hands, or on its shout or power (a dragon's breath). kSkillBuff = none.
+        Buff TargetElement(RE::Actor *a_target)
+        {
+            auto element = [](const RE::MagicItem *a_magic) {
+                if (!a_magic) {
+                    return kSkillBuff;
+                }
+                for (const auto *effect : a_magic->effects) {
+                    const auto *base = effect ? effect->baseEffect : nullptr;
+                    if (base && base->IsDetrimental()) {
+                        for (std::size_t b = kFireBuff; b < kBuffCount; ++b) {
+                            if (base->data.resistVariable == kBuffAV[b]) {
+                                return static_cast<Buff>(b);
+                            }
+                        }
+                    }
+                }
+                return kSkillBuff;
+            };
+            auto ofForm = [&](const RE::TESForm *a_form) {
+                if (!a_form) {
+                    return kSkillBuff;
+                }
+                if (const auto *magic = a_form->As<RE::MagicItem>()) {
+                    return element(magic);
+                }
+                if (const auto *weapon = a_form->As<RE::TESObjectWEAP>()) {
+                    return element(weapon->formEnchanting);
+                }
+                if (const auto *shout = a_form->As<RE::TESShout>()) {
+                    for (const auto &variation : shout->variations) {
+                        if (const Buff b = element(variation.spell); b != kSkillBuff) {
+                            return b;
+                        }
+                    }
+                }
+                return kSkillBuff;
+            };
+            for (const RE::TESForm *form : {a_target->GetEquippedObject(false), a_target->GetEquippedObject(true),
+                                            a_target->GetActorRuntimeData().selectedPower}) {
+                if (const Buff b = ofForm(form); b != kSkillBuff) {
+                    return b;
+                }
+            }
+            return kSkillBuff;
+        }
+
+        // One of the potion's effects is already on the actor (don't drink it again)
+        bool Active(RE::Actor *a_actor, const RE::AlchemyItem *a_potion)
+        {
+            auto *target = a_actor->AsMagicTarget();
+            return target && std::ranges::any_of(a_potion->effects, [target](const RE::Effect *a_effect) {
+                       return a_effect && a_effect->baseEffect && target->HasMagicEffect(a_effect->baseEffect);
+                   });
+        }
+
+        // Equip on the main thread, like NPCs Use Potions: the potion is drunk and animation mods see it
+        void Drink(RE::Actor *a_actor, RE::AlchemyItem *a_potion)
+        {
+            SKSE::GetTaskInterface()->AddTask([handle = a_actor->GetHandle(), potion = a_potion]() {
+                const auto actor = handle.get();
+                if (!actor || actor->IsDead()) {
+                    return;
+                }
+                const auto items = actor->GetInventory([potion](RE::TESBoundObject &a_object) { return &a_object == potion; });
+                if (const auto it = items.find(potion); it == items.end() || it->second.first <= 0) {
+                    return; // drunk or dropped since the scan
+                }
+                RE::ActorEquipManager::GetSingleton()->EquipObject(actor.get(), potion, nullptr, 1, nullptr, true, false, false);
+            });
         }
 
         // ---- Poisons (1.3.2). Vanilla combat AI never poisons a weapon (no poison CombatInventoryItem), so NPCs
@@ -299,10 +436,16 @@ namespace CombatAI::Potions
         const std::array<bool, kNeedCount> low{a_state.self.healthPercent <= matrix.potionHealthThreshold,
                                                a_state.self.magickaPercent <= matrix.potionMagickaThreshold,
                                                a_state.self.isMelee && a_state.self.staminaPercent <= matrix.potionStaminaThreshold};
-        const bool want = Enabled() && now - s.drank >= cooldown && std::ranges::any_of(low, std::identity{});
-        if (want && now - s.scanned >= std::chrono::seconds(1)) {
+        const bool cooled = Enabled() && now - s.drank >= cooldown;
+        const bool want = cooled && std::ranges::any_of(low, std::identity{});
+        const bool spare = !a_state.target.isValid || a_state.target.distance >= matrix.safeDrinkDistance;
+        // Buffs only with room to spare: no backing off for them
+        const bool buffing = cooled && matrix.enableBuffPotions && a_state.target.isValid && spare;
+        const auto skill = WeaponSkill(a_state);
+        if ((want || buffing) && now - s.scanned >= std::chrono::seconds(1)) {
             s.potion = BestPotions(a_actor);
             s.caster = IsCaster(a_actor);
+            s.buff = BuffPotions(a_actor, skill);
             s.scanned = now;
         }
         std::size_t need = kNeedCount;
@@ -313,7 +456,30 @@ namespace CombatAI::Potions
         }
         if (need == kNeedCount) {
             Intents::EndDrinkWait(a_actor);
+            // Resist the target's element first (the hits are coming), then fortify its own weapon skill
+            auto *target = buffing ? RE::TESForm::LookupByID<RE::Actor>(a_state.target.targetFormID) : nullptr;
+            const Buff element = target ? TargetElement(target) : kSkillBuff;
+            RE::AlchemyItem *buff = nullptr;
+            Buff kind = kSkillBuff;
+            for (const Buff b : {element, kSkillBuff}) {
+                if (target && s.buff[b] && !Active(a_actor, s.buff[b])) {
+                    buff = s.buff[b];
+                    kind = b;
+                    break;
+                }
+            }
+            if (buff) {
+                s.drank = now;
+                s.scanned = {};
+            }
             g_state.ModifyOrCreate(id, [&](State &a_entry) { a_entry = s; });
+            if (buff) {
+                if (a_debug) {
+                    LOG_DEBUG("Potion 0x{:08X}: drinks {} ({}; target at {:.0f})", id, buff->GetName(), kBuffName[kind],
+                              a_state.target.distance);
+                }
+                Drink(a_actor, buff);
+            }
             return;
         }
         auto *potion = s.potion[need];
@@ -342,18 +508,7 @@ namespace CombatAI::Potions
                       room ? std::format("target at {:.0f}", a_state.target.distance)
                            : std::format("target still at {:.0f} after {:.1f} s", a_state.target.distance, waited));
         }
-        // Equip on the main thread, like NPCs Use Potions: the potion is drunk and animation mods see it
-        SKSE::GetTaskInterface()->AddTask([handle = a_actor->GetHandle(), potion]() {
-            const auto actor = handle.get();
-            if (!actor || actor->IsDead()) {
-                return;
-            }
-            const auto items = actor->GetInventory([potion](RE::TESBoundObject &a_object) { return &a_object == potion; });
-            if (const auto it = items.find(potion); it == items.end() || it->second.first <= 0) {
-                return; // drunk or dropped since the scan
-            }
-            RE::ActorEquipManager::GetSingleton()->EquipObject(actor.get(), potion, nullptr, 1, nullptr, true, false, false);
-        });
+        Drink(a_actor, potion);
     }
 
     void Update(RE::Actor *a_actor, const ActorStateData &a_state, bool a_debug)
