@@ -1,5 +1,13 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.3.0 (2026-10-29)
+
+- **NPCs back off, then drink.** The plugin now decides when an NPC drinks a healing potion instead of the game. At 35% health or less, an NPC carrying a healing potion breaks off and retreats from its target, then drinks once it is 350 units away (or after 3 seconds of backing off), at most once every 5 seconds. It picks its strongest Restore Health potion; poisons, food, Fortify Health and regeneration potions are left alone.
+- **Works with potion animation mods.** The drink goes through the same equip call NPCs Use Potions uses, so Ultimate Animated Potions NG, Potions Animated NG (PANG) and ZUPA can animate it. Backing off first gives the animation room to play.
+- The game no longer starts healing potions on its own for these NPCs (its 1.2.8/1.2.9 drink delay is removed: it only cost them health). Creatures keep vanilla. With NPCs Use Potions installed this feature switches itself off and that mod keeps handling potions.
+- Settings under `[DecisionMatrix]`: `EnableNPCPotions`, `PotionHealthThreshold`, `PotionCooldownSeconds`, `SafeDrinkDistance`, `SafeDrinkMaxWaitSeconds` (`EnableSafeDrink` is gone). Menu: Defense > "NPCs back off, then drink potions"; the numbers under Advanced: retreat and back off.
+- Log: `Potions: ...` at startup; per selected NPC `Potion 0x..: hp N%, backs off to drink <potion>` and `drinks <potion> (target at D)`.
+
 ## Enhanced Combat Behavior 1.2.9 (2026-10-29)
 
 - **Fix: NPCs no longer die waiting to drink.** 1.2.8 made an NPC wait for 350 units of room before drinking. In melee it rarely gets that: in testing, an NPC at 7% health stood 2.7 seconds next to a greatsword, waiting, and died with the potion in hand. Now it only waits out the target's attack (wind-up and swing, within 350 units) and drinks in its follow-through, and never waits longer than 2 seconds (`SafeDrinkMaxWaitSeconds`, was 5). Menu: Defense > "Drink potions between the target's swings".

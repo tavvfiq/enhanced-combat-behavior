@@ -11,6 +11,7 @@
 #include "SCARData.h"
 #include "Boss.h"
 #include "Personality.h"
+#include "Potions.h"
 #include "ComboFollowUp.h"
 #include "Trees.h"
 #include "Logger.h"
@@ -169,6 +170,7 @@ namespace CombatAI
         // Gather state and evaluate the decision matrix (the heavy per-actor work)
         ActorStateData state = m_observer.GatherState(a_actor, elapsed);
         Boss::UpdatePhase(a_actor, state.self.healthPercent); // detection (logged once) and health phase
+        Potions::Update(a_actor, state, debugEnabled);         // before the decision: a drink wait makes it retreat
         // A held dual block ends when the swing stops without hitting; a landed blow ends it from the hit event
         // (ModEventSinks). Not on the attacker's recovery state: between combo swings it is set before the next blow,
         // and run 40 dropped 30 blocks ~0.15 s in that way (5 of 73 hits blocked).
@@ -731,6 +733,7 @@ namespace CombatAI
             Trees::ReleaseDualBlock(RE::TESForm::LookupByID<RE::Actor>(a_formID), true);
         }
         Intents::Evict(a_formID);
+        Potions::Evict(a_formID);
         m_observer.EvictActor(a_formID);
     }
 

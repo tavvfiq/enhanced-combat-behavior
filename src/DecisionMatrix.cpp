@@ -1486,7 +1486,7 @@ namespace CombatAI
             }
         }
 
-        // A potion is waiting for room (Trees AllowDrink): get away from the target, then drink
+        // A potion is waiting for room (Potions::Update): get away from the target, then drink
         if (!shouldRetreat && Intents::WantsToDrink(a_actor)) {
             shouldRetreat = true;
             retreatPriority = 2.0f;

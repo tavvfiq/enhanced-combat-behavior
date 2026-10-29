@@ -6,6 +6,7 @@
 #include "Hooks.h"
 #include "Logger.h"
 #include "Personality.h"
+#include "Potions.h"
 #include "Trees.h"
 #include "pch.h"
 
@@ -110,6 +111,7 @@ extern "C" __declspec(dllexport) bool __cdecl SKSEPlugin_Load(const SKSE::LoadIn
                 // Install hooks after initialization
                 // Hooks will immediately start calling ProcessActor/Update, so CombatDirector must be initialized first
                 CombatAI::Hooks::Install();
+                CombatAI::Potions::Install();
 
                 // Register the runtime config menu (self-skips if SKSE Menu Framework is absent)
                 CombatAI::ConfigMenu::Register();

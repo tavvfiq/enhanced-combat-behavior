@@ -180,7 +180,7 @@ namespace CombatAI
                 liveFloat("Step out after own swing (chance)", &config.m_decisionMatrix.backoffAfterSwingChance, 0.0f, 1.0f);
                 ImGuiMCP::Checkbox("Enable survival retreat", &config.m_decisionMatrix.enableSurvivalRetreat);
                 ImGuiMCP::SameLine();
-                ImGuiMCP::Checkbox("Drink potions between the target's swings", &config.m_decisionMatrix.enableSafeDrink);
+                ImGuiMCP::Checkbox("NPCs back off, then drink potions", &config.m_decisionMatrix.enableNPCPotions);
                 if (ImGuiMCP::CollapsingHeader("Advanced: parry and timed block windows")) {
                     liveFloat("Parry window start (s)", &config.m_parry.parryWindowStart, 0.0f, 0.5f, "%.3f");
                     liveFloat("Parry window end (s)", &config.m_parry.parryWindowEnd, 0.0f, 0.5f, "%.3f");
@@ -217,8 +217,10 @@ namespace CombatAI
                 }
                 if (ImGuiMCP::CollapsingHeader("Advanced: retreat and back off")) {
                     liveFloat("Health threshold", &config.m_decisionMatrix.healthThreshold, 0.0f, 1.0f);
-                    liveFloat("No drink into a swing within", &config.m_decisionMatrix.safeDrinkDistance, 0.0f, 2000.0f, "%.0f");
-                    liveFloat("Drink anyway after waiting (s)", &config.m_decisionMatrix.safeDrinkMaxWaitSeconds, 0.0f, 30.0f, "%.1f");
+                    liveFloat("Potion at health", &config.m_decisionMatrix.potionHealthThreshold, 0.0f, 1.0f);
+                    liveFloat("Potion cooldown (s)", &config.m_decisionMatrix.potionCooldownSeconds, 0.0f, 60.0f, "%.1f");
+                    liveFloat("Drink this far from the target", &config.m_decisionMatrix.safeDrinkDistance, 0.0f, 2000.0f, "%.0f");
+                    liveFloat("Or after backing off (s)", &config.m_decisionMatrix.safeDrinkMaxWaitSeconds, 0.0f, 30.0f, "%.1f");
                     liveFloat("Stamina threshold", &config.m_decisionMatrix.staminaThreshold, 0.0f, 1.0f);
                     ImGuiMCP::Checkbox("Low stamina makes NPCs back off", &config.m_decisionMatrix.staminaAffectsRetreat);
                     ImGuiMCP::Checkbox("Back off after own swing", &config.m_decisionMatrix.backoffAfterSwing);

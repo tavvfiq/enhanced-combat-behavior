@@ -198,7 +198,9 @@ namespace CombatAI
         D("DecisionMatrix", "PowerAttackMinStamina", m_decisionMatrix.powerAttackMinStamina);
         D("DecisionMatrix", "HealthThreshold", m_decisionMatrix.healthThreshold);
         B("DecisionMatrix", "EnableSurvivalRetreat", m_decisionMatrix.enableSurvivalRetreat);
-        B("DecisionMatrix", "EnableSafeDrink", m_decisionMatrix.enableSafeDrink);
+        B("DecisionMatrix", "EnableNPCPotions", m_decisionMatrix.enableNPCPotions);
+        D("DecisionMatrix", "PotionHealthThreshold", m_decisionMatrix.potionHealthThreshold);
+        D("DecisionMatrix", "PotionCooldownSeconds", m_decisionMatrix.potionCooldownSeconds);
         D("DecisionMatrix", "SafeDrinkDistance", m_decisionMatrix.safeDrinkDistance);
         D("DecisionMatrix", "SafeDrinkMaxWaitSeconds", m_decisionMatrix.safeDrinkMaxWaitSeconds);
         B("DecisionMatrix", "EnableOffense", m_decisionMatrix.enableOffense);
@@ -672,7 +674,9 @@ namespace CombatAI
         dmFloat("TacticalRetreatMinCaution", m_decisionMatrix.tacticalRetreatMinCaution, 0.0f, 1.0f);
         dmFloat("FlankingMaxReach", m_decisionMatrix.flankingMaxReach, 1.0f, 10.0f);
         dmFloat("ShotHoldMaxSeconds", m_decisionMatrix.shotHoldMaxSeconds, 0.0f, 30.0f);
-        m_decisionMatrix.enableSafeDrink = a_ini.GetBoolValue("DecisionMatrix", "EnableSafeDrink", m_decisionMatrix.enableSafeDrink);
+        m_decisionMatrix.enableNPCPotions = a_ini.GetBoolValue("DecisionMatrix", "EnableNPCPotions", m_decisionMatrix.enableNPCPotions);
+        dmFloat("PotionHealthThreshold", m_decisionMatrix.potionHealthThreshold, 0.0f, 1.0f);
+        dmFloat("PotionCooldownSeconds", m_decisionMatrix.potionCooldownSeconds, 0.0f, 60.0f);
         dmFloat("SafeDrinkDistance", m_decisionMatrix.safeDrinkDistance, 0.0f, 2000.0f);
         dmFloat("SafeDrinkMaxWaitSeconds", m_decisionMatrix.safeDrinkMaxWaitSeconds, 0.0f, 30.0f);
         m_decisionMatrix.tradeBlowsChance = std::clamp(
