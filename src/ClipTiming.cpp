@@ -166,13 +166,20 @@ namespace CombatAI::ClipTiming
             return found ? ReadResult::kFound : ReadResult::kNoHitFrame;
         }
 
+        // Below this rate the clip is held, not swinging: BFCO starts a light attack on a power clip at playback speed
+        // 0.2 until it knows light from power (1.7.0 run), so the blow's timing isn't known yet
+        constexpr float kMinRate = 0.5f;
+
         // Per attacker: the clip seen last, and the predictions made for its next blow
         struct Track
         {
             Clip clip;
             Clock::time_point at{};
-            float rate = 0.0f; // measured clip seconds per second (0 = not measured yet)
-            // Earliest prediction for the next blow made with a measured rate, and the brain's at that same tick
+            // Clip seconds per second: playbackSpeed x ratio, known from the first read of a clip. 1.7.0 measured the
+            // rate between two reads, too late for most commits (47 of 48 came at the swing's first tick)
+            float rate = 0.0f;
+            float ratio = 1.0f; // measured rate / playbackSpeed, learned (1.6.0 run: 1.10-1.13 at speed 1.30)
+            // Earliest prediction for the next blow at the current playback speed, and the brain's at that same tick
             bool predicted = false;
             Clock::time_point clipAt{}, medianAt{};
             bool hasMedian = false;
@@ -250,7 +257,6 @@ namespace CombatAI::ClipTiming
         const bool sameClip = clip.animation == track.clip.animation && clip.localTime >= track.clip.localTime;
         if (!sameClip) {
             // A new swing (or the same clip restarted): predictions start over
-            track.rate = 0.0f;
             track.predicted = false;
             track.consumed = -1;
             track.debug = a_debug;
@@ -267,16 +273,22 @@ namespace CombatAI::ClipTiming
             }
         } else {
             const float dt = Since(track.at, now);
-            if (dt > 0.01f && clip.localTime > track.clip.localTime) {
-                track.rate = (clip.localTime - track.clip.localTime) / dt;
+            const bool speedChanged = std::abs(clip.playbackSpeed - track.clip.playbackSpeed) > 0.01f;
+            if (!speedChanged && dt > 0.05f && clip.localTime > track.clip.localTime && clip.playbackSpeed > 0.05f) {
+                const float measured = (clip.localTime - track.clip.localTime) / dt;
+                track.ratio += 0.3f * (std::clamp(measured / clip.playbackSpeed, 0.5f, 1.5f) - track.ratio);
+            }
+            if (speedChanged) {
+                track.predicted = false; // a held clip released (or sped up): its blow is predicted afresh
             }
             track.debug |= a_debug;
         }
         track.clip = std::move(clip);
         track.at = now;
+        track.rate = track.clip.playbackSpeed * track.ratio;
 
-        // The next HitFrame ahead of the clip's position, once the rate is measured
-        if (track.rate <= 0.0f) {
+        // The next HitFrame ahead of the clip's position, while the clip plays at swing speed
+        if (track.rate < kMinRate) {
             return;
         }
         int next = -1;
@@ -302,8 +314,8 @@ namespace CombatAI::ClipTiming
                 now + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<float>(a_medianTimeToHit));
         }
         if (a_debug) {
-            LOG_DEBUG("ClipTiming 0x{:08X}: at {:.2f}s, rate {:.2f} -> HitFrame {:.2f} in {:.2f}s (median rule: {})", id,
-                      track.clip.localTime, track.rate, track.clip.hits[next], ahead,
+            LOG_DEBUG("ClipTiming 0x{:08X}: at {:.2f}s, rate {:.2f} (speed x ratio {:.2f}) -> HitFrame {:.2f} in {:.2f}s (median rule: {})", id,
+                      track.clip.localTime, track.rate, track.ratio, track.clip.hits[next], ahead,
                       track.hasMedian ? std::format("{:.2f}s", a_medianTimeToHit) : std::string("none"));
         }
     }
@@ -323,7 +335,7 @@ namespace CombatAI::ClipTiming
             return false;
         }
         const auto &track = it->second;
-        if (!track.clip.animation || track.rate <= 0.0f || Since(track.at, now) > 0.15f) {
+        if (!track.clip.animation || track.rate < kMinRate || Since(track.at, now) > 0.15f) {
             return false;
         }
         const float position = track.clip.localTime + track.rate * Since(track.at, now);
@@ -374,7 +386,7 @@ namespace CombatAI::ClipTiming
             return;
         }
         if (!track.predicted) {
-            ++g_stats.noPrediction; // the blow came before two samples of its clip
+            ++g_stats.noPrediction; // no prediction for it: its clip was still held (BFCO deciding light or power)
             return;
         }
         const float clipError = Since(track.clipAt, now); // + = the blow came later than predicted
@@ -454,7 +466,7 @@ namespace CombatAI::ClipTiming
         const auto [medianMean, medianSd] = meanSd(s.medianSum, s.medianSumSq, s.medianCount);
         LOG_INFO("Clip timing (last 60s): {} blows watched, {} compared ({:.2f}s ahead on average); clip error {:+.2f}s "
                  "+- {:.2f} (mean abs {:.2f}); median-rule error {:+.2f}s +- {:.2f} (mean abs {:.2f}, {} blows); no clip "
-                 "{}, too fast to predict {}, after a missed prediction {}; blows before HitFrame {} (by {:.2f}s of clip on "
+                 "{}, no prediction (clip held) {}, after a missed prediction {}; blows before HitFrame {} (by {:.2f}s of clip on "
                  "average), hit window marks: Precision {}, vanilla {}, none {}; extra contacts {}",
                  s.blows, s.compared, s.compared ? s.horizonSum / s.compared : 0.0, clipMean, clipSd,
                  s.compared ? s.clipAbs / s.compared : 0.0, medianMean, medianSd,

@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.7.1 (2026-10-29)
+
+Untested in game.
+
+- **Fixed: 1.7.0's animation timing was almost never used.** It needed two reads of your clip to know its speed, and NPCs decide on the first tick of your swing, so 47 of 48 parries and timed blocks were still timed the old way. The clip's speed is now known from the first read (its playback speed, corrected by a factor learned from your swings).
+- With BFCO a swing starts on a slow "held" clip until it knows light from power. While the clip is held, NPCs use the learned swing time as before; once it plays at swing speed, its marks decide.
+
 ## Enhanced Combat Behavior 1.7.0 (2026-10-29)
 
 Untested in game.
