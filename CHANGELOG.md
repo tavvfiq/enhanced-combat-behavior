@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.3.1 (2026-10-29)
+
+- **Magicka and stamina potions.** Spellcasters at 25% magicka or less back off and drink their strongest Restore Magicka potion, the same way as healing potions. Melee fighters at 20% stamina or less drink a Restore Stamina potion where they stand, so the next power attack is there. Health comes first, then magicka, then stamina; one drink per `PotionCooldownSeconds`. Vanilla no longer drinks restore potions on its own for these NPCs (before, it still drank magicka and stamina potions mid-melee).
+- A spellcaster is an NPC with a spell in hand or a cast spell in its spell list; non-casters keep their magicka potions.
+- Settings: `PotionMagickaThreshold` (0.25), `PotionStaminaThreshold` (0.2). Menu: Advanced: retreat and back off.
+- Log: `Potion 0x..: <health|magicka|stamina> N%, backs off to drink ...` / `drinks ...`.
+
 ## Enhanced Combat Behavior 1.3.0 (2026-10-29)
 
 - **NPCs back off, then drink.** The plugin now decides when an NPC drinks a healing potion instead of the game. At 35% health or less, an NPC carrying a healing potion breaks off and retreats from its target, then drinks once it is 350 units away (or after 3 seconds of backing off), at most once every 5 seconds. It picks its strongest Restore Health potion; poisons, food, Fortify Health and regeneration potions are left alone.

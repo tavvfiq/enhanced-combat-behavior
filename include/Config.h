@@ -119,6 +119,8 @@ namespace CombatAI
             bool enableSurvivalRetreat = true;
             bool enableNPCPotions = true;         // The brain runs NPC healing potions: back off at low health, then drink
             float potionHealthThreshold = 0.35f;  // drink at or below this health fraction
+            float potionMagickaThreshold = 0.25f; // spellcasters back off and drink a magicka potion at or below this
+            float potionStaminaThreshold = 0.2f;  // melee fighters drink a stamina potion where they stand at or below this
             float potionCooldownSeconds = 5.0f;   // between drinks (the effect, or an animation, takes a moment)
             float safeDrinkDistance = 350.0f;     // drink once this far from the target
             float safeDrinkMaxWaitSeconds = 3.0f; // or after backing off this long

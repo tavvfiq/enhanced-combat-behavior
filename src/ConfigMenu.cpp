@@ -218,6 +218,8 @@ namespace CombatAI
                 if (ImGuiMCP::CollapsingHeader("Advanced: retreat and back off")) {
                     liveFloat("Health threshold", &config.m_decisionMatrix.healthThreshold, 0.0f, 1.0f);
                     liveFloat("Potion at health", &config.m_decisionMatrix.potionHealthThreshold, 0.0f, 1.0f);
+                    liveFloat("Magicka potion at (casters)", &config.m_decisionMatrix.potionMagickaThreshold, 0.0f, 1.0f);
+                    liveFloat("Stamina potion at (melee)", &config.m_decisionMatrix.potionStaminaThreshold, 0.0f, 1.0f);
                     liveFloat("Potion cooldown (s)", &config.m_decisionMatrix.potionCooldownSeconds, 0.0f, 60.0f, "%.1f");
                     liveFloat("Drink this far from the target", &config.m_decisionMatrix.safeDrinkDistance, 0.0f, 2000.0f, "%.0f");
                     liveFloat("Or after backing off (s)", &config.m_decisionMatrix.safeDrinkMaxWaitSeconds, 0.0f, 30.0f, "%.1f");

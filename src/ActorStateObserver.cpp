@@ -146,6 +146,7 @@ namespace CombatAI
 
         // Health percentage
         state.healthPercent = GetActorValuePercent(a_actor, RE::ActorValue::kHealth);
+        state.magickaPercent = GetActorValuePercent(a_actor, RE::ActorValue::kMagicka);
 
         // Attack state - use safe wrapper
         state.attackState = ActorUtils::SafeGetAttackState(a_actor);

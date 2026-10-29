@@ -36,6 +36,7 @@ namespace CombatAI
         float staminaPercent = 0.0f;
         float currentStamina = 0.0f; // Raw current stamina value (game units), cached once per gather
         float healthPercent = 0.0f;
+        float magickaPercent = 0.0f;
         RE::ATTACK_STATE_ENUM attackState = RE::ATTACK_STATE_ENUM::kNone;
         bool isBlocking = false;
         bool isGuardCounterActive = false; // Guard counter window is active (from EldenCounter mod)
