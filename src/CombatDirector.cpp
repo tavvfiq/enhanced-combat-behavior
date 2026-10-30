@@ -22,6 +22,7 @@
 #include "ModEventSinks.h"
 #include "NavmeshRedirect.h"
 #include "RingSlots.h"
+#include "CombatStyleEnhancer.h"
 #include "ParryFeedbackTracker.h"
 #include "PrecisionIntegration.h"
 #include "SCARIntegration.h"
@@ -50,6 +51,38 @@ namespace CombatAI
             default:
                 return false;
             }
+        }
+
+        // How far beyond reach a waiting NPC holds, by its combat style: a duelist waits close (half the margin), a
+        // flanker wide (+100: it watches from mid range and bursts in on its turn), a defensive style (defensive over
+        // offensive by 0.2) a bit wider (+60), an offensive one (offensive over defensive by 0.3) a bit closer (-40,
+        // at least 40). a_label names the style for the log.
+        float StyleWaitMargin(RE::Actor *a_actor, float a_margin, const char *&a_label)
+        {
+            a_label = "default";
+            const auto *style = CombatStyleEnhancer::GetCombatStyle(a_actor);
+            if (!style || !Config::GetInstance().GetCombatPacing().styleWaiting) {
+                return a_margin;
+            }
+            const auto flags = *reinterpret_cast<const std::uint32_t *>(reinterpret_cast<std::uintptr_t>(style) + 0x9C);
+            if (flags & 1u) { // kDuelingStyle
+                a_label = "dueling";
+                return a_margin * 0.5f;
+            }
+            if (flags & 2u) { // kFlankingStyle
+                a_label = "flanking";
+                return a_margin + 100.0f;
+            }
+            const float offense = style->generalData.offensiveMult, defense = style->generalData.defensiveMult;
+            if (defense - offense > 0.2f) {
+                a_label = "defensive";
+                return a_margin + 60.0f;
+            }
+            if (offense - defense > 0.3f) {
+                a_label = "offensive";
+                return (std::max)(40.0f, a_margin - 40.0f);
+            }
+            return a_margin;
         }
 
         // Ring probe (debug, every 2 s per target): where the actors fighting a_target stand around it. Bearing from
@@ -583,8 +616,8 @@ namespace CombatAI
         // A giant or a werewolf (the player transformed, too) is ganged up on: more slots at once
         const auto danger = TargetDanger::Of(a_actor);
         const int slots = pacing.maxSimultaneousAttackers + (danger.huge || danger.beast ? pacing.dangerExtraAttackers : 0);
-        if (retaliating || coordinator.TryAcquire(target, a_formID, slots,
-                                                  pacing.slotWindowMinSeconds, pacing.slotWindowMaxSeconds)) {
+        if (retaliating || coordinator.TryAcquire(target, a_formID, slots, pacing.slotWindowMinSeconds,
+                                                  pacing.slotWindowMaxSeconds, pacing.restSeconds)) {
             coordinator.ClearHeld(a_formID);
             if (debug && wasHeld) {
                 LOG_DEBUG("Pacing 0x{:08X}: {} - may engage", static_cast<std::uint32_t>(a_formID),
@@ -612,7 +645,8 @@ namespace CombatAI
 
         // Wait outside reach: circle on a ring, or step back first if already inside reach. A ring farther out than the
         // tolerance (default ring: reach + 120, so never) is reached by Fallback steps (96-256 units each) first.
-        const float holdDistance = reach + pacing.waitDistanceMargin;
+        const char *style = "default";
+        const float holdDistance = reach + StyleWaitMargin(a_actor, pacing.waitDistanceMargin, style);
         DecisionResult held;
         if (a_state.target.distance <= reach) {
             held.action = ActionType::Backoff;
@@ -627,8 +661,8 @@ namespace CombatAI
             held.holdDistance = holdDistance;
         }
         if (debug && !wasHeld) {
-            LOG_DEBUG("Pacing 0x{:08X}: slots full - waiting its turn ({} at {:.0f}, dist {:.0f})",
-                      static_cast<std::uint32_t>(a_formID), ActionName(held.action), holdDistance,
+            LOG_DEBUG("Pacing 0x{:08X}: slots full - waiting its turn ({} at {:.0f}, {} style, dist {:.0f})",
+                      static_cast<std::uint32_t>(a_formID), ActionName(held.action), holdDistance, style,
                       a_state.target.distance);
         }
         return held;

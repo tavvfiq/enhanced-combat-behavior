@@ -295,6 +295,9 @@ namespace CombatAI
         // Combat pacing (Wait Your Turn)
         B("CombatPacing", "EnableCombatPacing", m_combatPacing.enableCombatPacing);
         B("CombatPacing", "EnableRingSlots", m_combatPacing.enableRingSlots);
+        B("CombatPacing", "EnableCloseSpacing", m_combatPacing.enableCloseSpacing);
+        B("CombatPacing", "StyleWaiting", m_combatPacing.styleWaiting);
+        D("CombatPacing", "RestSeconds", m_combatPacing.restSeconds);
         L("CombatPacing", "MaxSimultaneousAttackers", static_cast<long>(m_combatPacing.maxSimultaneousAttackers));
         L("CombatPacing", "DangerExtraAttackers", static_cast<long>(m_combatPacing.dangerExtraAttackers));
         D("CombatPacing", "SlotWindowMinSeconds", m_combatPacing.slotWindowMinSeconds);
@@ -952,6 +955,9 @@ namespace CombatAI
         m_combatPacing.enableCombatPacing =
             a_ini.GetBoolValue("CombatPacing", "EnableCombatPacing", m_combatPacing.enableCombatPacing);
         m_combatPacing.enableRingSlots = a_ini.GetBoolValue("CombatPacing", "EnableRingSlots", m_combatPacing.enableRingSlots);
+        m_combatPacing.enableCloseSpacing =
+            a_ini.GetBoolValue("CombatPacing", "EnableCloseSpacing", m_combatPacing.enableCloseSpacing);
+        m_combatPacing.styleWaiting = a_ini.GetBoolValue("CombatPacing", "StyleWaiting", m_combatPacing.styleWaiting);
         m_combatPacing.maxSimultaneousAttackers = static_cast<int>(
             a_ini.GetLongValue("CombatPacing", "MaxSimultaneousAttackers", m_combatPacing.maxSimultaneousAttackers));
         m_combatPacing.slotWindowMinSeconds = static_cast<float>(
@@ -968,6 +974,7 @@ namespace CombatAI
         F("WaitDistanceMargin", m_combatPacing.waitDistanceMargin, 0.0f, 1000.0f);
         F("RetaliateMinSeconds", m_combatPacing.retaliateMinSeconds, 0.0f, 10.0f);
         F("RetaliateMaxSeconds", m_combatPacing.retaliateMaxSeconds, 0.0f, 10.0f);
+        F("RestSeconds", m_combatPacing.restSeconds, 0.5f, 10.0f);
         m_combatPacing.retaliateMaxSeconds =
             (std::max)(m_combatPacing.retaliateMinSeconds, m_combatPacing.retaliateMaxSeconds);
 
@@ -975,7 +982,8 @@ namespace CombatAI
         m_combatPacing.maxSimultaneousAttackers = (std::max)(0, m_combatPacing.maxSimultaneousAttackers);
         m_combatPacing.dangerExtraAttackers = std::clamp(
             static_cast<int>(a_ini.GetLongValue("CombatPacing", "DangerExtraAttackers", m_combatPacing.dangerExtraAttackers)), 0, 6);
-        m_combatPacing.slotWindowMinSeconds = (std::max)(0.1f, m_combatPacing.slotWindowMinSeconds);
+        // Floors against jitter: a turn shorter than ~1.5 s is over before a swing lands, and NPCs swap in and out
+        m_combatPacing.slotWindowMinSeconds = (std::max)(1.5f, m_combatPacing.slotWindowMinSeconds);
         m_combatPacing.slotWindowMaxSeconds =
             (std::max)(m_combatPacing.slotWindowMinSeconds, m_combatPacing.slotWindowMaxSeconds);
     }

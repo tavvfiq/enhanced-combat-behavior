@@ -27,7 +27,8 @@ namespace CombatAI
         // Try to acquire (or keep) an attack slot on a_target for a_attacker.
         // Returns true if the attacker holds a slot this frame (may attack), false if it
         // must wait. Expired slots are rotated out so waiting attackers get a turn.
-        bool TryAcquire(RE::FormID a_target, RE::FormID a_attacker, int a_maxSlots, float a_windowMin, float a_windowMax);
+        bool TryAcquire(RE::FormID a_target, RE::FormID a_attacker, int a_maxSlots, float a_windowMin, float a_windowMax,
+                        float a_restSeconds = 1.5f);
 
         // Free the slot a_attacker holds on a_target (call when it stops attacking it).
         void Release(RE::FormID a_target, RE::FormID a_attacker);

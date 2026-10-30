@@ -21,7 +21,7 @@ namespace CombatAI
     } // namespace
 
     bool AttackCoordinator::TryAcquire(RE::FormID a_target, RE::FormID a_attacker, int a_maxSlots, float a_windowMin,
-                                       float a_windowMax)
+                                       float a_windowMax, float a_restSeconds)
     {
         if (a_target == 0 || a_attacker == 0) {
             return true; // Can't pace without valid ids - allow the attack
@@ -35,8 +35,7 @@ namespace CombatAI
 
         // Rotation: a holder whose slot just ran out sits out briefly while someone else is waiting. Without this
         // the holder, already in reach and asking every tick, usually took the freed slot straight back.
-        constexpr float kRestSeconds = 1.5f;
-        if (const auto rested = m_rested.Find(a_attacker); rested && now - *rested < kRestSeconds) {
+        if (const auto rested = m_rested.Find(a_attacker); rested && now - *rested < a_restSeconds) {
             bool othersWaiting = false;
             m_held.WithReadLock([&](const auto &held) {
                 for (const auto &[id, since] : held) {

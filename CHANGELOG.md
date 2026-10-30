@@ -1,5 +1,14 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.13.0 (2026-10-31)
+
+Untested in game.
+
+- **Close in, NPCs step aside from each other.** Spreading around you worked, but once in fighting range NPCs still stood on top of each other (in the last test, two or more crowded pairs in 22 of 58 checks). Now, within about twice its reach, an NPC standing within 30 degrees and 80 units of another one fighting you steps aside (at least 35 degrees, 80 units) toward its own side; of the two, the one farther from its own side moves. Setting: `EnableCloseSpacing`.
+- **The combat style sets the waiting distance.** While waiting its turn, a dueling style holds close (half the usual margin past its reach), a flanking style wide (margin + 100: it watches from mid range, then comes in on its turn), a defensive style a bit wider (+60) and an offensive one a bit closer (-40). Setting: `StyleWaiting`.
+- **Turn taking, no jitter.** An NPC's turn lasts at least 1.5 seconds (a lower `SlotWindowMinSeconds` is raised to it), and after its turn it sits out `RestSeconds` (1.5 by default, 0.5-10) while others wait, then backs off to its side of the ring. These settings are in `[CombatPacing]` and on the menu's Groups & Movement tab.
+- Debug log: the ring lines now say "far: walks straight in" when the NPC is far out and coming straight at you (they said "close: fights from where it stands" before), and name a crowding ally.
+
 ## Enhanced Combat Behavior 1.12.3 (2026-10-31)
 
 Untested in game.

@@ -35,6 +35,10 @@ namespace CombatAI::RingSlots
         constexpr float kArcFrom = 600.0f;                 // farther than this an approach walks straight in first
         constexpr float kArcMaxRadius = 450.0f;            // ...and its arc runs no farther out than this
         constexpr float kArrived = 60.0f;                  // this close to its arc point it is there (no new goal)
+        constexpr float kCrowdAngle = 30.0f * kDeg;        // two NPCs on one ring this close in bearing...
+        constexpr float kCrowdDistance = 80.0f;            // ...and in distance crowd each other (close spacing)
+        constexpr float kStepAngle = 35.0f * kDeg;         // a side step: at least this much around the target
+        constexpr float kStepArc = 80.0f;                  // ...and at least this long
         constexpr float kGoalTTL = 0.5f;                   // a ring goal lives this long without a new Steer
 
         // Angle difference a - b wrapped to (-pi, pi]
@@ -60,6 +64,7 @@ namespace CombatAI::RingSlots
             RE::FormID id = 0;
             float bearing = 0.0f; // where it stands now
             float sector = 0.0f;  // where it should be
+            float distance = 0.0f; // from the target
             Clock::time_point seen{};
             Clock::time_point traded{}; // its last sector trade
         };
@@ -209,6 +214,8 @@ namespace CombatAI::RingSlots
         const auto targetId = a_target->GetFormID();
         const auto now = Clock::now();
         const float bearing = Bearing(a_target->GetPosition(), a_actor->GetPosition());
+        const auto tp = a_target->GetPosition(), sp = a_actor->GetPosition();
+        const float distance = std::hypot(sp.x - tp.x, sp.y - tp.y);
         std::scoped_lock guard(g_lock);
         // Switched targets: off the old ring
         if (auto it = g_target.find(id); it != g_target.end() && it->second != targetId) {
@@ -220,9 +227,10 @@ namespace CombatAI::RingSlots
         auto &ring = g_rings[targetId];
         auto member = std::ranges::find(ring.members, id, &Member::id);
         if (member == ring.members.end()) {
-            ring.members.push_back({id, bearing, NewSector(ring, bearing), now, {}});
+            ring.members.push_back({id, bearing, NewSector(ring, bearing), distance, now, {}});
         } else {
             member->bearing = bearing;
+            member->distance = distance;
             member->seen = now;
         }
         std::erase_if(ring.members, [&](const Member &a_m) {
@@ -253,6 +261,11 @@ namespace CombatAI::RingSlots
         }
         float sector = 0.0f;
         std::size_t count = 0;
+        // Close spacing: the nearest NPC on the same ring standing on top of this one (within kCrowdAngle and
+        // kCrowdDistance), and whether this one is the one to move (the farther from its sector; ties by FormID)
+        RE::FormID crowder = 0;
+        bool yields = false;
+        float crowderBearing = 0.0f;
         {
             std::scoped_lock guard(g_lock);
             const auto t = g_target.find(id);
@@ -268,6 +281,18 @@ namespace CombatAI::RingSlots
             }
             sector = member->sector;
             count = ring->second.members.size();
+            const float myOff = std::fabs(Wrap(member->sector - member->bearing));
+            for (const auto &other : ring->second.members) {
+                if (other.id == id || std::fabs(Wrap(other.bearing - member->bearing)) >= kCrowdAngle ||
+                    std::fabs(other.distance - member->distance) >= kCrowdDistance) {
+                    continue;
+                }
+                const float otherOff = std::fabs(Wrap(other.sector - other.bearing));
+                crowder = other.id;
+                crowderBearing = other.bearing;
+                yields = myOff > otherOff || (myOff == otherOff && id > other.id);
+                break;
+            }
         }
         const auto center = a_state.target.position;
         const float bearing = Bearing(center, a_state.self.position);
@@ -288,7 +313,23 @@ namespace CombatAI::RingSlots
             radius = a_decision.holdDistance;
         }
         const bool inSector = std::fabs(off) <= (waiting ? kWaitTolerance : kApproachTolerance);
-        const int mode = radius > 0.0f ? (waiting ? 2 : 1) : (inSector ? 0 : 3);
+        // Close in, crowding another NPC: the one farther from its sector steps aside at the same distance, toward its
+        // sector (or away from the other when already in it), far enough to be a real step (>= 80 units of arc).
+        // 1.12.3 run: 2+ crowded pairs in 22 of 58 samples although the sectors were spread.
+        float sideStep = 0.0f;
+        if (close && radius <= 0.0f && crowder != 0 && yields && Config::GetInstance().GetCombatPacing().enableCloseSpacing) {
+            const float side = std::fabs(off) > 5.0f * kDeg ? (off > 0.0f ? 1.0f : -1.0f)
+                                                           : (Wrap(bearing - crowderBearing) >= 0.0f ? 1.0f : -1.0f);
+            const float minStep = 2.0f * std::asin((std::min)(1.0f, kStepArc / (2.0f * (std::max)(dist, 1.0f))));
+            sideStep = side * (std::max)(kStepAngle, minStep);
+            radius = (std::max)(dist, reach * 0.8f);
+        }
+        int mode = radius > 0.0f ? (waiting ? 2 : 1) : (inSector ? 0 : 3);
+        if (sideStep != 0.0f) {
+            mode = 4;
+        } else if (mode == 3 && approaching && dist > kArcFrom) {
+            mode = 5;
+        }
         if (Config::GetInstance().IsDebugTarget(id)) {
             auto &told = g_told[id];
             const auto now = Clock::now();
@@ -296,17 +337,21 @@ namespace CombatAI::RingSlots
                 now - told.at > std::chrono::seconds(3)) {
                 told = {mode, sector, now};
                 constexpr const char *kMode[] = {"in its sector", "approaching around the target", "waiting: moving to its sector",
-                                                 "close: fights from where it stands"};
-                LOG_DEBUG("Ring 0x{:08X}: sector {:.0f} of {} (now at {:.0f}, {:+.0f} off, dist {:.0f}) - {}{}",
+                                                 "close: fights from where it stands", "close: stepping aside from a crowding ally",
+                                                 "far: walks straight in"};
+                LOG_DEBUG("Ring 0x{:08X}: sector {:.0f} of {} (now at {:.0f}, {:+.0f} off, dist {:.0f}) - {}{}{}",
                           static_cast<std::uint32_t>(id), sector / kDeg, count, bearing / kDeg, off / kDeg, dist, kMode[mode],
-                          radius > 0.0f ? std::format(", arc goal at {:.0f}", radius) : std::string());
+                          radius > 0.0f ? std::format(", arc goal at {:.0f}", radius) : std::string(),
+                          crowder ? std::format(" (0x{:08X} within {:.0f} deg)", static_cast<std::uint32_t>(crowder),
+                                                std::fabs(Wrap(crowderBearing - bearing)) / kDeg)
+                                  : std::string());
             }
         }
         if (radius <= 0.0f) {
             g_goals.Erase(id);
             return;
         }
-        const float legAngle = bearing + std::clamp(off, -kArcStep, kArcStep);
+        const float legAngle = sideStep != 0.0f ? bearing + sideStep : bearing + std::clamp(off, -kArcStep, kArcStep);
         const RE::NiPoint3 goal(center.x + radius * std::cos(legAngle), center.y + radius * std::sin(legAngle), center.z);
         // Already standing on its arc point: a path there fails ("no path" on the start triangle, 1.12.2: 2 of 10)
         if (std::hypot(goal.x - a_state.self.position.x, goal.y - a_state.self.position.y) < kArrived) {

@@ -330,6 +330,8 @@ namespace CombatAI
             if (tab("Groups & Movement")) {
                 check("Enable combat pacing (attackers take turns)", &config.m_combatPacing.enableCombatPacing);
                 check("Spread around the target (each melee attacker its own side)", &config.m_combatPacing.enableRingSlots);
+                check("Close in, step aside from a crowding ally", &config.m_combatPacing.enableCloseSpacing);
+                check("Combat style sets the waiting distance", &config.m_combatPacing.styleWaiting);
                 sliderInt("Max simultaneous attackers", &config.m_combatPacing.maxSimultaneousAttackers, 1, 6);
                 check("Archers and mages keep their distance", &config.m_decisionMatrix.enableRangedPositioning);
                 liveFloat("Flank only within x attack range", &config.m_decisionMatrix.flankingMaxReach, 1.0f, 10.0f, "%.1f");
@@ -338,7 +340,8 @@ namespace CombatAI
                 liveFloat("...when that point is within (units)", &config.m_decisionMatrix.advanceRedirectMaxDistance, 0.0f, 1000.0f, "%.0f");
                 check("Flanking combat styles use the brain's movement", &config.m_decisionMatrix.flankingStyleBrainMovement);
                 if (header("Advanced: pacing")) {
-                    liveFloat("Slot window min (s)", &config.m_combatPacing.slotWindowMinSeconds, 0.5f, 10.0f, "%.1f");
+                    liveFloat("Slot window min (s)", &config.m_combatPacing.slotWindowMinSeconds, 1.5f, 10.0f, "%.1f");
+                    liveFloat("Rest after a turn (s)", &config.m_combatPacing.restSeconds, 0.5f, 10.0f, "%.1f");
                     liveFloat("Slot window max (s)", &config.m_combatPacing.slotWindowMaxSeconds, 0.5f, 12.0f, "%.1f");
                     check("Pace player target only", &config.m_combatPacing.paceTargetPlayerOnly);
                     sliderInt("Extra attackers vs giants / beasts", &config.m_combatPacing.dangerExtraAttackers, 0, 6);
