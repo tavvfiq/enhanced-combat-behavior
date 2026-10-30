@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.12.1 (2026-10-31)
+
+Untested in game.
+
+- Spreading around you, steadier: each NPC's side now stays where it was given. In the last test the spread worked (the group covered a median 159 degrees around you instead of a 60-90 degree wedge), but the sides kept shifting with the NPCs' own movement, so they walked around a lot: one NPC's side moved 16 degrees between checks on average, and 36 of 192 times an NPC was sent more than 90 degrees around you. Now a newcomer takes the middle of the biggest gap and nobody else moves; when someone leaves, the group evens out only if the gaps get very uneven; and an NPC more than 120 degrees from its side trades sides with one standing nearer instead of walking half a lap.
+
 ## Enhanced Combat Behavior 1.12.0 (2026-10-31)
 
 Untested in game.

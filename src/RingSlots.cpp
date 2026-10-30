@@ -23,7 +23,9 @@ namespace CombatAI::RingSlots
 
         constexpr float kStale = 1.5f;               // seconds without a brain tick: off the ring
         constexpr float kSolveEvery = 0.5f;          // seconds between re-solves of a target's sectors
-        constexpr float kKeepOffset = 15.0f * kDeg;  // same group: keep the old spread unless it moved this much
+        constexpr float kLopsided = 2.0f;            // even out once the biggest gap is this many times the smallest
+        constexpr float kSwapBeyond = 120.0f * kDeg; // farther than this from its sector: trade with a closer NPC
+        constexpr float kSwapGain = 60.0f * kDeg;    // ...when the pair's walking shrinks by at least this much
         constexpr float kApproachTolerance = 30.0f * kDeg; // approaching inside this of its sector: straight in
         constexpr float kWaitTolerance = 20.0f * kDeg;     // waiting inside this of its sector: circle as before
         constexpr float kArcStep = 50.0f * kDeg;           // each leg of the walk around the target
@@ -57,10 +59,8 @@ namespace CombatAI::RingSlots
 
         struct Ring
         {
-            std::vector<Member> members; // in sector order once solved
-            std::vector<RE::FormID> roster; // sorted ids at the last solve
-            float offset = 0.0f;
-            bool solved = false;
+            std::vector<Member> members;
+            bool solved = false; // two or more members: sectors steer
             Clock::time_point solvedAt{};
         };
 
@@ -83,39 +83,83 @@ namespace CombatAI::RingSlots
         };
         std::unordered_map<RE::FormID, Told> g_told; // debug lines for the selected NPC
 
-        // Evenly spaced sectors, members kept in order. A new group (someone joined or left) is ordered by where
-        // they stand now; the same group keeps its order, so two NPCs passing each other don't swap sectors. The spread
-        // turns to fit where they stand (circular mean of bearing minus slot angle) and keeps its old turn unless
-        // the new one is kKeepOffset off.
+        // Sectors stay where they were given (1.12.0 refit them to where the NPCs stood: the selected NPC's sector
+        // moved a median 16 degrees between log lines, 30 of 190 times over 30, and 36 of 192 lines sent it over 90
+        // degrees around the target).
+        // A newcomer takes the middle of the biggest free gap; nobody else moves.
+        float NewSector(const Ring &a_ring, float a_bearing)
+        {
+            std::vector<float> sectors;
+            for (const auto &m : a_ring.members) {
+                sectors.push_back(m.sector);
+            }
+            if (sectors.empty()) {
+                return a_bearing;
+            }
+            std::ranges::sort(sectors);
+            float best = 0.0f, middle = a_bearing;
+            for (std::size_t k = 0; k < sectors.size(); ++k) {
+                const float from = sectors[k];
+                float gap = (k + 1 < sectors.size() ? sectors[k + 1] : sectors[0] + 2.0f * kPi) - from;
+                if (sectors.size() == 1) {
+                    gap = 2.0f * kPi;
+                }
+                if (gap > best) {
+                    best = gap;
+                    middle = Wrap(from + gap * 0.5f);
+                }
+            }
+            return middle;
+        }
+
+        // Every kSolveEvery: when the gaps are lopsided (someone left), even them out keeping the order, each moving
+        // as little as it can (circular mean of sector minus slot angle). Then one trade: an NPC farther than
+        // kSwapBeyond from its sector swaps with the NPC whose sector is nearest to where it stands, if that saves the
+        // pair kSwapGain of walking.
         void Solve(Ring &a_ring)
         {
             auto &m = a_ring.members;
-            std::vector<RE::FormID> roster;
-            roster.reserve(m.size());
-            for (const auto &e : m) {
-                roster.push_back(e.id);
+            std::ranges::sort(m, {}, &Member::sector);
+            const std::size_t n = m.size();
+            const float step = 2.0f * kPi / static_cast<float>(n);
+            float smallest = 2.0f * kPi, biggest = 0.0f;
+            for (std::size_t k = 0; k < n; ++k) {
+                const float gap = (k + 1 < n ? m[k + 1].sector : m[0].sector + 2.0f * kPi) - m[k].sector;
+                smallest = (std::min)(smallest, gap);
+                biggest = (std::max)(biggest, gap);
             }
-            std::ranges::sort(roster);
-            const bool sameGroup = a_ring.solved && roster == a_ring.roster;
-            if (!sameGroup) {
-                std::ranges::sort(m, {}, &Member::bearing);
+            if (biggest > kLopsided * (std::max)(smallest, 1.0f * kDeg)) {
+                float sx = 0.0f, sy = 0.0f;
+                for (std::size_t k = 0; k < n; ++k) {
+                    const float a = m[k].sector - step * static_cast<float>(k);
+                    sx += std::cos(a);
+                    sy += std::sin(a);
+                }
+                const float offset = std::atan2(sy, sx);
+                for (std::size_t k = 0; k < n; ++k) {
+                    m[k].sector = Wrap(offset + step * static_cast<float>(k));
+                }
             }
-            const float step = 2.0f * kPi / static_cast<float>(m.size());
-            float sx = 0.0f, sy = 0.0f;
-            for (std::size_t k = 0; k < m.size(); ++k) {
-                const float a = m[k].bearing - step * static_cast<float>(k);
-                sx += std::cos(a);
-                sy += std::sin(a);
+            for (auto &a : m) {
+                if (std::fabs(Wrap(a.sector - a.bearing)) <= kSwapBeyond) {
+                    continue;
+                }
+                Member *nearest = nullptr;
+                for (auto &b : m) {
+                    if (&b != &a && (!nearest || std::fabs(Wrap(b.sector - a.bearing)) < std::fabs(Wrap(nearest->sector - a.bearing)))) {
+                        nearest = &b;
+                    }
+                }
+                if (!nearest) {
+                    break;
+                }
+                const float now = std::fabs(Wrap(a.sector - a.bearing)) + std::fabs(Wrap(nearest->sector - nearest->bearing));
+                const float swapped = std::fabs(Wrap(nearest->sector - a.bearing)) + std::fabs(Wrap(a.sector - nearest->bearing));
+                if (now - swapped >= kSwapGain) {
+                    std::swap(a.sector, nearest->sector);
+                    break;
+                }
             }
-            float offset = std::atan2(sy, sx);
-            if (sameGroup && std::fabs(Wrap(offset - a_ring.offset)) < kKeepOffset) {
-                offset = a_ring.offset;
-            }
-            for (std::size_t k = 0; k < m.size(); ++k) {
-                m[k].sector = Wrap(offset + step * static_cast<float>(k));
-            }
-            a_ring.offset = offset;
-            a_ring.roster = std::move(roster);
             a_ring.solved = true;
         }
 
@@ -149,7 +193,7 @@ namespace CombatAI::RingSlots
         auto &ring = g_rings[targetId];
         auto member = std::ranges::find(ring.members, id, &Member::id);
         if (member == ring.members.end()) {
-            ring.members.push_back({id, bearing, bearing, now});
+            ring.members.push_back({id, bearing, NewSector(ring, bearing), now});
         } else {
             member->bearing = bearing;
             member->seen = now;
@@ -163,7 +207,6 @@ namespace CombatAI::RingSlots
                 Solve(ring);
             } else {
                 ring.solved = false;
-                ring.roster.clear();
             }
         }
     }
