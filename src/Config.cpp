@@ -191,6 +191,7 @@ namespace CombatAI
         B("DecisionMatrix", "IntentHitConeOverride", m_decisionMatrix.intentHitConeOverride);
         D("DecisionMatrix", "IntentHitConeMaxAngle", m_decisionMatrix.intentHitConeMaxAngle);
         B("DecisionMatrix", "AdvanceNavmeshRedirect", m_decisionMatrix.advanceNavmeshRedirect);
+        B("DecisionMatrix", "FlankingStyleBrainMovement", m_decisionMatrix.flankingStyleBrainMovement);
         D("DecisionMatrix", "AdvanceRedirectMaxDistance", m_decisionMatrix.advanceRedirectMaxDistance);
         B("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
         B("DecisionMatrix", "EnableCounter", m_decisionMatrix.enableCounter);
@@ -700,6 +701,8 @@ namespace CombatAI
             a_ini.GetBoolValue("DecisionMatrix", "IntentHitConeOverride", m_decisionMatrix.intentHitConeOverride);
         m_decisionMatrix.advanceNavmeshRedirect =
             a_ini.GetBoolValue("DecisionMatrix", "AdvanceNavmeshRedirect", m_decisionMatrix.advanceNavmeshRedirect);
+        m_decisionMatrix.flankingStyleBrainMovement =
+            a_ini.GetBoolValue("DecisionMatrix", "FlankingStyleBrainMovement", m_decisionMatrix.flankingStyleBrainMovement);
         m_decisionMatrix.enableShoutTiming =
             a_ini.GetBoolValue("DecisionMatrix", "EnableShoutTiming", m_decisionMatrix.enableShoutTiming);
         m_decisionMatrix.enableSelfShouts = a_ini.GetBoolValue("DecisionMatrix", "EnableSelfShouts", m_decisionMatrix.enableSelfShouts);

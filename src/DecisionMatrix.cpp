@@ -2,6 +2,7 @@
 #include "ActorUtils.h"
 #include "Config.h"
 #include "BlockRules.h"
+#include "FlankingStyle.h"
 #include "Intents.h"
 #include "TargetDanger.h"
 #include "Personality.h"
@@ -37,6 +38,20 @@ namespace CombatAI
     static_assert(!IsAimedAt(800.0f, 0.95f, 100.0f));  // ~250 units off: the NPC next to the one aimed at
     static_assert(!IsAimedAt(800.0f, -0.999f, 100.0f)); // aiming away
     constexpr float kAimSlack = 75.0f; // third-person camera offset and aim wobble, on top of our body radius
+
+    // The tangent around the target that heads toward its back: a flanking style waiting its turn circles this way
+    static RE::NiPoint3 BehindDirection(const ActorStateData &a_state)
+    {
+        const RE::NiPoint3 fromTarget = a_state.self.position - a_state.target.position;
+        RE::NiPoint3 tangent(-fromTarget.y, fromTarget.x, 0.0f);
+        const auto &facing = a_state.target.forwardVector;
+        if (-(tangent.x * facing.x + tangent.y * facing.y) < 0.0f) {
+            tangent.x = -tangent.x;
+            tangent.y = -tangent.y;
+        }
+        const float length = std::hypot(tangent.x, tangent.y);
+        return length > 0.01f ? RE::NiPoint3(tangent.x / length, tangent.y / length, 0.0f) : RE::NiPoint3(1.0f, 0.0f, 0.0f);
+    }
 
     // The target's swing or shot points at this NPC, not a neighbour. The player's body heading misses its bow
     // crosshair by the camera offset (run 11), so the actor under the crosshair counts too.
@@ -640,16 +655,16 @@ namespace CombatAI
         return bestDecision;
     }
 
-    DecisionResult DecisionMatrix::EvaluateHeldBack([[maybe_unused]] RE::Actor *a_actor, const ActorStateData &a_state)
+    DecisionResult DecisionMatrix::EvaluateHeldBack(RE::Actor *a_actor, const ActorStateData &a_state)
     {
         DecisionResult result;
         if (!a_state.target.isValid) {
             return result; // nothing to circle
         }
         // Circle/flank the target while waiting for an attack slot. ExecuteFlanking uses
-        // the Circle node on the brain's side.
+        // the Circle node on the brain's side. A flanking combat style circles toward the target's back.
         result.action = ActionType::Flanking;
-        result.direction = CalculateFlankingDirection(a_state);
+        result.direction = FlankingStyle::Is(a_actor) ? BehindDirection(a_state) : CalculateFlankingDirection(a_state);
         result.priority = 1.0f;
         result.intensity = 0.6f;
         return result;
@@ -2222,6 +2237,10 @@ namespace CombatAI
                 if (a_state.combatContext.hasNearbyAlly) {
                     flankingBonus = 0.4f; // Even better if ally is engaging target
                 }
+            }
+            // A flanking combat style presses from the side or back, and on a target busy with someone else
+            if (FlankingStyle::Is(a_actor) && (a_state.target.orientationDot < 0.3f || !TargetAimedAtUs(a_actor, a_state))) {
+                flankingBonus += 0.2f;
             }
 
             // Health-based modifier: Lower health = more cautious, but also consider

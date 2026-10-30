@@ -5,6 +5,7 @@
 #include "CombatDirector.h"
 #include "Config.h"
 #include "EngineProbes.h"
+#include "FlankingStyle.h"
 #include "Logger.h"
 #include "NavmeshRedirect.h"
 #include "VanillaAttackShaper.h"
@@ -167,6 +168,7 @@ namespace CombatAI
 
             EngineProbes::Install();
             NavmeshRedirect::Install();
+            FlankingStyle::Install(trampoline);
             SCARData::InstallGate(trampoline); // after SCAR's kPostLoad hooks, so the gate runs first
             ComboFollowUp::Install();          // only without SCAR.dll (same anim event slot as the gate)
 

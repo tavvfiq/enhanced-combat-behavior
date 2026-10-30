@@ -335,6 +335,7 @@ namespace CombatAI
                 check("Enable target switching", &config.m_targetSwitching.enableTargetSwitching);
                 check("Stuck advance / flank: aim at the navmesh next to a goal off it", &config.m_decisionMatrix.advanceNavmeshRedirect);
                 liveFloat("...when that point is within (units)", &config.m_decisionMatrix.advanceRedirectMaxDistance, 0.0f, 1000.0f, "%.0f");
+                check("Flanking combat styles use the brain's movement", &config.m_decisionMatrix.flankingStyleBrainMovement);
                 if (header("Advanced: pacing")) {
                     liveFloat("Slot window min (s)", &config.m_combatPacing.slotWindowMinSeconds, 0.5f, 10.0f, "%.1f");
                     liveFloat("Slot window max (s)", &config.m_combatPacing.slotWindowMaxSeconds, 0.5f, 12.0f, "%.1f");

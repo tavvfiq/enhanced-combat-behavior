@@ -131,6 +131,8 @@ namespace CombatAI::Intents
     // side's read of it (0 = never noted). The hit cone override (EngineProbes) checks our attacks against it
     void NoteAttackReach(RE::Actor *a_actor, float a_reach);
     float AttackReach(RE::Actor *a_actor);
+    // The brain processed a_actor in the last 1.5 s (NoteAttackReach runs every brain tick): it drives this NPC
+    bool BrainDriven(RE::Actor *a_actor);
 
     // Attack-chance hook found attack data of the committed kind (feedback: the intent really ran).
     void NoteAttackMatched(RE::Actor *a_actor);

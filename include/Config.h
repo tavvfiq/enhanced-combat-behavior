@@ -110,6 +110,7 @@ namespace CombatAI
             float intentHitConeMaxAngle = 60.0f;  // ...within this many degrees of the NPC's facing
             bool advanceNavmeshRedirect = true;       // after a failed Advance, a target off the navmesh: go to its closest navmesh point
             float advanceRedirectMaxDistance = 150.0f; // ...only when that point is this close to the target (2D)
+            bool flankingStyleBrainMovement = true;    // flanking combat styles use the brain's close movement, not vanilla's
             bool enablePersonality = true;          // Confidence / Aggression / combat style scale risky rolls
             bool includeHumanoidCreatures = true;   // draugr, falmer, skeletons with a weapon get the brain (no dodges)
             float creatureSwingSeconds = 3.0f;      // such a creature starts no new attack this soon after a swing start

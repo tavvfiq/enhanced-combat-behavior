@@ -49,6 +49,7 @@ namespace CombatAI::Intents
             bool dualBlockStarted = false;
             TreeReads attackReads{}, defendReads{}; // tree reads when each was posted (debug)
             float attackReach = 0.0f;               // weapon reach + target radius (NoteAttackReach)
+            Clock::time_point brainSeen{};          // the last brain tick (NoteAttackReach)
         };
 
         ThreadSafeMap<RE::FormID, Entry> g_board;
@@ -644,7 +645,11 @@ namespace CombatAI::Intents
     void NoteAttackReach(RE::Actor *a_actor, float a_reach)
     {
         if (a_actor) {
-            g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) { e.attackReach = a_reach; });
+            const auto now = Clock::now();
+            g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
+                e.attackReach = a_reach;
+                e.brainSeen = now;
+            });
         }
     }
 
@@ -652,6 +657,12 @@ namespace CombatAI::Intents
     {
         const auto e = a_actor ? g_board.Find(a_actor->GetFormID()) : std::nullopt;
         return e ? e->attackReach : 0.0f;
+    }
+
+    bool BrainDriven(RE::Actor *a_actor)
+    {
+        const auto e = a_actor ? g_board.Find(a_actor->GetFormID()) : std::nullopt;
+        return e && e->brainSeen != Clock::time_point{} && Clock::now() - e->brainSeen < std::chrono::milliseconds(1500);
     }
 
     Attack CommittedAttack(RE::Actor *a_actor)

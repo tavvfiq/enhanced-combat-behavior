@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.11.0 (2026-10-31)
+
+Untested in game.
+
+- **Flankers flank properly.** NPCs whose combat style flanks (marauders and others) used vanilla's flanking movement: hang back, step around in wide hops, walk out to as far as 1000 units, watch, then rush in. It ignored whose turn it was and never looked for openings; in the last test a Marauder Rogue spent most of the fight 300-450 units away, and ECB's own movement orders for it were never used (33 of 33). Now the NPCs ECB drives use its close-in movement like everyone else, and the flanking style shows in how they fight: while waiting their turn they circle toward your back at the edge of reach, and they press attacks when they are at your side or back or you are busy with someone else. Archers, mages and creatures keep vanilla. Setting: `FlankingStyleBrainMovement` (`[DecisionMatrix]`, on), also on the menu's Groups & Movement tab.
+
 ## Enhanced Combat Behavior 1.10.2 (2026-10-31)
 
 Untested in game.
