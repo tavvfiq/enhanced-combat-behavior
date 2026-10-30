@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.9.2 (2026-10-30)
+
+Untested in game. Debug log only; no gameplay change.
+
+- Combo follow-ups: the debug log now records why a follow-up was judged in or out of reach: the distance, your speed toward or away from the NPC, and for light and power attacks the closest it has (how much it would reach by or fall short by). In the last test, 86 follow-ups were skipped as out of reach and nothing in the log could tell whether that was right.
+
 ## Enhanced Combat Behavior 1.9.1 (2026-10-30)
 
 Untested in game.

@@ -308,15 +308,39 @@ namespace CombatAI::ComboFollowUp
             skip = "no target";
         }
         bool lightReaches = withinRange, powerReaches = withinRange;
+        std::string reachLog; // debug: distance, the target's speed, each kind's verdict
         if (!skip && settings.comboBranchChoice) {
             const float closing = Closing(target, a_state);
-            const auto anyReaches = [&](bool a_power) {
+            const float reach = (a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f) + a_state.target.boundRadius;
+            // Per kind: the seen attack that comes closest (its reach at the blow less the distance then; >= 0 reaches)
+            const auto judge = [&](bool a_power, std::string &a_log) {
                 const auto known = ClipTiming::KnownSlots(formID, a_power);
-                return known.empty() ? withinRange
-                                     : std::ranges::any_of(known, [&](const auto &a_k) { return Reaches(a_k, a_state, closing); });
+                if (known.empty()) {
+                    a_log = std::format("{} none seen: 1.3x range {:.0f} {}", a_power ? "power" : "light",
+                                        range * settings.comboReachMult, withinRange ? "reaches" : "short");
+                    return withinRange;
+                }
+                const ClipTiming::KnownSlot *best = nullptr;
+                float bestMargin = 0.0f;
+                for (const auto &k : known) {
+                    const float margin = reach + k.forward - (a_state.target.distance - closing * k.startup);
+                    if (!best || margin > bestMargin) {
+                        best = &k;
+                        bestMargin = margin;
+                    }
+                }
+                a_log = std::format("{} best slot {} ({:.2f}s, forward {:.0f}): {} {:.0f}", a_power ? "power" : "light",
+                                    best->slot, best->startup, best->forward, bestMargin >= 0.0f ? "reaches by" : "short by",
+                                    std::abs(bestMargin));
+                return bestMargin >= 0.0f; // same test as Reaches()
             };
-            lightReaches = anyReaches(false);
-            powerReaches = anyReaches(true);
+            std::string lightLog, powerLog;
+            lightReaches = judge(false, lightLog);
+            powerReaches = judge(true, powerLog);
+            if (debug) {
+                reachLog = std::format("; dist {:.0f}, you {:+.0f}/s toward it, reach {:.0f}; {}; {}", a_state.target.distance,
+                                       closing, reach, lightLog, powerLog);
+            }
         }
         const bool normalGo = normalOpen && lightReaches, powerGo = powerOpen && powerReaches;
         if (!skip && !normalGo && !powerGo) {
@@ -324,7 +348,8 @@ namespace CombatAI::ComboFollowUp
         }
         if (skip) {
             if (debug) {
-                LOG_DEBUG("Combo 0x{:08X}: window open, no follow-up ({})", formID, skip);
+                LOG_DEBUG("Combo 0x{:08X}: window open, no follow-up ({}){}", formID, skip,
+                          std::strcmp(skip, "target out of reach") == 0 ? reachLog : std::string());
             }
             return;
         }
@@ -349,8 +374,8 @@ namespace CombatAI::ComboFollowUp
             }
         });
         if (debug) {
-            LOG_DEBUG("Combo 0x{:08X}: window open (normal {}, power {}; in reach {}/{}) -> {}", formID, normalOpen,
-                      powerOpen, lightReaches, powerReaches,
+            LOG_DEBUG("Combo 0x{:08X}: window open (normal {}, power {}; in reach {}/{}{}) -> {}", formID, normalOpen,
+                      powerOpen, lightReaches, powerReaches, reachLog,
                       go ? (power ? "power follow-up" : "normal follow-up") : "no follow-up (roll)");
         }
         if (go) {
