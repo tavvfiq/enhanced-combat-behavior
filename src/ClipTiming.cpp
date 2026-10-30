@@ -29,7 +29,8 @@ namespace CombatAI::ClipTiming
 
         // What an attack clip's annotations say about it (clip seconds; -1 = no mark). MCO and BFCO movesets carry
         // all of it (1.7.7 run, player BFCO_Attack1-5): HitFrame, MCO_WinOpen/WinClose, MCO_Recovery,
-        // PIE.@SGVI|MCO_nextattack|N and MCO_nextpowerattack|N, and AMR "animmotion x y z" keys: the root's position
+        // PIE.@SGVI|MCO_nextattack|N and MCO_nextpowerattack|N (BFCO: BFCO_NextIsAttackN,
+        // BFCO_NextIsPowerAttackN), and AMR "animmotion x y z" keys: the root's position
         // (absolute, rising 0 -> 28 -> 36 -> 70 over BFCO_Attack2), y forward, x to the side
         struct Profile
         {
@@ -161,6 +162,10 @@ namespace CombatAI::ClipTiming
                     p.nextLight = static_cast<int>(n);
                 } else if (const float n2 = AfterKey(view, "MCO_nextpowerattack|"); n2 >= 0.0f) {
                     p.nextPower = static_cast<int>(n2);
+                } else if (const float b = AfterKey(view, "BFCO_NextIsAttack"); b >= 0.0f) {
+                    p.nextLight = static_cast<int>(b);
+                } else if (const float b2 = AfterKey(view, "BFCO_NextIsPowerAttack"); b2 >= 0.0f) {
+                    p.nextPower = static_cast<int>(b2);
                 } else if (const float s = AfterKey(view, "AttackSpeed|"); s > 0.0f) {
                     p.speed = s;
                 }
@@ -292,6 +297,15 @@ namespace CombatAI::ClipTiming
         float g_ownTime = 0.0f;
         std::unordered_set<const void *> g_marksLogged; // clips whose annotations were listed once
 
+        // The selected NPC's attacks seen so far (LogOwnAttack): seconds to the first blow at the clip's playback
+        // speed, and the root motion by then. Main thread
+        struct OwnAttack
+        {
+            float startup = 0.0f, forward = 0.0f;
+        };
+        std::unordered_map<RE::FormID, std::unordered_map<std::string, OwnAttack>> g_ownAttacks;
+        std::pair<RE::FormID, std::uint32_t> g_punishLogged{}; // the swing LogPunishWindow logged last
+
         struct Stats
         {
             int blows = 0, compared = 0, noPrediction = 0, noClip = 0, stale = 0;
@@ -359,7 +373,7 @@ namespace CombatAI::ClipTiming
             }
         }
         Clip clip;
-        const auto result = Read(a_attacker, clip);
+        const auto result = Read(a_attacker, clip, true); // profiled: recovery and combo window for LogPunishWindow
 
         std::scoped_lock lock(g_lock);
         auto &track = g_tracks[id];
@@ -623,7 +637,7 @@ namespace CombatAI::ClipTiming
                  s.extraContacts);
     }
 
-    void LogOwnAttack(RE::Actor *a_actor, float a_distance, float a_reach, float a_targetRadius)
+    void LogOwnAttack(RE::Actor *a_actor, RE::Actor *a_target, float a_distance, float a_reach, float a_targetRadius)
     {
         if (!a_actor || ActorUtils::SafeGetAttackState(a_actor) == RE::ATTACK_STATE_ENUM::kNone) {
             return;
@@ -641,15 +655,37 @@ namespace CombatAI::ClipTiming
             return; // logged already, or a clip whose blows are past (the last attack's, still blending out)
         }
         const Profile &p = clip.profile;
+        const float playback = (std::max)(clip.playbackSpeed, 0.05f);
+        if (p.startup >= 0.0f) {
+            g_ownAttacks[a_actor->GetFormID()][clip.name] = {p.startup / playback, p.forward};
+        }
+        // The target's speed toward the NPC (+) or away (-), and the distance when the blow comes (1.7.9 run: two
+        // attacks started 213 and 289 out, "short", hit: the player walked into them)
+        float closing = 0.0f;
+        if (a_target) {
+            RE::NiPoint3 velocity;
+            a_target->GetLinearVelocity(velocity);
+            const auto self = a_actor->GetPosition();
+            const auto other = a_target->GetPosition();
+            const float dx = self.x - other.x, dy = self.y - other.y;
+            const float length = std::hypot(dx, dy);
+            closing = length > 1.0f ? (velocity.x * dx + velocity.y * dy) / length : 0.0f;
+        }
+        const float toBlow = p.startup >= 0.0f ? (std::max)(0.0f, (p.startup - clip.localTime) / playback) : 0.0f;
+        const float distanceAtBlow = a_distance - closing * toBlow;
         std::string blows;
         for (const float h : clip.hits) {
             blows += std::format("{}{:.2f}", blows.empty() ? "" : "/", h);
         }
         const auto mark = [](float a_t) { return a_t >= 0.0f ? std::format("{:.2f}", a_t) : std::string("-"); };
         const float reachTotal = a_reach + a_targetRadius + p.forward;
-        const std::string reaches = !p.hasMotion             ? std::string("no motion keys")
-                                    : a_distance <= reachTotal ? std::string("reaches")
-                                                               : std::format("short by {:.0f}", a_distance - reachTotal);
+        const auto verdict = [&](float a_dist) {
+            return !p.hasMotion             ? std::string("no motion keys")
+                   : a_dist <= reachTotal ? std::string("reaches")
+                                          : std::format("short by {:.0f}", a_dist - reachTotal);
+        };
+        const std::string reaches = std::format("{}; target moving {:+.0f}/s toward it, blow in {:.2f}s at dist {:.0f}: {}",
+                                                verdict(a_distance), closing, toBlow, distanceAtBlow, verdict(distanceAtBlow));
         LOG_DEBUG("AttackClip 0x{:08X}: '{}' {:.2f}s, playback {:.2f}{}, read at {:.2f}s; startup {}, blows {} ({}), "
                   "recovery {}, window {}-{}, next light {} power {}, forward {:.0f} side {:.0f} by the first blow ({:.0f} "
                   "by the end{}){}; dist {:.0f} vs reach {:.0f} + target {:.0f} + forward {:.0f} = {:.0f}: {}",
@@ -664,6 +700,65 @@ namespace CombatAI::ClipTiming
             LOG_DEBUG("AttackClip 0x{:08X}: '{}' marks: {}", static_cast<std::uint32_t>(a_actor->GetFormID()), clip.name,
                       clip.marks);
         }
+    }
+
+    void LogPunishWindow(RE::Actor *a_npc, RE::Actor *a_attacker, float a_distance, float a_reach, float a_targetRadius,
+                         std::uint32_t a_swing)
+    {
+        if (!a_npc || !a_attacker || g_punishLogged == std::pair{a_npc->GetFormID(), a_swing}) {
+            return;
+        }
+        float recoverIn = 0.0f, windowIn = -1.0f;
+        bool marked = false;
+        std::string clipName;
+        {
+            std::scoped_lock lock(g_lock);
+            const auto it = g_tracks.find(a_attacker->GetFormID());
+            if (it == g_tracks.end() || !it->second.clip.animation || it->second.rate < kMinRate) {
+                return;
+            }
+            const auto &t = it->second;
+            const float position = t.clip.localTime + t.rate * Since(t.at, Clock::now());
+            const auto &p = t.clip.profile;
+            marked = p.recovery >= 0.0f;
+            recoverIn = ((marked ? p.recovery : t.clip.duration) - position) / t.rate;
+            windowIn = p.winOpen >= 0.0f ? (p.winOpen - position) / t.rate : -1.0f;
+            clipName = t.clip.name;
+        }
+        g_punishLogged = {a_npc->GetFormID(), a_swing};
+        // Its fastest attack, and its fastest that also reaches from here
+        const auto own = g_ownAttacks.find(a_npc->GetFormID());
+        const std::pair<const std::string, OwnAttack> *fastest = nullptr, *fastestInReach = nullptr;
+        int fit = 0;
+        if (own != g_ownAttacks.end()) {
+            for (const auto &entry : own->second) {
+                const bool inReach = a_distance <= a_reach + a_targetRadius + entry.second.forward;
+                if (!fastest || entry.second.startup < fastest->second.startup) {
+                    fastest = &entry;
+                }
+                if (inReach && (!fastestInReach || entry.second.startup < fastestInReach->second.startup)) {
+                    fastestInReach = &entry;
+                }
+                fit += inReach && entry.second.startup < recoverIn ? 1 : 0;
+            }
+        }
+        const auto describe = [&](const std::pair<const std::string, OwnAttack> *a_attack) {
+            if (!a_attack) {
+                return std::string("none");
+            }
+            const float margin = recoverIn - a_attack->second.startup;
+            return std::format("'{}' {:.2f}s, forward {:.0f}: {}", a_attack->first, a_attack->second.startup,
+                               a_attack->second.forward,
+                               margin > 0.0f ? std::format("lands {:.2f}s before you recover", margin)
+                                             : std::format("too slow by {:.2f}s", -margin));
+        };
+        LOG_DEBUG("Punish 0x{:08X}: your '{}' blows past, you recover in {:.2f}s ({}){}; dist {:.0f}, reach {:.0f} + "
+                  "target {:.0f}; its fastest attack {}; fastest in reach {}; {} of {} known attacks fit {}",
+                  static_cast<std::uint32_t>(a_npc->GetFormID()), clipName, recoverIn,
+                  marked ? "MCO_Recovery" : "clip end, no recovery mark",
+                  windowIn >= 0.0f ? std::format(", combo window in {:.2f}s", windowIn) : std::string(), a_distance,
+                  a_reach, a_targetRadius, describe(fastest), describe(fastestInReach), fit,
+                  own != g_ownAttacks.end() ? own->second.size() : 0, SwingTag(a_attacker->GetFormID(), a_swing));
     }
 
     void Evict(RE::FormID a_formID)

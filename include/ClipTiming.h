@@ -38,7 +38,14 @@ namespace CombatAI::ClipTiming
     // as an attack profile read from its annotations (startup, blows, motion by the first blow, recovery, combo window,
     // next slots) with whether that blow reaches its target from here: a_distance to the target, a_reach its weapon
     // reach, a_targetRadius the target's. Moveset proposal, build step 2; nothing is decided from it yet
-    void LogOwnAttack(RE::Actor *a_actor, float a_distance, float a_reach, float a_targetRadius);
+    // a_target's movement toward or away from it over the clip's startup gives the distance at the blow too.
+    void LogOwnAttack(RE::Actor *a_actor, RE::Actor *a_target, float a_distance, float a_reach, float a_targetRadius);
+
+    // Debug, the selected NPC a_npc (main thread): its target a_attacker's swing a_swing is past its blows. Once per
+    // swing: how long a_attacker stays committed (its clip's MCO_Recovery, and its combo window) against the NPC's
+    // fastest attack seen so far (LogOwnAttack), in time and reach. Moveset proposal, punish; nothing decided yet
+    void LogPunishWindow(RE::Actor *a_npc, RE::Actor *a_attacker, float a_distance, float a_reach, float a_targetRadius,
+                         std::uint32_t a_swing);
 
     // Per frame: the 60 s summary
     void Update(float a_deltaTime);

@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.7.10 (2026-10-30)
+
+Untested in game. Debug log only; no gameplay change.
+
+- Attack log: BFCO's own markers for which attack comes next are now read too. The reach check now accounts for the target walking in or backing off before the blow lands. In the last run, two attacks that looked too short hit because the player stepped into them.
+- New Punish line: whenever one of your swings has played out, the selected NPC's log shows how long you stay committed against the fastest attack it has used so far, and whether that attack would land before you can act again. This is the groundwork for NPCs punishing a slow recovery.
+
 ## Enhanced Combat Behavior 1.7.9 (2026-10-30)
 
 Untested in game. Debug log only; no gameplay change.
