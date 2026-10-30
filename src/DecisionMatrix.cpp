@@ -1716,29 +1716,31 @@ namespace CombatAI
             note(std::format("waiting {:.2f}s to see if you chain", windowIn + wait));
             return result;
         }
-        // Its fastest attack that reaches; none read yet: the offense's reach and a 0.6 s startup (1.7.10 run: its
-        // attacks landed 0.38-0.60 s after they started)
-        float reach = a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f;
-        float startup = 0.6f;
-        const int known = ClipTiming::FastestAttack(a_actor->GetFormID(), a_state.target.distance, reach,
-                                                    a_state.target.boundRadius, startup);
-        if (known == 0 || (known < 0 && a_state.target.distance > EffectiveAttackRange(a_state, reach,
-                                                                                      matrix.offenseReachMultiplier,
-                                                                                      matrix.offenseReachSafetyMargin))) {
+        // In the offense's attack range: vanilla starts an attack only within its weapon reach, the clip's lunge
+        // helps only after the start (1.8.1 run: a punish at 166 units, counting a long lunge, was refused and the
+        // player was gone). Timing: its fastest attack read so far; none yet: 0.6 s (1.7.10 run: 0.38-0.60 s)
+        const float reach = a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f;
+        if (a_state.target.distance > EffectiveAttackRange(a_state, reach, matrix.offenseReachMultiplier,
+                                                           matrix.offenseReachSafetyMargin)) {
             note(std::format("skipped (out of reach at {:.0f})", a_state.target.distance));
             return result;
         }
+        float startup = 0.6f;
+        const int known = ClipTiming::FastestAttack(a_actor->GetFormID(), 0.0f, reach, a_state.target.boundRadius, startup);
         // A tenth of a second to spare for the tree to start it
         constexpr float kMargin = 0.1f;
         if (recoverIn - startup < kMargin) {
             note(std::format("skipped (too slow: you recover in {:.2f}s, its attack lands in {:.2f}s)", recoverIn, startup));
             return result;
         }
-        // Facing: vanilla's hit cone refuses a target well off to the side (the offense's 75 deg)
+        // Facing: the offense's 75 deg, or the hit cone override's angle when narrower (an attack it wouldn't pass:
+        // 1.8.1 run, a punish at 82 deg was refused)
         RE::NiPoint3 toTarget = a_state.target.position - a_state.self.position;
         RE::NiPoint3 forward = a_state.self.forwardVector;
         toTarget.z = forward.z = 0.0f;
-        if (toTarget.Unitize() > 1.0f && forward.Unitize() > 0.01f && forward.Dot(toTarget) < 0.259f) {
+        const float maxAngle = matrix.intentHitConeOverride ? (std::min)(75.0f, matrix.intentHitConeMaxAngle) : 75.0f;
+        if (toTarget.Unitize() > 1.0f && forward.Unitize() > 0.01f &&
+            forward.Dot(toTarget) < std::cos(maxAngle * 3.14159265f / 180.0f)) {
             note("skipped (not facing you)");
             return result;
         }

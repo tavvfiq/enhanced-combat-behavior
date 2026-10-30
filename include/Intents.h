@@ -127,6 +127,11 @@ namespace CombatAI::Intents
     // Attack kind the Attack node is currently choosing attack data for (None = vanilla choice).
     Attack CommittedAttack(RE::Actor *a_actor);
 
+    // Brain side, each tick: the NPC's weapon reach plus its target's body radius (center to center), and the tree
+    // side's read of it (0 = never noted). The hit cone override (EngineProbes) checks our attacks against it
+    void NoteAttackReach(RE::Actor *a_actor, float a_reach);
+    float AttackReach(RE::Actor *a_actor);
+
     // Attack-chance hook found attack data of the committed kind (feedback: the intent really ran).
     void NoteAttackMatched(RE::Actor *a_actor);
 

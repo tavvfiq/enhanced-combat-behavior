@@ -48,6 +48,7 @@ namespace CombatAI::Intents
             Clock::time_point drinkSince{}, drinkUntil{}; // current drink wait (PostDrinkWait)
             bool dualBlockStarted = false;
             TreeReads attackReads{}, defendReads{}; // tree reads when each was posted (debug)
+            float attackReach = 0.0f;               // weapon reach + target radius (NoteAttackReach)
         };
 
         ThreadSafeMap<RE::FormID, Entry> g_board;
@@ -638,6 +639,19 @@ namespace CombatAI::Intents
         const auto now = Clock::now();
         return e && ((e->attack != Attack::None && now < e->attackUntil) ||
                      (e->defend != Defend::None && now < e->defendUntil) || now < e->dualBlockUntil);
+    }
+
+    void NoteAttackReach(RE::Actor *a_actor, float a_reach)
+    {
+        if (a_actor) {
+            g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) { e.attackReach = a_reach; });
+        }
+    }
+
+    float AttackReach(RE::Actor *a_actor)
+    {
+        const auto e = a_actor ? g_board.Find(a_actor->GetFormID()) : std::nullopt;
+        return e ? e->attackReach : 0.0f;
     }
 
     Attack CommittedAttack(RE::Actor *a_actor)

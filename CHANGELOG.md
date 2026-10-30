@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.8.2 (2026-10-30)
+
+Untested in game.
+
+- **Brain attacks no longer get refused up close.** Before starting an attack, the game checks whether the target is inside the attack's "hit cone". It measures that from where the attack's forward lunge ends, and with BFCO's long lunges that point lies past a close target. In the last test, the brain's attacks were refused 14 times out of 23, 11 of them within 100 units. Attacks the brain chose now pass when the target is within weapon reach and within 60 degrees of where the NPC faces (`IntentHitConeOverride`, `IntentHitConeMaxAngle`). The game's own attacks keep the original check. Its range, path and line-of-sight checks still apply to every attack.
+- Punish: the reach check now uses the normal attack range instead of adding the attack's lunge, which the game doesn't count before an attack starts. It also now requires the target within the same 60 degrees. In the last test, a punish at 166 units and one at 82 degrees to the side were both refused.
+
 ## Enhanced Combat Behavior 1.8.1 (2026-10-30)
 
 Untested in game.

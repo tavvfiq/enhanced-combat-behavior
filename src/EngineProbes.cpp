@@ -48,20 +48,42 @@ namespace CombatAI::EngineProbes
         // check (SE 46033 / AE 47297) and CheckAttack (SE 48140 / AE 49171) both pass. Same offsets in AE
         // 1.6.1170 and 1.7.104. Args from the call setup; only the actors are read, the rest is passed through.
         thread_local RE::Actor *t_checking = nullptr; // set by the hit-cone call, read by CheckAttack right after
-
+        // The hit cone (AE 47297) is an angle test: the NPC's heading plus the attack's angle against the direction
+        // between the two points StartAttack passes (a3 -> a4; likely the attack's hit-frame point and the predicted
+        // target), within the attack's strike angle x a6 (0.67). With BFCO lunges of 60-170 units that point lies past
+        // a close target: 1.8.1 run, our (brain-posted) attacks failed it 14 of 23 times, 11 within 100 units, mostly
+        // 30-60 deg off. Our attack (committed by the tree, Intents::CommittedAttack) passes when the target is inside
+        // the brain's reach and within IntentHitConeMaxAngle of where the NPC faces, measured from the NPC itself.
+        // Vanilla's own attacks keep the cone (their failures sat at 120+ deg or 300+ units); CheckAttack (range, path,
+        // line of sight) still runs for both.
         struct HitCone
         {
             static bool thunk(RE::Actor *a_self, RE::Actor *a_target, void *a_a3, void *a_a4, void *a_a5, float a_a6,
                               void *a_a7, bool a_a8)
             {
-                const bool pass = func(a_self, a_target, a_a3, a_a4, a_a5, a_a6, a_a7, a_a8);
+                bool pass = func(a_self, a_target, a_a3, a_a4, a_a5, a_a6, a_a7, a_a8);
                 t_checking = nullptr;
-                if (a_self && a_target && Config::GetInstance().IsDebugTarget(a_self->GetFormID())) {
+                if (!a_self || !a_target) {
+                    return pass;
+                }
+                const auto &matrix = Config::GetInstance().GetDecisionMatrix();
+                const float angle = a_self->GetHeadingAngle(a_target->GetPosition(), false);
+                const float distance = a_self->GetDistance(a_target);
+                bool overridden = false;
+                if (!pass && matrix.intentHitConeOverride && Intents::CommittedAttack(a_self) != Intents::Attack::None) {
+                    const float reach = Intents::AttackReach(a_self);
+                    if (reach > 0.0f && distance <= reach && std::abs(angle) <= matrix.intentHitConeMaxAngle) {
+                        pass = overridden = true;
+                    }
+                }
+                if (Config::GetInstance().IsDebugTarget(a_self->GetFormID())) {
                     t_checking = pass ? a_self : nullptr;
-                    LOG_DEBUG("AttackCheck 0x{:08X}: hit cone {} (target at {:.0f} deg, dist {:.0f}, arg {:.2f})",
-                              a_self->GetFormID(), pass ? "pass" : "FAIL",
-                              a_self->GetHeadingAngle(a_target->GetPosition(), false), a_self->GetDistance(a_target),
-                              a_a6);
+                    LOG_DEBUG("AttackCheck 0x{:08X}: hit cone {} (target at {:.0f} deg, dist {:.0f}, arg {:.2f}){}",
+                              a_self->GetFormID(), overridden ? "FAIL -> overridden" : pass ? "pass" : "FAIL", angle,
+                              distance, a_a6,
+                              overridden ? std::format(" - our attack, within reach {:.0f} and {:.0f} deg",
+                                                       Intents::AttackReach(a_self), matrix.intentHitConeMaxAngle)
+                                         : std::string());
                 }
                 return pass;
             }

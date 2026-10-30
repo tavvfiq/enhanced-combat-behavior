@@ -235,6 +235,7 @@ namespace CombatAI
             t_swingTag = std::format("src={} {}", timingSource, t_swingTag);
         }
         MaybeSwitchTarget(a_actor, formID, state);
+        Intents::NoteAttackReach(a_actor, state.weaponReach + state.target.boundRadius); // for the hit cone override
         // Every NPC's own attack clips (the punish check's startups); logged for the selected NPC
         ClipTiming::ObserveOwnAttack(a_actor, RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID),
                                      state.target.distance, state.weaponReach, state.target.boundRadius, debugEnabled);

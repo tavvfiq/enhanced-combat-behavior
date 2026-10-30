@@ -106,6 +106,8 @@ namespace CombatAI
             bool enablePunish = true;             // attack while the player recovers from a swing (its clip's recovery)
             float punishChainWaitSeconds = 0.05f; // wait this long past the combo window opening (reckless: none)
             float punishPriority = 3.0f;          // decision priority of a punish (a normal attack scores ~2.3)
+            bool intentHitConeOverride = true;    // our attacks pass vanilla's hit cone when in reach and roughly in front
+            float intentHitConeMaxAngle = 60.0f;  // ...within this many degrees of the NPC's facing
             bool enablePersonality = true;          // Confidence / Aggression / combat style scale risky rolls
             bool includeHumanoidCreatures = true;   // draugr, falmer, skeletons with a weapon get the brain (no dodges)
             float creatureSwingSeconds = 3.0f;      // such a creature starts no new attack this soon after a swing start
