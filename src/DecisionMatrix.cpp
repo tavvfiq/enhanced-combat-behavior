@@ -1662,7 +1662,9 @@ namespace CombatAI
     // offense waits out a target still reading "attacking". So: a free NPC whose fastest known attack (its clips, read
     // as it attacks) reaches and lands with time to spare attacks now. It waits PunishChainWaitSeconds past the
     // player's combo window opening to see whether the player chains (9 of 18 swings chained 0.11-0.33 s after the
-    // blow); a reckless NPC (risk 0.7+) doesn't. Attack slots and the skill roll still apply.
+    // blow); a reckless NPC (risk 0.7+) doesn't. Attack slots and the skill roll still apply. 0.05 s: a chained input
+    // fires as the window opens (chains 0.11-0.33 s after the blow, windows 0.15-0.34); 1.8.0's 0.15 s left a 0.69 s
+    // attack too slow for a 1.04 s recovery
     DecisionResult DecisionMatrix::EvaluatePunish(RE::Actor *a_actor, const ActorStateData &a_state)
     {
         DecisionResult result;
@@ -1685,12 +1687,17 @@ namespace CombatAI
             }
         };
 
-        // Free: not in its own attack, staggered, blocking or holding a block
+        // Free: not in its own attack, staggered, blocking or holding a block, and its graph ready to attack (a hit
+        // reaction reads not ready). 1.8.0 run: 26 of 34 swings "busy", mostly right after the player's blow hit it
         const auto *self = ActorUtils::SafeAsActorState(a_actor);
-        if (!a_state.self.isIdle || (self && self->IsStaggered()) ||
-            ActorUtils::SafeGetKnockState(a_actor) != RE::KNOCK_STATE_ENUM::kNormal ||
-            ActorUtils::SafeIsBlocking(a_actor) || Intents::WantsDualBlock(a_actor) || !AttackReady(a_actor)) {
-            note("skipped (busy)");
+        const char *busy = !a_state.self.isIdle                                                     ? "its own attack"
+                           : self && self->IsStaggered()                                            ? "staggered"
+                           : ActorUtils::SafeGetKnockState(a_actor) != RE::KNOCK_STATE_ENUM::kNormal ? "knocked down"
+                           : ActorUtils::SafeIsBlocking(a_actor) || Intents::WantsDualBlock(a_actor) ? "blocking"
+                           : !AttackReady(a_actor) ? "not attack-ready (hit reaction or other animation)"
+                                                   : nullptr;
+        if (busy) {
+            note(std::format("skipped (busy: {})", busy));
             return result;
         }
         if (config.GetEnvSensor().enableLosGate && a_state.env.losChecked && !a_state.env.losToTarget) {

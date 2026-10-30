@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.8.1 (2026-10-30)
+
+Untested in game.
+
+- Punish: NPCs now wait only 0.05 s after your combo window opens to see whether you chain, instead of 0.15 s (`PunishChainWaitSeconds`). A chained attack starts as soon as the window opens, so the longer wait only cost time. In the last test, the longer wait made a 0.69 s NPC attack too slow for a 1.04 s recovery. If you keep your own INI, set it to 0.05.
+- Debug log: when an NPC can't punish because it is busy, the log now says why: its own attack, a stagger, being knocked down, blocking, or a hit reaction.
+
 ## Enhanced Combat Behavior 1.8.0 (2026-10-30)
 
 Untested in game.
