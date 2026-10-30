@@ -117,6 +117,24 @@ namespace CombatAI::ComboFollowUp
         // Start the next attack on the main thread the way vanilla's Attack node and SCAR's attack-data path do: a
         // CombatAnimation carrying the attack event. Run 51 (BFCO): every chained combo followed an "attackStart"
         // inside the window; the bare attack action (it played BFCOAttackstart_0) never chained on its own.
+        // The target's speed toward the NPC (+) or away (-), units/s
+        float Closing(RE::Actor *a_target, const ActorStateData &a_state)
+        {
+            RE::NiPoint3 velocity;
+            a_target->GetLinearVelocity(velocity);
+            RE::NiPoint3 toSelf = a_state.self.position - a_state.target.position;
+            toSelf.z = 0.0f;
+            return toSelf.Unitize() > 1.0f ? velocity.x * toSelf.x + velocity.y * toSelf.y : 0.0f;
+        }
+
+        // Whether a seen attack's first blow reaches the target: the distance less the target's approach over its
+        // startup against weapon reach + body radius + its forward motion
+        bool Reaches(const ClipTiming::KnownSlot &a_attack, const ActorStateData &a_state, float a_closing)
+        {
+            const float reach = (a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f) + a_state.target.boundRadius;
+            return a_state.target.distance - a_closing * a_attack.startup <= reach + a_attack.forward;
+        }
+
         // The slot a follow-up should play (0: leave the moveset's choice). MCO and BFCO clips write the next slot to
         // MCO_nextattack / MCO_nextpowerattack (PIE.@SGVI); a write before attackStart plays that slot (1.8.4 probe:
         // 8 of 8 forced light slots played). The moveset's own next attack stays when it reaches the target at its
@@ -138,18 +156,8 @@ namespace CombatAI::ComboFollowUp
                     next = &k;
                 }
             }
-            float closing = 0.0f;
-            RE::NiPoint3 velocity;
-            a_target->GetLinearVelocity(velocity);
-            RE::NiPoint3 toSelf = a_state.self.position - a_state.target.position;
-            toSelf.z = 0.0f;
-            if (toSelf.Unitize() > 1.0f) {
-                closing = velocity.x * toSelf.x + velocity.y * toSelf.y;
-            }
-            const float reach = (a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f) + a_state.target.boundRadius;
-            const auto reaches = [&](const ClipTiming::KnownSlot &a_k) {
-                return a_state.target.distance - closing * a_k.startup <= reach + a_k.forward;
-            };
+            const float closing = Closing(a_target, a_state);
+            const auto reaches = [&](const ClipTiming::KnownSlot &a_k) { return Reaches(a_k, a_state, closing); };
             const ClipTiming::KnownSlot *fastest = nullptr;
             for (const auto &k : known) {
                 if (reaches(k) && (!fastest || k.startup < fastest->startup)) {
@@ -287,17 +295,32 @@ namespace CombatAI::ComboFollowUp
         if (!skip && Intents::WantsToDrink(a_actor)) {
             skip = "backing off to drink";
         }
-        // A combo step lunges forward, so up to 1.3x the attack range (run 52: 81 skips, the Berserker's median
-        // at 160 against a range of ~144)
+        // Reach. A combo step lunges forward: with branch choice on and attacks of that kind (light, power) seen, one
+        // of them must reach the target at its blow (lunge and the target's movement: 60-170 units of forward motion
+        // in the 1.7.9-1.7.10 runs); a kind not seen yet keeps up to 1.3x the attack range (run 52: 81 skips, the
+        // Berserker's median at 160 against a range of ~144)
         const auto &matrix = Config::GetInstance().GetDecisionMatrix();
         const float range = StateHelpers::EffectiveAttackRange(a_state.weaponReach, a_state.target.boundRadius,
                                                                matrix.offenseReachMultiplier, matrix.offenseReachSafetyMargin);
-        if (!skip && a_state.target.distance > range * settings.comboReachMult) {
-            skip = "target out of reach";
-        }
+        const bool withinRange = a_state.target.distance <= range * settings.comboReachMult;
         auto *target = skip ? nullptr : RE::TESForm::LookupByID<RE::Actor>(a_state.target.targetFormID);
         if (!skip && !target) {
             skip = "no target";
+        }
+        bool lightReaches = withinRange, powerReaches = withinRange;
+        if (!skip && settings.comboBranchChoice) {
+            const float closing = Closing(target, a_state);
+            const auto anyReaches = [&](bool a_power) {
+                const auto known = ClipTiming::KnownSlots(formID, a_power);
+                return known.empty() ? withinRange
+                                     : std::ranges::any_of(known, [&](const auto &a_k) { return Reaches(a_k, a_state, closing); });
+            };
+            lightReaches = anyReaches(false);
+            powerReaches = anyReaches(true);
+        }
+        const bool normalGo = normalOpen && lightReaches, powerGo = powerOpen && powerReaches;
+        if (!skip && !normalGo && !powerGo) {
+            skip = "target out of reach"; // the window stays unrolled: the target may still come within reach
         }
         if (skip) {
             if (debug) {
@@ -312,21 +335,22 @@ namespace CombatAI::ComboFollowUp
         // An enraged boss (or a brave desperate one) chains more and harder: x1.5 power, x1.3 normal
         const auto phase = Boss::CurrentPhase(a_actor);
         const bool raging = phase == Boss::Phase::Enraged || (phase == Boss::Phase::Desperate && Boss::Brave(a_actor));
-        if (powerOpen && a_state.self.staminaPercent >= powerMin) {
+        if (powerGo && a_state.self.staminaPercent >= powerMin) {
             power = go = Roll((std::min)(1.0f, settings.comboPowerChance * (raging ? 1.5f : 1.0f)));
         }
-        if (!go && normalOpen) {
+        if (!go && normalGo) {
             go = Roll((std::min)(1.0f, settings.comboFollowUpChance * (raging ? 1.3f : 1.0f)));
         }
         g_windows.Modify(formID, [&](Window &w) {
-            w.powerRolled |= powerOpen;
-            w.normalRolled |= normalOpen || go;
+            w.powerRolled |= powerGo;
+            w.normalRolled |= normalGo || go;
             if (go) {
                 w.powerRolled = true;
             }
         });
         if (debug) {
-            LOG_DEBUG("Combo 0x{:08X}: window open (normal {}, power {}) -> {}", formID, normalOpen, powerOpen,
+            LOG_DEBUG("Combo 0x{:08X}: window open (normal {}, power {}; in reach {}/{}) -> {}", formID, normalOpen,
+                      powerOpen, lightReaches, powerReaches,
                       go ? (power ? "power follow-up" : "normal follow-up") : "no follow-up (roll)");
         }
         if (go) {

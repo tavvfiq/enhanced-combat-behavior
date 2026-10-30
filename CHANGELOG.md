@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.9.1 (2026-10-30)
+
+Untested in game.
+
+- Combo follow-ups: the "is the target in reach" check now uses the NPC's own attacks once it has used them: their forward lunge and how you are moving. Before, it was a flat 1.3 times the attack range. An NPC with a long lunge now chains into it from further out, and one whose attacks would fall short of you as you back off no longer chains into thin air. Light and power follow-ups are judged separately. Until the NPC has used an attack of that kind, the old 1.3 times rule applies. This follows the `ComboBranchChoice` switch.
+
 ## Enhanced Combat Behavior 1.9.0 (2026-10-30)
 
 Untested in game.
