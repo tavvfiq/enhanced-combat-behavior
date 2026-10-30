@@ -1,5 +1,13 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.7.8 (2026-10-30)
+
+Untested in game.
+
+- The 1.7.7 fix for one swing being counted as two did not hold with BFCO movesets: a blow can land while the attack is still winding up, and that split 8 of 119 swings. Only the start of a real next attack in a combo now counts as a new swing. When one blow hit two NPCs, the second one was told no blow was coming and did not defend (3 times in the last run).
+- In fast BFCO combos the game reports the previous attack's animation for up to 0.33 s into the next one. NPCs read that as "no blow coming" and held their defense. While an attack is still winding up, an old animation is now ignored and NPCs fall back on the swing time they have learned.
+- Debug log: the stand-still check now runs every tick, so an NPC attacking on the spot is no longer reported as stuck. The report now also gives the NPC's speed and up to 3 actors standing between it and its target.
+
 ## Enhanced Combat Behavior 1.7.7 (2026-10-30)
 
 Untested in game.

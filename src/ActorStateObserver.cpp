@@ -1262,12 +1262,14 @@ namespace CombatAI
                     // A combo swing can start between two ticks right after the last one hit (kSwing, hit, kDraw
                     // inside 0.1 s): the landed blow marks the swing over (1.5.2 run: ~11 of 74 player light hits
                     // read 0.8-1.4 s, timed from the swing before; a light-then-power combo predicted 0.10 s, hit
-                    // 0.55 s later). Only on a change of state: a Precision blow lands mid-swing, and the same swing
-                    // going on (kSwing, hit, kSwing) is not a new one (1.7.6 runs: 3 of 42 player swings split that way;
-                    // one blow that hit two NPCs 0.1 s apart read "no blow coming" for the second)
+                    // 0.55 s later). Only swing to wind-up: a Precision blow lands mid-swing, even before the state leaves
+                    // the wind-up, and the same swing going on is not a new one (1.7.6 run: kSwing, hit, kSwing split 3
+                    // of 42 swings; 1.7.7 run: kDraw, hit, kSwing split 8 of 119; a blow that hit two NPCs 0.1-0.3 s
+                    // apart read "no blow coming" for the second, 3 times)
                     if (windUp(targetAttackState) &&
                         (!windUp(targetTemporal.previousAttackState) ||
-                         (targetTemporal.blowLanded && targetAttackState != targetTemporal.previousAttackState))) {
+                         (targetTemporal.blowLanded && targetAttackState == RE::ATTACK_STATE_ENUM::kDraw &&
+                          targetTemporal.previousAttackState == RE::ATTACK_STATE_ENUM::kSwing))) {
                         // Target just started attacking
                         targetTemporal.blowLanded = false;
                         targetTemporal.timeSinceLastAttack = 0.0f;

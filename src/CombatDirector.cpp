@@ -232,6 +232,12 @@ namespace CombatAI
         }
         MaybeSwitchTarget(a_actor, formID, state);
         DecisionResult decision = m_decisionMatrix.Evaluate(a_actor, state);
+        // Every tick, so the watch sees the NPC's own swings and blocks (1.7.7 run: a power attack in place, with no
+        // executed decision during it, read as a 4.6 s stall)
+        if (debugEnabled) {
+            Intents::WatchStall(a_actor, decision.action == ActionType::None ? nullptr : ActionName(decision.action),
+                                state.target.distance);
+        }
         // Debug: which SCAR actions this NPC's active clip offers and which would fit now (read-only)
         if (debugEnabled && state.target.isValid &&
             (decision.action == ActionType::Attack || decision.action == ActionType::PowerAttack ||
@@ -675,7 +681,6 @@ namespace CombatAI
                       executedDecision.priority, static_cast<std::uint32_t>(a_state.target.targetFormID),
                       a_state.target.distance, a_state.self.healthPercent * 100.0f,
                       a_state.target.healthPercent * 100.0f, t_swingTag.empty() ? "" : " ", t_swingTag);
-            Intents::WatchStall(a_actor, ActionName(executedDecision.action), a_state.target.distance);
         }
 
         switch (executedDecision.action) {

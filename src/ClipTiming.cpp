@@ -1,4 +1,5 @@
 #include "ClipTiming.h"
+#include "ActorUtils.h"
 #include "Config.h"
 #include "Logger.h"
 
@@ -386,8 +387,12 @@ namespace CombatAI::ClipTiming
         // Every blow of the clip is past. A clip read since before this swing started is the last swing's, still
         // playing out while the new one's isn't read yet (1.7.3 run: 97 of 174 swings began with 1-6 such ticks):
         // nothing known, the median rule stands. 0.15 s: another NPC may have seen the swing (and read its clip) a
-        // tick earlier
-        if (a_swingElapsed >= 0.0f && Since(track.since, now) > a_swingElapsed + 0.15f) {
+        // tick earlier. An attacker still winding up has its blow ahead: a past clip none of whose blows landed this
+        // swing is the last swing's (1.7.7 run: BFCO combos read the old clip up to 0.33 s into the next wind-up,
+        // started under 0.15 s after it)
+        const bool windingUp = ActorUtils::SafeGetAttackState(a_attacker) == RE::ATTACK_STATE_ENUM::kDraw &&
+                               Since(track.lastBlowAt, now) > a_swingElapsed;
+        if (a_swingElapsed >= 0.0f && (windingUp || Since(track.since, now) > a_swingElapsed + 0.15f)) {
             return Eta::kStale;
         }
         // The clip's blows are all past: none is coming from it. The median rule would still see one (1.7.1 run: 3

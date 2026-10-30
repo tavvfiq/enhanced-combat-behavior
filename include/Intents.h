@@ -58,9 +58,10 @@ namespace CombatAI::Intents
     };
     void NoteTreeRead(RE::Actor *a_actor, TreeRead a_tree);
 
-    // Debug, brain side (selected NPC): call each executed decision. Standing still 2 s while the brain wants
-    // a_action (not swinging, blocking or staggered) logs a Stall line: the NPC's state, our trees' reads and the
-    // combat nodes running (1.7.4 run: "Advancing" for 3-4 s at a flat distance; no attack posted, so no untaken line)
+    // Debug, brain side (selected NPC): call every tick with the brain's action (nullptr: none). Standing still 2 s
+    // while the brain wants an action (not swinging, blocking or staggered) logs a Stall line: the NPC's state, our
+    // trees' reads, the combat nodes running and what stands between it and its target (1.7.4 run: "Advancing" for
+    // 3-4 s at a flat distance; no attack posted, so no untaken line)
     void WatchStall(RE::Actor *a_actor, const char *a_action, float a_distance);
     // Brain side, movement: (re)start the movement intent; always true (refreshing is expected).
     // a_param: Circle: +1 circle left, -1 right, 0 no preference. Advance: distance to the target to stop at

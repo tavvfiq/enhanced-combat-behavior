@@ -127,6 +127,44 @@ namespace CombatAI::Intents
                       Snapshot(a_actor));
         }
 
+        // Actors near the line from a_actor to its combat target (within 60 units of it, nearest first, up to 3):
+        // what an Advance that doesn't move may be stuck behind. Main thread (high-process actor list)
+        std::string InTheWay(RE::Actor *a_actor)
+        {
+            auto *controller = ActorUtils::SafeGetCombatController(a_actor);
+            const auto target = controller ? controller->targetHandle.get() : RE::NiPointer<RE::Actor>();
+            auto *lists = RE::ProcessLists::GetSingleton();
+            if (!target || !lists) {
+                return "no target";
+            }
+            const auto from = a_actor->GetPosition();
+            const auto to = target->GetPosition();
+            const RE::NiPoint3 line{to.x - from.x, to.y - from.y, 0.0f};
+            const float length = std::hypot(line.x, line.y);
+            std::vector<std::pair<float, RE::Actor *>> found;
+            lists->ForEachHighActor([&](RE::Actor *a_other) {
+                if (a_other && a_other != a_actor && a_other != target.get() && !a_other->IsDead() && length > 1.0f) {
+                    const auto p = a_other->GetPosition();
+                    const float along = ((p.x - from.x) * line.x + (p.y - from.y) * line.y) / length;
+                    const float off = std::abs((p.x - from.x) * line.y - (p.y - from.y) * line.x) / length;
+                    if (along > 0.0f && along < length && off < 60.0f && std::abs(p.z - from.z) < 150.0f) {
+                        found.emplace_back(along, a_other);
+                    }
+                }
+                return RE::BSContainer::ForEachResult::kContinue;
+            });
+            if (found.empty()) {
+                return "nothing";
+            }
+            std::ranges::sort(found, {}, &std::pair<float, RE::Actor *>::first);
+            std::string out;
+            for (std::size_t i = 0; i < found.size() && i < 3; ++i) {
+                out += std::format("{}0x{:08X} ({}) at {:.0f}", i ? ", " : "", static_cast<std::uint32_t>(found[i].second->GetFormID()),
+                                   found[i].second->GetName(), found[i].first);
+            }
+            return out;
+        }
+
         // The selected NPC's stand-still watch (WatchStall, main thread only)
         struct StallWatch
         {
@@ -155,8 +193,8 @@ namespace CombatAI::Intents
         const auto id = a_actor->GetFormID();
         const auto pos = a_actor->GetPosition();
         const auto *state = ActorUtils::SafeAsActorState(a_actor);
-        // Swinging, blocking or staggered in place is not a stall
-        const bool busy = ActorUtils::SafeGetAttackState(a_actor) != RE::ATTACK_STATE_ENUM::kNone ||
+        // Swinging, blocking or staggered in place, or the brain wanting nothing, is not a stall
+        const bool busy = !a_action || ActorUtils::SafeGetAttackState(a_actor) != RE::ATTACK_STATE_ENUM::kNone ||
                           ActorUtils::SafeIsBlocking(a_actor) || (state && state->IsStaggered());
         if (g_stall.id != id || busy || pos.GetDistance(g_stall.at) > kStallMove) {
             g_stall = {id, pos, now, {}, g_treeReads.GetOrDefault(id, {})};
@@ -166,10 +204,13 @@ namespace CombatAI::Intents
             return;
         }
         g_stall.logged = now;
-        LOG_DEBUG("Stall 0x{:08X}: stood {:.1f}s (within {:.0f} units) at dist {:.0f} while the brain wants {}; tree reads "
-                  "since: {}; {}",
+        RE::NiPoint3 velocity;
+        a_actor->GetLinearVelocity(velocity);
+        LOG_DEBUG("Stall 0x{:08X}: stood {:.1f}s (within {:.0f} units) at dist {:.0f} while the brain wants {}; speed {:.0f}; "
+                  "in the way: {}; tree reads since: {}; {}",
                   static_cast<std::uint32_t>(id), Seconds(now - g_stall.since).count(), kStallMove, a_distance, a_action,
-                  ReadsSince(g_stall.reads, g_treeReads.GetOrDefault(id, {})), Snapshot(a_actor));
+                  velocity.Length(), InTheWay(a_actor), ReadsSince(g_stall.reads, g_treeReads.GetOrDefault(id, {})),
+                  Snapshot(a_actor));
     }
 
     bool PostAttack(RE::Actor *a_actor, Attack a_kind)
