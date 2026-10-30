@@ -190,6 +190,8 @@ namespace CombatAI
         D("DecisionMatrix", "PunishPriority", m_decisionMatrix.punishPriority);
         B("DecisionMatrix", "IntentHitConeOverride", m_decisionMatrix.intentHitConeOverride);
         D("DecisionMatrix", "IntentHitConeMaxAngle", m_decisionMatrix.intentHitConeMaxAngle);
+        B("DecisionMatrix", "AdvanceNavmeshRedirect", m_decisionMatrix.advanceNavmeshRedirect);
+        D("DecisionMatrix", "AdvanceRedirectMaxDistance", m_decisionMatrix.advanceRedirectMaxDistance);
         B("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
         B("DecisionMatrix", "EnableCounter", m_decisionMatrix.enableCounter);
         B("DecisionMatrix", "EnableShoutTiming", m_decisionMatrix.enableShoutTiming);
@@ -696,6 +698,8 @@ namespace CombatAI
         m_decisionMatrix.enablePunish = a_ini.GetBoolValue("DecisionMatrix", "EnablePunish", m_decisionMatrix.enablePunish);
         m_decisionMatrix.intentHitConeOverride =
             a_ini.GetBoolValue("DecisionMatrix", "IntentHitConeOverride", m_decisionMatrix.intentHitConeOverride);
+        m_decisionMatrix.advanceNavmeshRedirect =
+            a_ini.GetBoolValue("DecisionMatrix", "AdvanceNavmeshRedirect", m_decisionMatrix.advanceNavmeshRedirect);
         m_decisionMatrix.enableShoutTiming =
             a_ini.GetBoolValue("DecisionMatrix", "EnableShoutTiming", m_decisionMatrix.enableShoutTiming);
         m_decisionMatrix.enableSelfShouts = a_ini.GetBoolValue("DecisionMatrix", "EnableSelfShouts", m_decisionMatrix.enableSelfShouts);
@@ -728,6 +732,7 @@ namespace CombatAI
         dmFloat("PunishChainWaitSeconds", m_decisionMatrix.punishChainWaitSeconds, 0.0f, 1.0f);
         dmFloat("PunishPriority", m_decisionMatrix.punishPriority, 0.0f, 10.0f);
         dmFloat("IntentHitConeMaxAngle", m_decisionMatrix.intentHitConeMaxAngle, 0.0f, 180.0f);
+        dmFloat("AdvanceRedirectMaxDistance", m_decisionMatrix.advanceRedirectMaxDistance, 0.0f, 1000.0f);
         m_decisionMatrix.tradeBlowsChance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance)),
             0.0f, 1.0f);

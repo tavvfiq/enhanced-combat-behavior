@@ -108,6 +108,8 @@ namespace CombatAI
             float punishPriority = 3.0f;          // decision priority of a punish (a normal attack scores ~2.3)
             bool intentHitConeOverride = true;    // our attacks pass vanilla's hit cone when in reach and roughly in front
             float intentHitConeMaxAngle = 60.0f;  // ...within this many degrees of the NPC's facing
+            bool advanceNavmeshRedirect = true;       // after a failed Advance, a target off the navmesh: go to its closest navmesh point
+            float advanceRedirectMaxDistance = 150.0f; // ...only when that point is this close to the target (2D)
             bool enablePersonality = true;          // Confidence / Aggression / combat style scale risky rolls
             bool includeHumanoidCreatures = true;   // draugr, falmer, skeletons with a weapon get the brain (no dodges)
             float creatureSwingSeconds = 3.0f;      // such a creature starts no new attack this soon after a swing start

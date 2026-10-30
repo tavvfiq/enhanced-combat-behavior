@@ -20,6 +20,7 @@
 #include "Trees.h"
 #include "Logger.h"
 #include "ModEventSinks.h"
+#include "NavmeshRedirect.h"
 #include "ParryFeedbackTracker.h"
 #include "PrecisionIntegration.h"
 #include "SCARIntegration.h"
@@ -828,6 +829,7 @@ namespace CombatAI
         m_humanizer.Evict(a_formID);
         DefenseTiming::Evict(a_formID);
         ClipTiming::Evict(a_formID);
+        NavmeshRedirect::Evict(a_formID);
         AttackCoordinator::GetSingleton().ClearHeld(a_formID);
         m_nextTargetSwitchTime.Erase(a_formID);
         m_drawStart.Erase(a_formID);

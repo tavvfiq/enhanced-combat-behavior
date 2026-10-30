@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.10.0 (2026-10-30)
+
+Untested in game.
+
+- **NPCs no longer freeze when you stand somewhere the game can't path to.** An NPC walks to your exact spot. When that spot has no navmesh under it (a hole in the navmesh, or ground more than 64 units below it, which happens on slopes), the game finds no route and the NPC stands still, failing every second. In the last two tests a Bandit Scout stood still for 30 seconds on a gentle slope it had walked before; the new debug log showed your spot had no navmesh triangle every time. Now, after one such failure, the NPC's next advances aim at the closest navmesh point next to you (within 150 units), and the game walks it there as usual. Settings: `AdvanceNavmeshRedirect` and `AdvanceRedirectMaxDistance` (`[DecisionMatrix]`), also on the menu's Groups & Movement tab.
+
 ## Enhanced Combat Behavior 1.9.4 (2026-10-30)
 
 Untested in game. Debug log only; no gameplay change.

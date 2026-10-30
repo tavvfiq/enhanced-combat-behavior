@@ -5,6 +5,7 @@
 #include "DefenseTiming.h"
 #include "Intents.h"
 #include "Logger.h"
+#include "NavmeshRedirect.h"
 #include "TreeNodes.h"
 
 #include <chrono>
@@ -904,6 +905,12 @@ namespace CombatAI::Trees
         {
             static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
             {
+                if constexpr (K == Intents::Move::Advance) {
+                    // Any NPC's failed Advance (ours or vanilla's) arms the navmesh redirect for its next ones
+                    if (a_thread && a_thread->failState.any(RE::CombatBehaviorThread::FailState::kFailed)) {
+                        NavmeshRedirect::NoteAdvanceFailed(RE::CombatBehaviorController::GetCurrentAttacker());
+                    }
+                }
                 if constexpr (K == Intents::Move::Circle) {
                     // Our Circle failed on the brain's side (path or view cone, run 48): the brain tries the other
                     bool ours = false;
