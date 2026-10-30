@@ -498,6 +498,10 @@ namespace CombatAI::ClipTiming
         // The hit event comes this long after the clip reaches HitFrame (1.6.x runs, clip error median +0.02 to
         // +0.04 s)
         constexpr float kHitLag = 0.03f;
+        // A blow counts as past this long after its HitFrame: Precision's contact lands up to ~0.09 s after it (1.9.2
+        // run: 36 blows at HitFrame -0.04 to +0.07 clip s, 25 of them after the 0.03 s mark; a combo branch picked for
+        // "you are recovering" was hit 0.02 s later)
+        constexpr float kPastGrace = 0.1f;
         if (!a_attacker) {
             return Eta::kNoClip;
         }
@@ -517,7 +521,7 @@ namespace CombatAI::ClipTiming
         const float position = track.clip.localTime + track.rate * Since(track.at, now);
         for (int i = track.consumed + 1; i < static_cast<int>(track.clip.hits.size()); ++i) {
             const float hit = track.clip.hits[i];
-            if (hit + kHitLag * track.rate < position) {
+            if (hit + kPastGrace * track.rate < position) {
                 continue; // passed (missed, or its hit event is late)
             }
             // Contact opens at the window mark for the clip's first blow, at the HitFrame for later ones

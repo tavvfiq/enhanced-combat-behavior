@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.9.3 (2026-10-30)
+
+Untested in game.
+
+- Your swings: ECB now treats your blow as finished 0.1 s after the animation's hit frame instead of 0.03 s. In the last test most of your hits landed up to 0.09 s after the hit frame, so NPCs sometimes decided you were recovering while your blow was still on its way. In one case an NPC switched to its fastest attack to punish you and was hit 0.02 s later. This affects punishes, combo follow-ups that pick an attack while you recover, and NPC defense timing.
+- Combo follow-ups: when none of an NPC's light attacks can reach you but a power attack can, it now uses the power attack at the normal follow-up chance (70%) instead of the 30% power chance. In the last test, 4 such chances passed with no attack at all. This follows the `ComboBranchChoice` switch, and power attacks still need their stamina.
+
 ## Enhanced Combat Behavior 1.9.2 (2026-10-30)
 
 Untested in game. Debug log only; no gameplay change.

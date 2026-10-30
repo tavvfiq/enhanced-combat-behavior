@@ -360,8 +360,13 @@ namespace CombatAI::ComboFollowUp
         // An enraged boss (or a brave desperate one) chains more and harder: x1.5 power, x1.3 normal
         const auto phase = Boss::CurrentPhase(a_actor);
         const bool raging = phase == Boss::Phase::Enraged || (phase == Boss::Phase::Desperate && Boss::Brave(a_actor));
+        // No light attack reaches but a power one does: the power attack stands in for the light follow-up, at its
+        // chance (1.9.2 run: 4 windows, power reaching by 18-58, lost the 30% power roll and passed with nothing)
+        const bool powerOnly = normalOpen && !lightReaches && powerGo;
         if (powerGo && a_state.self.staminaPercent >= powerMin) {
-            power = go = Roll((std::min)(1.0f, settings.comboPowerChance * (raging ? 1.5f : 1.0f)));
+            const float chance = powerOnly ? (std::max)(settings.comboPowerChance, settings.comboFollowUpChance)
+                                           : settings.comboPowerChance;
+            power = go = Roll((std::min)(1.0f, chance * (raging ? 1.5f : 1.0f)));
         }
         if (!go && normalGo) {
             go = Roll((std::min)(1.0f, settings.comboFollowUpChance * (raging ? 1.3f : 1.0f)));
@@ -376,7 +381,9 @@ namespace CombatAI::ComboFollowUp
         if (debug) {
             LOG_DEBUG("Combo 0x{:08X}: window open (normal {}, power {}; in reach {}/{}{}) -> {}", formID, normalOpen,
                       powerOpen, lightReaches, powerReaches, reachLog,
-                      go ? (power ? "power follow-up" : "normal follow-up") : "no follow-up (roll)");
+                      go ? (power ? (powerOnly ? "power follow-up (only power reaches)" : "power follow-up")
+                                  : "normal follow-up")
+                         : "no follow-up (roll)");
         }
         if (go) {
             // Which attack (the probe, a test, forces its own slot in Perform instead)
