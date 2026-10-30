@@ -232,6 +232,9 @@ namespace CombatAI
         }
         MaybeSwitchTarget(a_actor, formID, state);
         DecisionResult decision = m_decisionMatrix.Evaluate(a_actor, state);
+        if (debugEnabled) {
+            ClipTiming::LogOwnAttack(a_actor, state.target.distance, state.weaponReach, state.target.boundRadius);
+        }
         // Every tick, so the watch sees the NPC's own swings and blocks (1.7.7 run: a power attack in place, with no
         // executed decision during it, read as a 4.6 s stall)
         if (debugEnabled) {

@@ -34,6 +34,12 @@ namespace CombatAI::ClipTiming
     // A melee blow from a_attacker landed on a_victim; a_swing: the victim's count of the attacker's swings
     void OnHit(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power, std::uint32_t a_swing);
 
+    // Debug, the selected NPC's own attacks (each brain tick, main thread): each attack clip it starts is logged once
+    // as an attack profile read from its annotations (startup, blows, motion by the first blow, recovery, combo window,
+    // next slots) with whether that blow reaches its target from here: a_distance to the target, a_reach its weapon
+    // reach, a_targetRadius the target's. Moveset proposal, build step 2; nothing is decided from it yet
+    void LogOwnAttack(RE::Actor *a_actor, float a_distance, float a_reach, float a_targetRadius);
+
     // Per frame: the 60 s summary
     void Update(float a_deltaTime);
 

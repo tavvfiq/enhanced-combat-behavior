@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.7.9 (2026-10-30)
+
+Untested in game. Debug log only; no gameplay change.
+
+- The debug log now records the attacks the selected NPC makes. For every attack animation it starts, the log reads the animation itself and records when the blow comes, how far the attack carries the NPC forward, when it recovers, its combo window and which attack follows. It also records whether the blow can reach the target from where the NPC stands. This is the first step towards NPCs that choose attacks that actually connect (moveset-aware attack selection).
+
 ## Enhanced Combat Behavior 1.7.8 (2026-10-30)
 
 Untested in game.

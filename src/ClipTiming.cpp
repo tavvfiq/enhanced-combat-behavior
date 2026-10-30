@@ -4,12 +4,16 @@
 #include "Logger.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <format>
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace CombatAI::ClipTiming
@@ -21,6 +25,25 @@ namespace CombatAI::ClipTiming
         float Since(Clock::time_point a_from, Clock::time_point a_to)
         {
             return std::chrono::duration<float>(a_to - a_from).count();
+        }
+
+        // What an attack clip's annotations say about it (clip seconds; -1 = no mark). MCO and BFCO movesets carry
+        // all of it (1.7.7 run, player BFCO_Attack1-5): HitFrame, MCO_WinOpen/WinClose, MCO_Recovery,
+        // PIE.@SGVI|MCO_nextattack|N and MCO_nextpowerattack|N, and AMR "animmotion x y z" keys: the root's position
+        // (absolute, rising 0 -> 28 -> 36 -> 70 over BFCO_Attack2), y forward, x to the side
+        struct Profile
+        {
+            float startup = -1.0f, recovery = -1.0f, winOpen = -1.0f, winClose = -1.0f, speed = -1.0f;
+            float forward = 0.0f, side = 0.0f, forwardEnd = 0.0f; // root motion by the first blow, and at the last key
+            bool hasMotion = false;
+            int nextLight = -1, nextPower = -1, rotations = 0;
+        };
+
+        // The number right after a_key in a_text (e.g. "PIE.@SGVI|MCO_nextattack|2"), or -1
+        float AfterKey(std::string_view a_text, std::string_view a_key)
+        {
+            const auto at = a_text.find(a_key);
+            return at == std::string_view::npos ? -1.0f : std::strtof(a_text.data() + at + a_key.size(), nullptr);
         }
 
         // What one read of the attacker's graph found
@@ -41,6 +64,7 @@ namespace CombatAI::ClipTiming
             const char *openName = "";
             const char *closeName = "";
             std::string marks; // every annotation "text@time", for the debug log
+            Profile profile;   // read only when asked (LogOwnAttack)
         };
 
         // An annotation is the event name, optionally followed by ".payload"
@@ -105,6 +129,67 @@ namespace CombatAI::ClipTiming
             }
         }
 
+        Profile ReadProfile(const RE::hkaAnimation &a_animation, const std::vector<float> &a_hits)
+        {
+            Profile p;
+            p.startup = a_hits.empty() ? -1.0f : a_hits.front();
+            const auto earliest = [](float &a_slot, float a_t) {
+                if (a_slot < 0.0f || a_t < a_slot) {
+                    a_slot = a_t;
+                }
+            };
+            std::vector<std::array<float, 3>> motion; // time, x, y
+            for (auto &annotation : a_animation.annotationTracks[0].annotations) {
+                const char *text = annotation.text.c_str();
+                if (!text) {
+                    continue;
+                }
+                const float t = annotation.time;
+                const std::string_view view(text);
+                float x = 0.0f, y = 0.0f, z = 0.0f;
+                if (IsEvent(text, "MCO_Recovery") || IsEvent(text, "BFCO_DIY_recovery")) {
+                    earliest(p.recovery, t);
+                } else if (IsEvent(text, "MCO_WinOpen") || IsEvent(text, "BFCO_NextWinStart")) {
+                    earliest(p.winOpen, t);
+                } else if (IsEvent(text, "MCO_WinClose") || IsEvent(text, "BFCO_DIY_EndLoop")) {
+                    earliest(p.winClose, t);
+                } else if (_strnicmp(text, "animmotion ", 11) == 0 && sscanf_s(text + 11, "%f %f %f", &x, &y, &z) == 3) {
+                    motion.push_back({t, x, y});
+                } else if (_strnicmp(text, "animrotation", 12) == 0) {
+                    ++p.rotations;
+                } else if (const float n = AfterKey(view, "MCO_nextattack|"); n >= 0.0f) {
+                    p.nextLight = static_cast<int>(n);
+                } else if (const float n2 = AfterKey(view, "MCO_nextpowerattack|"); n2 >= 0.0f) {
+                    p.nextPower = static_cast<int>(n2);
+                } else if (const float s = AfterKey(view, "AttackSpeed|"); s > 0.0f) {
+                    p.speed = s;
+                }
+            }
+            if (!motion.empty()) {
+                std::ranges::sort(motion, {}, [](const auto &a_key) { return a_key[0]; });
+                // Root position at a clip time, linear between keys
+                const auto at = [&](float a_t, int a_axis) {
+                    if (a_t <= motion.front()[0]) {
+                        return motion.front()[a_axis];
+                    }
+                    for (std::size_t i = 1; i < motion.size(); ++i) {
+                        if (a_t <= motion[i][0]) {
+                            const float span = motion[i][0] - motion[i - 1][0];
+                            const float f = span > 0.0f ? (a_t - motion[i - 1][0]) / span : 1.0f;
+                            return motion[i - 1][a_axis] + f * (motion[i][a_axis] - motion[i - 1][a_axis]);
+                        }
+                    }
+                    return motion.back()[a_axis];
+                };
+                p.hasMotion = true;
+                const float hit = p.startup >= 0.0f ? p.startup : motion.back()[0];
+                p.forward = at(hit, 2) - motion.front()[2];
+                p.side = at(hit, 1) - motion.front()[1];
+                p.forwardEnd = motion.back()[2] - motion.front()[2];
+            }
+            return p;
+        }
+
         enum class ReadResult
         {
             kFound,
@@ -116,7 +201,7 @@ namespace CombatAI::ClipTiming
         // searched, the player's first-person graph included if the manager holds it. During a transition both clips
         // are active: the newest one (lowest local time) with a HitFrame still ahead wins. 1.6.0 took the first one
         // listed and stayed on the light clip a power attack started from (6 power blows read 0.4-0.7 s late)
-        ReadResult Read(RE::Actor *a_actor, Clip &a_out)
+        ReadResult Read(RE::Actor *a_actor, Clip &a_out, bool a_profile = false)
         {
             RE::BSAnimationGraphManagerPtr manager;
             if (!a_actor || !a_actor->GetAnimationGraphManager(manager) || !manager || manager->graphs.empty()) {
@@ -160,6 +245,9 @@ namespace CombatAI::ClipTiming
                     a_out = {animation, name ? name : "", std::move(hits), animation->duration, clip->localTime,
                              clip->playbackSpeed, static_cast<int>(g)};
                     ReadWindow(*animation, a_out);
+                    if (a_profile) {
+                        a_out.profile = ReadProfile(*animation, a_out.hits); // under the lock: the clip may unload after
+                    }
                     found = true;
                     foundAhead = ahead;
                 }
@@ -197,6 +285,12 @@ namespace CombatAI::ClipTiming
 
         std::mutex g_lock;
         std::unordered_map<RE::FormID, Track> g_tracks;
+
+        // The selected NPC's own attack clip logged last (LogOwnAttack, main thread)
+        RE::FormID g_ownActor = 0;
+        const void *g_ownClip = nullptr;
+        float g_ownTime = 0.0f;
+        std::unordered_set<const void *> g_marksLogged; // clips whose annotations were listed once
 
         struct Stats
         {
@@ -527,6 +621,49 @@ namespace CombatAI::ClipTiming
                  s.medianCount ? s.medianAbs / s.medianCount : 0.0, s.medianCount, s.noClip, s.noPrediction, s.stale, s.beforeHitFrame,
                  s.beforeHitFrame ? s.earlySum / s.beforeHitFrame : 0.0, s.precisionWindow, s.vanillaWindow, s.noWindow,
                  s.extraContacts);
+    }
+
+    void LogOwnAttack(RE::Actor *a_actor, float a_distance, float a_reach, float a_targetRadius)
+    {
+        if (!a_actor || ActorUtils::SafeGetAttackState(a_actor) == RE::ATTACK_STATE_ENUM::kNone) {
+            return;
+        }
+        Clip clip;
+        if (Read(a_actor, clip, true) != ReadResult::kFound) {
+            return;
+        }
+        // A new clip, or the same one started again (a combo can come back to Attack1)
+        const bool fresh = a_actor->GetFormID() != g_ownActor || clip.animation != g_ownClip || clip.localTime < g_ownTime;
+        g_ownActor = a_actor->GetFormID();
+        g_ownClip = clip.animation;
+        g_ownTime = clip.localTime;
+        if (!fresh || clip.hits.back() < clip.localTime) {
+            return; // logged already, or a clip whose blows are past (the last attack's, still blending out)
+        }
+        const Profile &p = clip.profile;
+        std::string blows;
+        for (const float h : clip.hits) {
+            blows += std::format("{}{:.2f}", blows.empty() ? "" : "/", h);
+        }
+        const auto mark = [](float a_t) { return a_t >= 0.0f ? std::format("{:.2f}", a_t) : std::string("-"); };
+        const float reachTotal = a_reach + a_targetRadius + p.forward;
+        const std::string reaches = !p.hasMotion             ? std::string("no motion keys")
+                                    : a_distance <= reachTotal ? std::string("reaches")
+                                                               : std::format("short by {:.0f}", a_distance - reachTotal);
+        LOG_DEBUG("AttackClip 0x{:08X}: '{}' {:.2f}s, playback {:.2f}{}, read at {:.2f}s; startup {}, blows {} ({}), "
+                  "recovery {}, window {}-{}, next light {} power {}, forward {:.0f} side {:.0f} by the first blow ({:.0f} "
+                  "by the end{}){}; dist {:.0f} vs reach {:.0f} + target {:.0f} + forward {:.0f} = {:.0f}: {}",
+                  static_cast<std::uint32_t>(a_actor->GetFormID()), clip.name, clip.duration, clip.playbackSpeed,
+                  p.speed > 0.0f ? std::format(" (speed mark {:.2f})", p.speed) : std::string(), clip.localTime,
+                  mark(p.startup), clip.hits.size(), blows, mark(p.recovery), mark(p.winOpen), mark(p.winClose),
+                  p.nextLight, p.nextPower, p.forward, p.side, p.forwardEnd,
+                  p.rotations ? std::format(", {} rotation keys", p.rotations) : std::string(),
+                  p.hasMotion ? "" : " (no motion keys)", a_distance, a_reach, a_targetRadius, p.forward, reachTotal,
+                  reaches);
+        if (g_marksLogged.insert(clip.animation).second) {
+            LOG_DEBUG("AttackClip 0x{:08X}: '{}' marks: {}", static_cast<std::uint32_t>(a_actor->GetFormID()), clip.name,
+                      clip.marks);
+        }
     }
 
     void Evict(RE::FormID a_formID)
