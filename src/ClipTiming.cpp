@@ -291,14 +291,17 @@ namespace CombatAI::ClipTiming
         std::mutex g_lock;
         std::unordered_map<RE::FormID, Track> g_tracks;
 
-        // The selected NPC's own attack clip logged last (LogOwnAttack, main thread)
-        RE::FormID g_ownActor = 0;
-        const void *g_ownClip = nullptr;
-        float g_ownTime = 0.0f;
+        // Each NPC's attack clip read last (ObserveOwnAttack, main thread)
+        struct OwnLast
+        {
+            const void *clip = nullptr;
+            float time = 0.0f;
+        };
+        std::unordered_map<RE::FormID, OwnLast> g_ownLast;
         std::unordered_set<const void *> g_marksLogged; // clips whose annotations were listed once
 
-        // The selected NPC's attacks seen so far (LogOwnAttack): seconds to the first blow at the clip's playback
-        // speed, and the root motion by then. Main thread
+        // Each NPC's attacks seen so far (ObserveOwnAttack): seconds to the first blow at the clip's playback speed,
+        // and the root motion by then. Main thread
         struct OwnAttack
         {
             float startup = 0.0f, forward = 0.0f;
@@ -637,9 +640,12 @@ namespace CombatAI::ClipTiming
                  s.extraContacts);
     }
 
-    void LogOwnAttack(RE::Actor *a_actor, RE::Actor *a_target, float a_distance, float a_reach, float a_targetRadius)
+    void ObserveOwnAttack(RE::Actor *a_actor, RE::Actor *a_target, float a_distance, float a_reach, float a_targetRadius,
+                          bool a_log)
     {
-        if (!a_actor || ActorUtils::SafeGetAttackState(a_actor) == RE::ATTACK_STATE_ENUM::kNone) {
+        // A new attack clip shows during the wind-up or the swing; later states only replay the one read
+        const auto state = a_actor ? ActorUtils::SafeGetAttackState(a_actor) : RE::ATTACK_STATE_ENUM::kNone;
+        if (state != RE::ATTACK_STATE_ENUM::kDraw && state != RE::ATTACK_STATE_ENUM::kSwing) {
             return;
         }
         Clip clip;
@@ -647,17 +653,19 @@ namespace CombatAI::ClipTiming
             return;
         }
         // A new clip, or the same one started again (a combo can come back to Attack1)
-        const bool fresh = a_actor->GetFormID() != g_ownActor || clip.animation != g_ownClip || clip.localTime < g_ownTime;
-        g_ownActor = a_actor->GetFormID();
-        g_ownClip = clip.animation;
-        g_ownTime = clip.localTime;
+        auto &last = g_ownLast[a_actor->GetFormID()];
+        const bool fresh = clip.animation != last.clip || clip.localTime < last.time;
+        last = {clip.animation, clip.localTime};
         if (!fresh || clip.hits.back() < clip.localTime) {
-            return; // logged already, or a clip whose blows are past (the last attack's, still blending out)
+            return; // read already, or a clip whose blows are past (the last attack's, still blending out)
         }
         const Profile &p = clip.profile;
         const float playback = (std::max)(clip.playbackSpeed, 0.05f);
         if (p.startup >= 0.0f) {
             g_ownAttacks[a_actor->GetFormID()][clip.name] = {p.startup / playback, p.forward};
+        }
+        if (!a_log) {
+            return;
         }
         // The target's speed toward the NPC (+) or away (-), and the distance when the blow comes (1.7.9 run: two
         // attacks started 213 and 289 out, "short", hit: the player walked into them)
@@ -700,6 +708,43 @@ namespace CombatAI::ClipTiming
             LOG_DEBUG("AttackClip 0x{:08X}: '{}' marks: {}", static_cast<std::uint32_t>(a_actor->GetFormID()), clip.name,
                       clip.marks);
         }
+    }
+
+    int FastestAttack(RE::FormID a_actor, float a_distance, float a_reach, float a_targetRadius, float &a_startup)
+    {
+        const auto own = g_ownAttacks.find(a_actor);
+        if (own == g_ownAttacks.end() || own->second.empty()) {
+            return -1;
+        }
+        int found = 0;
+        for (const auto &[name, attack] : own->second) {
+            if (a_distance <= a_reach + a_targetRadius + attack.forward && (!found || attack.startup < a_startup)) {
+                a_startup = attack.startup;
+                found = 1;
+            }
+        }
+        return found;
+    }
+
+    bool Recovery(RE::Actor *a_attacker, float &a_recoverIn, float &a_windowIn, bool &a_hasWindow)
+    {
+        if (!a_attacker) {
+            return false;
+        }
+        const auto now = Clock::now();
+        std::scoped_lock lock(g_lock);
+        const auto it = g_tracks.find(a_attacker->GetFormID());
+        if (it == g_tracks.end() || !it->second.clip.animation || it->second.rate < kMinRate ||
+            Since(it->second.at, now) > 0.15f) {
+            return false;
+        }
+        const auto &t = it->second;
+        const float position = t.clip.localTime + t.rate * Since(t.at, now);
+        const auto &p = t.clip.profile;
+        a_recoverIn = ((p.recovery >= 0.0f ? p.recovery : t.clip.duration) - position) / t.rate;
+        a_hasWindow = p.winOpen >= 0.0f;
+        a_windowIn = a_hasWindow ? (p.winOpen - position) / t.rate : 0.0f;
+        return true;
     }
 
     void LogPunishWindow(RE::Actor *a_npc, RE::Actor *a_attacker, float a_distance, float a_reach, float a_targetRadius,
@@ -763,6 +808,8 @@ namespace CombatAI::ClipTiming
 
     void Evict(RE::FormID a_formID)
     {
+        g_ownLast.erase(a_formID); // main thread, like ObserveOwnAttack
+        g_ownAttacks.erase(a_formID);
         std::scoped_lock lock(g_lock);
         g_tracks.erase(a_formID);
     }

@@ -34,12 +34,23 @@ namespace CombatAI::ClipTiming
     // A melee blow from a_attacker landed on a_victim; a_swing: the victim's count of the attacker's swings
     void OnHit(RE::Actor *a_attacker, RE::Actor *a_victim, bool a_power, std::uint32_t a_swing);
 
-    // Debug, the selected NPC's own attacks (each brain tick, main thread): each attack clip it starts is logged once
-    // as an attack profile read from its annotations (startup, blows, motion by the first blow, recovery, combo window,
-    // next slots) with whether that blow reaches its target from here: a_distance to the target, a_reach its weapon
-    // reach, a_targetRadius the target's. Moveset proposal, build step 2; nothing is decided from it yet
-    // a_target's movement toward or away from it over the clip's startup gives the distance at the blow too.
-    void LogOwnAttack(RE::Actor *a_actor, RE::Actor *a_target, float a_distance, float a_reach, float a_targetRadius);
+    // An NPC's own attacks (each brain tick, main thread): each attack clip it starts is read once as an attack
+    // profile from its annotations (startup, blows, motion by the first blow, recovery, combo window, next slots) and
+    // kept per NPC (FastestAttack). a_log (the selected NPC): logged, with whether that blow reaches its target from
+    // here: a_distance to the target, a_reach its weapon reach, a_targetRadius the target's; a_target's movement
+    // toward or away from it over the clip's startup gives the distance at the blow too
+    void ObserveOwnAttack(RE::Actor *a_actor, RE::Actor *a_target, float a_distance, float a_reach, float a_targetRadius,
+                          bool a_log);
+
+    // The fastest of a_actor's attacks seen so far (ObserveOwnAttack) whose first blow reaches a target a_distance
+    // away (a_reach + a_targetRadius + the clip's forward motion): a_startup = seconds to its blow. 1 found, 0 attacks
+    // known but none reaches, -1 none known
+    int FastestAttack(RE::FormID a_actor, float a_distance, float a_reach, float a_targetRadius, float &a_startup);
+
+    // How long a_attacker (the player: its clip is sampled) stays in its swing: a_recoverIn seconds to its clip's
+    // MCO_Recovery mark (else the clip's end), a_windowIn seconds to its combo window (negative: open since; false
+    // a_hasWindow: no window mark). False: no clip at swing speed read in the last 0.15 s
+    bool Recovery(RE::Actor *a_attacker, float &a_recoverIn, float &a_windowIn, bool &a_hasWindow);
 
     // Debug, the selected NPC a_npc (main thread): its target a_attacker's swing a_swing is past its blows. Once per
     // swing: how long a_attacker stays committed (its clip's MCO_Recovery, and its combo window) against the NPC's

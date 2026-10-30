@@ -103,6 +103,9 @@ namespace CombatAI
             float backoffOnSwingChance = 0.35f;   // Chance to back off from each of the target's normal swings
             float backoffAfterSwingChance = 0.4f; // Chance to step out after each of its own swings
             float tradeBlowsChance = 0.3f;        // Chance to attack into each of the target's normal swings
+            bool enablePunish = true;             // attack while the player recovers from a swing (its clip's recovery)
+            float punishChainWaitSeconds = 0.15f; // wait this long past the combo window opening (reckless: none)
+            float punishPriority = 3.0f;          // decision priority of a punish (a normal attack scores ~2.3)
             bool enablePersonality = true;          // Confidence / Aggression / combat style scale risky rolls
             bool includeHumanoidCreatures = true;   // draugr, falmer, skeletons with a weapon get the brain (no dodges)
             float creatureSwingSeconds = 3.0f;      // such a creature starts no new attack this soon after a swing start

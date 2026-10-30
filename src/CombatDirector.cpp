@@ -235,11 +235,10 @@ namespace CombatAI
             t_swingTag = std::format("src={} {}", timingSource, t_swingTag);
         }
         MaybeSwitchTarget(a_actor, formID, state);
+        // Every NPC's own attack clips (the punish check's startups); logged for the selected NPC
+        ClipTiming::ObserveOwnAttack(a_actor, RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID),
+                                     state.target.distance, state.weaponReach, state.target.boundRadius, debugEnabled);
         DecisionResult decision = m_decisionMatrix.Evaluate(a_actor, state);
-        if (debugEnabled) {
-            ClipTiming::LogOwnAttack(a_actor, RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID),
-                                     state.target.distance, state.weaponReach, state.target.boundRadius);
-        }
         // Every tick, so the watch sees the NPC's own swings and blocks (1.7.7 run: a power attack in place, with no
         // executed decision during it, read as a 4.6 s stall)
         if (debugEnabled) {

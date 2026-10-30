@@ -249,6 +249,9 @@ namespace CombatAI
                 check("Timed block", &config.m_timedBlock.enableTimedBlock);
                 sameLine();
                 check("Counter after a blocked hit", &config.m_decisionMatrix.enableCounter);
+                check("Punish the player's swing recovery", &config.m_decisionMatrix.enablePunish);
+                liveFloat("Punish: wait past the combo window (s)", &config.m_decisionMatrix.punishChainWaitSeconds, 0.0f, 1.0f);
+                liveFloat("Punish priority", &config.m_decisionMatrix.punishPriority, 0.0f, 10.0f);
                 liveFloat("Parry / timed block a swing (chance)", &config.m_decisionMatrix.defendOnSwingChance, 0.0f, 1.0f);
                 liveFloat("Dodge a close swing (chance)", &config.m_decisionMatrix.closeDodgeChance, 0.0f, 1.0f);
                 liveFloat("Back off from a swing (chance)", &config.m_decisionMatrix.backoffOnSwingChance, 0.0f, 1.0f);

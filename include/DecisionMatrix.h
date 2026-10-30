@@ -62,6 +62,9 @@ namespace CombatAI
         // Offense
         DecisionResult EvaluateOffense(RE::Actor *a_actor, const ActorStateData &a_state);
 
+        // Attack while the player recovers from a swing whose blows have passed (its clip's recovery mark)
+        DecisionResult EvaluatePunish(RE::Actor *a_actor, const ActorStateData &a_state);
+
         // Backoff (when target is casting/drawing bow)
         DecisionResult EvaluateBackoff(RE::Actor *a_actor, const ActorStateData &a_state);
 

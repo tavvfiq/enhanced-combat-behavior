@@ -1,5 +1,15 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.8.0 (2026-10-30)
+
+Untested in game.
+
+- **NPCs punish your recovery.** Once your swing has played out, you are stuck in it until your attack animation's recovery point, about 0.8 to 1.1 seconds with BFCO. NPC attacks land in 0.4 to 0.6 seconds. A free NPC in reach now attacks in that gap instead of strafing or backing off. In the last test, all 3 NPCs who had the chance wasted it.
+  - The NPC first waits briefly after your combo window opens to see whether you chain another attack (`PunishChainWaitSeconds`, 0.15 s). Half of your swings in the last test chained. Reckless NPCs don't wait and risk trading blows.
+  - It only punishes when it is not busy, has a clear line, faces you and can land its fastest known attack with time to spare. It still needs an attack slot and still rolls its skill.
+  - Works when your moveset marks its recovery (MCO and BFCO). New settings: `EnablePunish`, `PunishChainWaitSeconds`, `PunishPriority` (also in the in-game menu).
+- NPCs now learn the timing and reach of their own attacks from the animations they play (this used to be debug-only), so the punish check knows how fast each NPC is.
+
 ## Enhanced Combat Behavior 1.7.10 (2026-10-30)
 
 Untested in game. Debug log only; no gameplay change.

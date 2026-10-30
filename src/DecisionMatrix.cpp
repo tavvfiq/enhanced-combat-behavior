@@ -6,6 +6,7 @@
 #include "TargetDanger.h"
 #include "Personality.h"
 #include "Boss.h"
+#include "ClipTiming.h"
 #include "Logger.h"
 #include "ProjectileAwareness.h"
 #include "SCARIntegration.h"
@@ -521,6 +522,11 @@ namespace CombatAI
         }
         if (offenseResult.action != ActionType::None) {
             possibleDecisions.push_back(offenseResult);
+        }
+
+        DecisionResult punishResult = ranged ? DecisionResult() : EvaluatePunish(a_actor, a_state);
+        if (punishResult.action != ActionType::None) {
+            possibleDecisions.push_back(punishResult);
         }
 
         // Waiting for room to drink or coat (Potions::Update): only the retreat and defensive moves stay. Run 1.3.5:
@@ -1647,6 +1653,93 @@ namespace CombatAI
             }
         }
 
+        return result;
+    }
+
+    // Punish (1.8.0). Once the player's swing is past its blows (its clip says so: timing source "none"), the player
+    // stays in it until the clip's MCO_Recovery mark: 0.78-1.11 s in the 1.7.10 run, against 0.38-0.60 s for the NPC's
+    // attacks to land. Free NPCs in reach wasted that window (3 of 3: strafed first, retreated, bashed late), and the
+    // offense waits out a target still reading "attacking". So: a free NPC whose fastest known attack (its clips, read
+    // as it attacks) reaches and lands with time to spare attacks now. It waits PunishChainWaitSeconds past the
+    // player's combo window opening to see whether the player chains (9 of 18 swings chained 0.11-0.33 s after the
+    // blow); a reckless NPC (risk 0.7+) doesn't. Attack slots and the skill roll still apply.
+    DecisionResult DecisionMatrix::EvaluatePunish(RE::Actor *a_actor, const ActorStateData &a_state)
+    {
+        DecisionResult result;
+        const auto &config = Config::GetInstance();
+        const auto &matrix = config.GetDecisionMatrix();
+        if (!matrix.enablePunish || !matrix.enableOffense || !a_state.target.isValid || !a_state.target.isPlayer ||
+            !a_state.target.isAttacking || std::strcmp(a_state.temporal.target.timingSource, "none") != 0) {
+            return result;
+        }
+        // Debug: the outcome for each swing, logged when it changes (one waits, then attacks or not)
+        const bool debug = config.IsDebugTarget(a_actor->GetFormID());
+        thread_local std::pair<std::uint64_t, std::string> lastLogged;
+        const std::uint64_t swingKey =
+            (static_cast<std::uint64_t>(a_actor->GetFormID()) << 32) | a_state.temporal.target.swingCount;
+        const auto note = [&](const std::string &a_what) {
+            if (debug && (lastLogged.first != swingKey || lastLogged.second != a_what)) {
+                lastLogged = {swingKey, a_what};
+                LOG_DEBUG("Punish 0x{:08X}: {} {}", a_actor->GetFormID(), a_what,
+                          SwingTag(a_state.target.targetFormID, a_state.temporal.target.swingCount));
+            }
+        };
+
+        // Free: not in its own attack, staggered, blocking or holding a block
+        const auto *self = ActorUtils::SafeAsActorState(a_actor);
+        if (!a_state.self.isIdle || (self && self->IsStaggered()) ||
+            ActorUtils::SafeGetKnockState(a_actor) != RE::KNOCK_STATE_ENUM::kNormal ||
+            ActorUtils::SafeIsBlocking(a_actor) || Intents::WantsDualBlock(a_actor) || !AttackReady(a_actor)) {
+            note("skipped (busy)");
+            return result;
+        }
+        if (config.GetEnvSensor().enableLosGate && a_state.env.losChecked && !a_state.env.losToTarget) {
+            note("skipped (no line of sight)");
+            return result;
+        }
+        auto *target = RE::TESForm::LookupByID<RE::Actor>(a_state.target.targetFormID);
+        float recoverIn = 0.0f, windowIn = 0.0f;
+        bool hasWindow = false;
+        if (!ClipTiming::Recovery(target, recoverIn, windowIn, hasWindow)) {
+            return result;
+        }
+        const bool reckless = Personality::Effective(a_actor).risk >= 0.7f;
+        const float wait = reckless ? 0.0f : matrix.punishChainWaitSeconds;
+        if (hasWindow && windowIn > -wait) {
+            note(std::format("waiting {:.2f}s to see if you chain", windowIn + wait));
+            return result;
+        }
+        // Its fastest attack that reaches; none read yet: the offense's reach and a 0.6 s startup (1.7.10 run: its
+        // attacks landed 0.38-0.60 s after they started)
+        float reach = a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f;
+        float startup = 0.6f;
+        const int known = ClipTiming::FastestAttack(a_actor->GetFormID(), a_state.target.distance, reach,
+                                                    a_state.target.boundRadius, startup);
+        if (known == 0 || (known < 0 && a_state.target.distance > EffectiveAttackRange(a_state, reach,
+                                                                                      matrix.offenseReachMultiplier,
+                                                                                      matrix.offenseReachSafetyMargin))) {
+            note(std::format("skipped (out of reach at {:.0f})", a_state.target.distance));
+            return result;
+        }
+        // A tenth of a second to spare for the tree to start it
+        constexpr float kMargin = 0.1f;
+        if (recoverIn - startup < kMargin) {
+            note(std::format("skipped (too slow: you recover in {:.2f}s, its attack lands in {:.2f}s)", recoverIn, startup));
+            return result;
+        }
+        // Facing: vanilla's hit cone refuses a target well off to the side (the offense's 75 deg)
+        RE::NiPoint3 toTarget = a_state.target.position - a_state.self.position;
+        RE::NiPoint3 forward = a_state.self.forwardVector;
+        toTarget.z = forward.z = 0.0f;
+        if (toTarget.Unitize() > 1.0f && forward.Unitize() > 0.01f && forward.Dot(toTarget) < 0.259f) {
+            note("skipped (not facing you)");
+            return result;
+        }
+        result.action = ActionType::Attack;
+        result.priority = matrix.punishPriority;
+        result.intensity = 0.6f;
+        note(std::format("attacks: you recover in {:.2f}s, its {}attack lands in {:.2f}s{}", recoverIn,
+                         known > 0 ? "fastest " : "", startup, reckless ? " (reckless, no wait)" : ""));
         return result;
     }
 
