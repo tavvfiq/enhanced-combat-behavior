@@ -931,11 +931,14 @@ namespace CombatAI::Trees
                                           : a_thread->failState.any(RE::CombatBehaviorThread::FailState::kFailed) ? "failed"
                                           : a_thread->failState.any(RE::CombatBehaviorThread::FailState::kAborted) ? "aborted"
                                                                                                                     : "done";
-                        LOG_DEBUG("MoveNode 0x{:08X}: {} {} ran {:.0f} ms, moved {:.0f}, dist {:.0f} -> {:.0f}, {} (brain wanted {}){}",
+                        // A failed move: the path manager as the node gives up (before its Exit clears the goal)
+                        const bool failed = a_thread->failState.any(RE::CombatBehaviorThread::FailState::kFailed);
+                        LOG_DEBUG("MoveNode 0x{:08X}: {} {} ran {:.0f} ms, moved {:.0f}, dist {:.0f} -> {:.0f}, {} (brain wanted {}){}{}",
                                   static_cast<std::uint32_t>(actor->GetFormID()),
                                   underOurs ? (ours ? "our" : "vanilla") : "other-tree", MoveName(K), ms,
                                   std::hypot(pos.x - run->pos.x, pos.y - run->pos.y), run->dist, TargetDistance(actor), end,
-                                  MoveName(run->want), run->checks);
+                                  MoveName(run->want), run->checks,
+                                  failed && ms > 0.0f ? "; " + PathState(actor) : std::string());
                     }
                 }
                 func(a_node, a_thread);
@@ -1311,6 +1314,59 @@ namespace CombatAI::Trees
             return n;
         }
 
+        // Pathing probe (1.9.4). The path manager (MovementPathManagerArbiter) is reached the way CombatPath::Update
+        // does: GetInterface2("IMovementQueryPathingState") on the movement controller. Its status sits at
+        // interface+0x28 and its current request at +0x30 (slot 8 there, AE 90864 / SE 88440, returns the status when
+        // the asker's request is the current one, else -1; CombatPath::Update 49011 marks a path unreachable after
+        // its retry time of answers <= 0, and Advance then fails). Status 0 cleared, 1 searching, 2 following, 3 done
+        // (SE writers 88455 / 88452 / 88451 / 88454; meanings likely, not proven). The request is a BSPathingRequest
+        // (CommonLib layout): start location +0x10 (navmesh info +0x20, triangle +0x38), goal point +0x48, goal
+        // location +0x58 (navmesh info +0x68, triangle +0x80), goal radius +0x8C
+        struct PathRead
+        {
+            bool iface = false, request = false, startMesh = false, goalMesh = false;
+            std::int32_t status = 0;
+            std::uint16_t startTri = 0, goalTri = 0;
+            float start[3]{}, goalPoint[3]{}, goal[3]{}, radius = 0.0f;
+            char type[128]{};
+        };
+
+        void CopyPathRead(RE::MovementControllerNPC *a_controller, const RE::BSFixedString *a_name, std::uintptr_t a_image,
+                          PathRead &a_out)
+        {
+            __try {
+                const auto iface = reinterpret_cast<std::uintptr_t>(a_controller->GetInterface2(*a_name));
+                if (!iface) {
+                    return;
+                }
+                a_out.iface = true;
+                a_out.status = *reinterpret_cast<const std::int32_t *>(iface + 0x28);
+                const auto request = *reinterpret_cast<const std::uintptr_t *>(iface + 0x30);
+                if (!request) {
+                    return;
+                }
+                a_out.request = true;
+                std::memcpy(a_out.start, reinterpret_cast<const void *>(request + 0x10), sizeof(a_out.start));
+                a_out.startMesh = *reinterpret_cast<const std::uintptr_t *>(request + 0x20) != 0;
+                a_out.startTri = *reinterpret_cast<const std::uint16_t *>(request + 0x38);
+                std::memcpy(a_out.goalPoint, reinterpret_cast<const void *>(request + 0x48), sizeof(a_out.goalPoint));
+                std::memcpy(a_out.goal, reinterpret_cast<const void *>(request + 0x58), sizeof(a_out.goal));
+                a_out.goalMesh = *reinterpret_cast<const std::uintptr_t *>(request + 0x68) != 0;
+                a_out.goalTri = *reinterpret_cast<const std::uint16_t *>(request + 0x80);
+                a_out.radius = *reinterpret_cast<const float *>(request + 0x8C);
+                // The request's class from its RTTI (vtable[-1] -> complete object locator -> type descriptor name)
+                const auto vtable = *reinterpret_cast<const std::uintptr_t *>(request);
+                const auto locator = *reinterpret_cast<const std::uintptr_t *>(vtable - 8);
+                const auto *name =
+                    reinterpret_cast<const char *>(a_image + *reinterpret_cast<const std::uint32_t *>(locator + 0x0C) + 0x10);
+                for (std::size_t i = 0; i + 1 < sizeof(a_out.type) && name[i]; ++i) {
+                    a_out.type[i] = name[i] >= 0x20 && name[i] < 0x7F ? name[i] : '?';
+                }
+            } __except (EXCEPTION_EXECUTE_HANDLER) {
+                // keep what was read
+            }
+        }
+
         struct RangedMovementSetRoot
         {
             static void thunk(void *a_tree, Node *a_root)
@@ -1325,6 +1381,44 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
     } // namespace
+
+    std::string PathState(RE::Actor *a_actor)
+    {
+        static const RE::BSFixedString kName{"IMovementQueryPathingState"};
+        auto *controller = a_actor ? a_actor->GetActorRuntimeData().movementController.get() : nullptr;
+        if (!controller) {
+            return "path: no movement controller";
+        }
+        PathRead r;
+        CopyPathRead(controller, &kName, REL::Module::get().base(), r);
+        if (!r.iface) {
+            return "path: no path manager";
+        }
+        constexpr const char *kStatus[] = {"cleared", "searching", "following", "done"};
+        const char *status = r.status >= 0 && r.status <= 3 ? kStatus[r.status] : "?";
+        if (!r.request) {
+            return std::format("path: status {} ({}), no request", r.status, status);
+        }
+        // Short type: a combat request's goal policy ("...GoalPolicyFindTargetLocation@@..."), else the class name
+        std::string type = r.type;
+        if (const auto at = type.find("GoalPolicy"); at != std::string::npos) {
+            type = type.substr(at + 10, type.find('@', at) - at - 10);
+        } else if (type.starts_with(".?AV") || type.starts_with(".?AU")) {
+            type = type.substr(4, type.find('@') - 4);
+        }
+        std::string target = "no target";
+        if (const auto t = a_actor->GetActorRuntimeData().currentCombatTarget.get()) {
+            const auto p = t->GetPosition();
+            target = std::format("target at ({:.0f}, {:.0f}, {:.0f}), {:.0f} from the goal", p.x, p.y, p.z,
+                                 std::hypot(p.x - r.goal[0], p.y - r.goal[1], p.z - r.goal[2]));
+        }
+        return std::format("path: status {} ({}), request {}; start ({:.0f}, {:.0f}, {:.0f}) navmesh {} tri {}; goal point "
+                           "({:.0f}, {:.0f}, {:.0f}), on the navmesh at ({:.0f}, {:.0f}, {:.0f}) navmesh {} tri {}, radius "
+                           "{:.0f}; {}",
+                           r.status, status, type, r.start[0], r.start[1], r.start[2], r.startMesh ? "yes" : "no",
+                           r.startTri, r.goalPoint[0], r.goalPoint[1], r.goalPoint[2], r.goal[0], r.goal[1], r.goal[2],
+                           r.goalMesh ? "yes" : "no", r.goalTri, r.radius, target);
+    }
 
     std::string RunningNodes(RE::Actor *a_actor)
     {

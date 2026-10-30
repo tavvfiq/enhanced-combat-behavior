@@ -17,4 +17,8 @@ namespace CombatAI::Trees
     // Debug: the node each of a_actor's combat behavior threads is running, with its parents ("leaf < parent < ..."),
     // threads split by " | ". Read from another thread under SEH: may be torn, never crashes.
     std::string RunningNodes(RE::Actor *a_actor);
+
+    // Debug: a_actor's movement path manager - its status, its current path request (type, start, goal, whether each
+    // is on the navmesh) and the combat target's distance to that goal. Read under SEH: may be torn, never crashes.
+    std::string PathState(RE::Actor *a_actor);
 } // namespace CombatAI::Trees

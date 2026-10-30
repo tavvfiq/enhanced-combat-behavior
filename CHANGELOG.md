@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.9.4 (2026-10-30)
+
+Untested in game. Debug log only; no gameplay change.
+
+- Stuck NPCs: when the selected NPC's move (advance, circle, fall back) fails, and in the "Stall" line when it stands still while it wants to move, the debug log now shows the state of the game's path search for it: whether a path is being searched, followed or was dropped, which kind of request it is, where the path starts and ends, whether each end is on the navmesh, and how far you are from the end. In the last test a Bandit Scout stood still for 30 seconds on a gentle slope it had walked before, with every advance failing after about a second; this tells whether the game found no route, aimed at a bad spot near you, or had its request replaced by another one.
+
 ## Enhanced Combat Behavior 1.9.3 (2026-10-30)
 
 Untested in game.

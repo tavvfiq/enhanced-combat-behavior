@@ -208,10 +208,10 @@ namespace CombatAI::Intents
         RE::NiPoint3 velocity;
         a_actor->GetLinearVelocity(velocity);
         LOG_DEBUG("Stall 0x{:08X}: stood {:.1f}s (within {:.0f} units) at dist {:.0f} while the brain wants {}; speed {:.0f}; "
-                  "in the way: {}; tree reads since: {}; {}",
+                  "in the way: {}; tree reads since: {}; {}; {}",
                   static_cast<std::uint32_t>(id), Seconds(now - g_stall.since).count(), kStallMove, a_distance, a_action,
                   velocity.Length(), InTheWay(a_actor), ReadsSince(g_stall.reads, g_treeReads.GetOrDefault(id, {})),
-                  Snapshot(a_actor));
+                  Trees::PathState(a_actor), Snapshot(a_actor));
     }
 
     bool PostAttack(RE::Actor *a_actor, Attack a_kind)
