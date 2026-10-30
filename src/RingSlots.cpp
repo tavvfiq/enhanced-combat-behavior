@@ -32,6 +32,9 @@ namespace CombatAI::RingSlots
         constexpr float kApproachTolerance = 30.0f * kDeg; // approaching inside this of its sector: straight in
         constexpr float kWaitTolerance = 20.0f * kDeg;     // waiting inside this of its sector: circle as before
         constexpr float kArcStep = 50.0f * kDeg;           // each leg of the walk around the target
+        constexpr float kArcFrom = 600.0f;                 // farther than this an approach walks straight in first
+        constexpr float kArcMaxRadius = 450.0f;            // ...and its arc runs no farther out than this
+        constexpr float kArrived = 60.0f;                  // this close to its arc point it is there (no new goal)
         constexpr float kGoalTTL = 0.5f;                   // a ring goal lives this long without a new Steer
 
         // Angle difference a - b wrapped to (-pi, pi]
@@ -277,8 +280,10 @@ namespace CombatAI::RingSlots
         // Waiting: walk to its sector at the wait ring; once there, circle as before.
         float radius = 0.0f;
         const bool close = dist <= (std::max)(reach * 2.0f, reach + 150.0f);
-        if (approaching && std::fabs(off) > kApproachTolerance && !close) {
-            radius = std::clamp(dist * 0.85f, reach + 60.0f, dist);
+        // Far out it walks straight in first (1.12.2 run: arcs at 600-790 units walked around the target instead of
+        // closing); the arc then spirals inward
+        if (approaching && std::fabs(off) > kApproachTolerance && !close && dist <= kArcFrom) {
+            radius = std::clamp(dist * 0.7f, reach + 60.0f, (std::min)(dist, kArcMaxRadius));
         } else if (waiting && std::fabs(off) > kWaitTolerance) {
             radius = a_decision.holdDistance;
         }
@@ -303,6 +308,11 @@ namespace CombatAI::RingSlots
         }
         const float legAngle = bearing + std::clamp(off, -kArcStep, kArcStep);
         const RE::NiPoint3 goal(center.x + radius * std::cos(legAngle), center.y + radius * std::sin(legAngle), center.z);
+        // Already standing on its arc point: a path there fails ("no path" on the start triangle, 1.12.2: 2 of 10)
+        if (std::hypot(goal.x - a_state.self.position.x, goal.y - a_state.self.position.y) < kArrived) {
+            g_goals.Erase(id);
+            return;
+        }
         SetGoal(id, goal);
         if (waiting) {
             // The Advance node walks it there (Circle can't go far: view cone, spots reserved)

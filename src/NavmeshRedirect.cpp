@@ -35,6 +35,8 @@ namespace CombatAI::NavmeshRedirect
             return std::hypot(a_a.x - a_b.x, a_a.y - a_b.y);
         }
 
+        bool OnNavmesh(RE::Actor *a_actor, const RE::NiPoint3 &a_point);
+
         // The three combat paths whose goal can sit off the navmesh, with their destination's layout. The path's actor
         // handle sits at path+0x10 (CombatPath). A Ref destination (Advance, Flank) holds the target's point at +8 and
         // the goal radius at +0x20; a Location destination (Flank distant) its point at +0 and radius at +0x18. The
@@ -150,8 +152,10 @@ namespace CombatAI::NavmeshRedirect
                 bool swap = false;
                 if constexpr (K == Kind::Advance) {
                     // Ring slots: an Advance toward the NPC's sector goes to its arc point (then the navmesh check on it)
+                    // An NPC standing off the navmesh has no start triangle: no path to any arc point (1.12.2 run: 5 of
+                    // 10 failed Advances), so it takes the plain Advance
                     const auto actor = reinterpret_cast<const RE::ActorHandle *>(a_path + 0x10)->get();
-                    if (actor && RingSlots::Goal(actor.get(), newPoint)) {
+                    if (actor && RingSlots::Goal(actor.get(), newPoint) && OnNavmesh(actor.get(), actor->GetPosition())) {
                         newRadius = kRingRadius;
                         swap = true;
                         Redirect(a_path, K, newPoint, newRadius, true);
@@ -171,6 +175,21 @@ namespace CombatAI::NavmeshRedirect
             }
             static inline REL::Relocation<decltype(thunk)> func;
         };
+
+        // a_point has a navmesh triangle under it within the game's limits (the default lookup's closest point at
+        // most kOnNavmesh to the side, the point at most kMaxAbove above it and kMaxBelow below it)
+        bool OnNavmesh(RE::Actor *a_actor, const RE::NiPoint3 &a_point)
+        {
+            auto *pathing = RE::Pathing::GetSingleton();
+            RE::BSTSmartPointer<RE::BSPathingCell> cell;
+            RE::NiPoint3 closest;
+            if (!pathing || !pathing->GetPathingCell(a_point, a_actor->GetParentCell(), a_actor->GetWorldspace(), cell) || !cell ||
+                !pathing->FindClosestPointOnNavmesh(cell, a_point, closest)) {
+                return false;
+            }
+            const float above = a_point.z - closest.z;
+            return Distance2D(closest, a_point) <= kOnNavmesh && above <= kMaxAbove && -above <= kMaxBelow;
+        }
 
         template <class Hook>
         void HookSlot7(REL::RelocationID a_vtable)

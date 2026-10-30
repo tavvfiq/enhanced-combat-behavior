@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.12.3 (2026-10-31)
+
+Untested in game.
+
+- Spreading around you, part 4. In the last test the NPCs did come at you from the sides. Three fixes: an NPC far out (over 600 units) now walks straight in first instead of circling you at 600-800 units, and its walk around then curves inward (at most 450 units out); an NPC already standing on the point it was sent to no longer gets sent there again (the game counted that as "no path" and the move failed); and an NPC standing where the ground has no navmesh under it takes a plain advance (paths can't start there: 5 of the last test's 10 failed advances).
+
 ## Enhanced Combat Behavior 1.12.2 (2026-10-31)
 
 Untested in game.
