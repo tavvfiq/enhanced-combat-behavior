@@ -117,9 +117,72 @@ namespace CombatAI::ComboFollowUp
         // Start the next attack on the main thread the way vanilla's Attack node and SCAR's attack-data path do: a
         // CombatAnimation carrying the attack event. Run 51 (BFCO): every chained combo followed an "attackStart"
         // inside the window; the bare attack action (it played BFCOAttackstart_0) never chained on its own.
-        void Perform(RE::Actor *a_actor, RE::Actor *a_target, bool a_power)
+        // The slot a follow-up should play (0: leave the moveset's choice). MCO and BFCO clips write the next slot to
+        // MCO_nextattack / MCO_nextpowerattack (PIE.@SGVI); a write before attackStart plays that slot (1.8.4 probe:
+        // 8 of 8 forced light slots played). The moveset's own next attack stays when it reaches the target at its
+        // blow; else the fastest seen attack whose lunge does (distance less the target's approach over the startup
+        // against reach + body radius + forward motion). While the player recovers from a swing (its clip's blows
+        // past), the fastest attack that reaches, as the punish does. Unknown slots (not played yet) are left alone.
+        int ChooseSlot(RE::Actor *a_actor, RE::Actor *a_target, const ActorStateData &a_state, bool a_power,
+                       std::string &a_why)
         {
-            SKSE::GetTaskInterface()->AddTask([self = a_actor->GetHandle(), target = a_target->GetHandle(), a_power]() {
+            std::int32_t graph = 0;
+            if (!a_actor->GetGraphVariableInt(a_power ? "MCO_nextpowerattack" : "MCO_nextattack", graph) || graph <= 0) {
+                a_why = "no next-slot variable";
+                return 0;
+            }
+            const auto known = ClipTiming::KnownSlots(a_actor->GetFormID(), a_power);
+            const ClipTiming::KnownSlot *next = nullptr;
+            for (const auto &k : known) {
+                if (k.slot == graph) {
+                    next = &k;
+                }
+            }
+            float closing = 0.0f;
+            RE::NiPoint3 velocity;
+            a_target->GetLinearVelocity(velocity);
+            RE::NiPoint3 toSelf = a_state.self.position - a_state.target.position;
+            toSelf.z = 0.0f;
+            if (toSelf.Unitize() > 1.0f) {
+                closing = velocity.x * toSelf.x + velocity.y * toSelf.y;
+            }
+            const float reach = (a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f) + a_state.target.boundRadius;
+            const auto reaches = [&](const ClipTiming::KnownSlot &a_k) {
+                return a_state.target.distance - closing * a_k.startup <= reach + a_k.forward;
+            };
+            const ClipTiming::KnownSlot *fastest = nullptr;
+            for (const auto &k : known) {
+                if (reaches(k) && (!fastest || k.startup < fastest->startup)) {
+                    fastest = &k;
+                }
+            }
+            const bool punishing = a_state.target.isPlayer && a_state.target.isAttacking &&
+                                   std::strcmp(a_state.temporal.target.timingSource, "none") == 0;
+            if (punishing && fastest && fastest->slot != graph && (!next || fastest->startup < next->startup)) {
+                a_why = std::format("you are recovering: its fastest that reaches ({:.2f}s{})", fastest->startup,
+                                    next ? std::format(" vs {:.2f}s", next->startup) : std::string());
+                return fastest->slot;
+            }
+            if (!next) {
+                a_why = std::format("next slot {} not seen yet", graph);
+                return 0;
+            }
+            if (reaches(*next)) {
+                a_why = std::format("next slot {} reaches", graph);
+                return 0;
+            }
+            if (fastest) {
+                a_why = std::format("next slot {} falls short (forward {:.0f}); slot {} reaches (forward {:.0f}, you {:+.0f}/s)",
+                                    graph, next->forward, fastest->slot, fastest->forward, closing);
+                return fastest->slot;
+            }
+            a_why = std::format("no seen attack reaches at {:.0f}", a_state.target.distance);
+            return 0;
+        }
+
+        void Perform(RE::Actor *a_actor, RE::Actor *a_target, bool a_power, int a_slot)
+        {
+            SKSE::GetTaskInterface()->AddTask([self = a_actor->GetHandle(), target = a_target->GetHandle(), a_power, a_slot]() {
                 auto me = self.get();
                 auto them = target.get();
                 if (!me || !them) {
@@ -132,6 +195,12 @@ namespace CombatAI::ComboFollowUp
                 }
                 anim->target = RE::NiPointer<RE::TESObjectREFR>(them.get());
                 anim->animEvent = a_power ? "attackPowerStartInPlace" : "attackStart";
+                if (a_slot > 0) {
+                    me->SetGraphVariableInt(a_power ? "MCO_nextpowerattack" : "MCO_nextattack", a_slot);
+                    if (Config::GetInstance().IsDebugTarget(me->GetFormID())) {
+                        ClipTiming::ExpectOwnClip(me->GetFormID(), a_power, a_slot); // logs whether it played
+                    }
+                }
                 // Combo branch probe (moveset proposal step 5): the MCO/BFCO clips set the next slot with
                 // PIE.@SGVI|MCO_nextattack|N (power: MCO_nextpowerattack) before the window opens; write another slot
                 // this NPC has played before and see whether the graph plays it
@@ -261,7 +330,17 @@ namespace CombatAI::ComboFollowUp
                       go ? (power ? "power follow-up" : "normal follow-up") : "no follow-up (roll)");
         }
         if (go) {
-            Perform(a_actor, target, power);
+            // Which attack (the probe, a test, forces its own slot in Perform instead)
+            int slot = 0;
+            if (settings.comboBranchChoice && !(settings.comboBranchProbe && debug)) {
+                std::string why;
+                slot = ChooseSlot(a_actor, target, a_state, power, why);
+                if (debug) {
+                    LOG_DEBUG("Combo 0x{:08X}: {} branch: {} -> {}", formID, power ? "power" : "light", why,
+                              slot > 0 ? std::format("slot {}", slot) : std::string("the moveset's choice"));
+                }
+            }
+            Perform(a_actor, target, power, slot);
         }
     }
 } // namespace CombatAI::ComboFollowUp

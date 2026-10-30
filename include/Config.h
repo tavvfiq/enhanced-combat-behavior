@@ -208,6 +208,7 @@ namespace CombatAI
             float comboPowerChance = 0.3f;        // per power window: chance of a power follow-up (needs power stamina)
             float comboReachMult = 1.3f;          // a follow-up starts up to this x the attack range (combo steps lunge)
             bool comboBranchProbe = false;        // test: the selected NPC's follow-ups force another slot (debug log)
+            bool comboBranchChoice = true;        // the follow-up's attack is picked by reach at the blow and punish
         };
 
         struct ParrySettings

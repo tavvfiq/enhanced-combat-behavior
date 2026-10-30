@@ -212,6 +212,7 @@ namespace CombatAI
                 check("Enable combo follow-up (MCO / BFCO, without SCAR)", &config.m_modIntegrations.enableComboFollowUp);
                 liveFloat("Combo follow-up chance", &config.m_modIntegrations.comboFollowUpChance, 0.0f, 1.0f);
                 liveFloat("Combo power follow-up chance", &config.m_modIntegrations.comboPowerChance, 0.0f, 1.0f);
+                check("Combo follow-up picks the attack that fits (reach, punish)", &config.m_modIntegrations.comboBranchChoice);
                 check("Test: combo branch probe (selected NPC forces another slot; debug log)",
                       &config.m_modIntegrations.comboBranchProbe);
                 liveFloat("Trade blows with a swing (chance)", &config.m_decisionMatrix.tradeBlowsChance, 0.0f, 1.0f);

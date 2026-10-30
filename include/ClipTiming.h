@@ -55,6 +55,14 @@ namespace CombatAI::ClipTiming
     // The next attack clip a_actor starts is checked against that slot and logged (within 2 s)
     void ExpectOwnClip(RE::FormID a_actor, bool a_power, int a_slot);
 
+    // a_actor's light or power attack slots seen so far, with seconds to the first blow and the forward motion by then
+    struct KnownSlot
+    {
+        int slot = 0;
+        float startup = 0.0f, forward = 0.0f;
+    };
+    std::vector<KnownSlot> KnownSlots(RE::FormID a_actor, bool a_power);
+
     // How long a_attacker (the player: its clip is sampled) stays in its swing: a_recoverIn seconds to its clip's
     // MCO_Recovery mark (else the clip's end), a_windowIn seconds to its combo window (negative: open since; false
     // a_hasWindow: no window mark). False: no clip at swing speed read in the last 0.15 s

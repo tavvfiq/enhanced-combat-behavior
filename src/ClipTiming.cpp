@@ -774,6 +774,20 @@ namespace CombatAI::ClipTiming
         g_expected[a_actor] = {a_power, a_slot, Clock::now()};
     }
 
+    std::vector<KnownSlot> KnownSlots(RE::FormID a_actor, bool a_power)
+    {
+        std::vector<KnownSlot> out;
+        if (const auto own = g_ownAttacks.find(a_actor); own != g_ownAttacks.end()) {
+            for (const auto &[name, attack] : own->second) {
+                bool power = false;
+                if (const int slot = SlotOf(name, power); slot > 0 && power == a_power) {
+                    out.push_back({slot, attack.startup, attack.forward});
+                }
+            }
+        }
+        return out;
+    }
+
     int FastestAttack(RE::FormID a_actor, float a_distance, float a_closing, float a_reach, float a_targetRadius,
                       float &a_startup)
     {

@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.9.0 (2026-10-30)
+
+Untested in game.
+
+- **NPCs choose which attack to chain into.** For MCO and BFCO movesets without SCAR, a combo follow-up keeps the moveset's next attack when that one reaches you. When it would fall short, for example because you are backing off, the NPC switches to one of its attacks whose forward lunge does reach, counting how you are moving. While you are recovering from a swing, it takes its fastest attack that reaches. The 1.8.4 test confirmed the moveset plays the chosen attack (8 of 8). This works for light and power follow-ups (power is untested so far), and only with attacks the NPC has already used in the fight, so the first combo of a fight is always the moveset's own. Setting: `ComboBranchChoice` (`[ModIntegrations]`, on), also in the in-game menu.
+
 ## Enhanced Combat Behavior 1.8.6 (2026-10-30)
 
 - The in-game menu shows the plugin version at the top.
