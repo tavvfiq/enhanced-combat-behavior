@@ -24,8 +24,11 @@ namespace CombatAI::RingSlots
         constexpr float kStale = 1.5f;               // seconds without a brain tick: off the ring
         constexpr float kSolveEvery = 0.5f;          // seconds between re-solves of a target's sectors
         constexpr float kLopsided = 2.0f;            // even out once the biggest gap is this many times the smallest
-        constexpr float kSwapBeyond = 120.0f * kDeg; // farther than this from its sector: trade with a closer NPC
+        constexpr float kSwapBeyond = 90.0f * kDeg;  // farther than this from its sector: trade with a closer NPC
         constexpr float kSwapGain = 60.0f * kDeg;    // ...when the pair's walking shrinks by at least this much
+        constexpr float kSwapCooldown = 5.0f;        // seconds before an NPC that traded may trade again
+        constexpr float kDriftAfter = 30.0f * kDeg;  // the layout turns toward where the group stands once this far off
+        constexpr float kDriftStep = 10.0f * kDeg;   // ...by at most this per solve (kSolveEvery)
         constexpr float kApproachTolerance = 30.0f * kDeg; // approaching inside this of its sector: straight in
         constexpr float kWaitTolerance = 20.0f * kDeg;     // waiting inside this of its sector: circle as before
         constexpr float kArcStep = 50.0f * kDeg;           // each leg of the walk around the target
@@ -55,6 +58,7 @@ namespace CombatAI::RingSlots
             float bearing = 0.0f; // where it stands now
             float sector = 0.0f;  // where it should be
             Clock::time_point seen{};
+            Clock::time_point traded{}; // its last sector trade
         };
 
         struct Ring
@@ -113,10 +117,13 @@ namespace CombatAI::RingSlots
         }
 
         // Every kSolveEvery: when the gaps are lopsided (someone left), even them out keeping the order, each moving
-        // as little as it can (circular mean of sector minus slot angle). Then one trade: an NPC farther than
-        // kSwapBeyond from its sector swaps with the NPC whose sector is nearest to where it stands, if that saves the
-        // pair kSwapGain of walking.
-        void Solve(Ring &a_ring)
+        // as little as it can (circular mean of sector minus slot angle). The layout then turns toward where the group
+        // stands (the target moves and circles: 1.12.1 run, NPCs pushed 110-168 degrees off their fixed sectors walked
+        // back around under its weapon), at most kDriftStep a solve and only once it is kDriftAfter off: the spacing
+        // and order hold, the layout follows slowly. Then one trade: an NPC farther than kSwapBeyond from its sector
+        // swaps with the NPC whose sector is nearest to where it stands, if that saves the pair kSwapGain of walking;
+        // neither trades again for kSwapCooldown (1.12.1: two NPCs traded back and forth three times in 35 s).
+        void Solve(Ring &a_ring, Clock::time_point a_now)
         {
             auto &m = a_ring.members;
             std::ranges::sort(m, {}, &Member::sector);
@@ -140,23 +147,40 @@ namespace CombatAI::RingSlots
                     m[k].sector = Wrap(offset + step * static_cast<float>(k));
                 }
             }
+            float dx = 0.0f, dy = 0.0f;
+            for (const auto &e : m) {
+                const float d = Wrap(e.bearing - e.sector);
+                dx += std::cos(d);
+                dy += std::sin(d);
+            }
+            if (const float drift = std::atan2(dy, dx); std::fabs(drift) > kDriftAfter) {
+                const float turn = std::clamp(drift, -kDriftStep, kDriftStep);
+                for (auto &e : m) {
+                    e.sector = Wrap(e.sector + turn);
+                }
+            }
+            const auto cooled = [&](const Member &a_m) {
+                return std::chrono::duration<float>(a_now - a_m.traded).count() >= kSwapCooldown;
+            };
             for (auto &a : m) {
-                if (std::fabs(Wrap(a.sector - a.bearing)) <= kSwapBeyond) {
+                if (std::fabs(Wrap(a.sector - a.bearing)) <= kSwapBeyond || !cooled(a)) {
                     continue;
                 }
                 Member *nearest = nullptr;
                 for (auto &b : m) {
-                    if (&b != &a && (!nearest || std::fabs(Wrap(b.sector - a.bearing)) < std::fabs(Wrap(nearest->sector - a.bearing)))) {
+                    if (&b != &a && cooled(b) &&
+                        (!nearest || std::fabs(Wrap(b.sector - a.bearing)) < std::fabs(Wrap(nearest->sector - a.bearing)))) {
                         nearest = &b;
                     }
                 }
                 if (!nearest) {
-                    break;
+                    continue;
                 }
                 const float now = std::fabs(Wrap(a.sector - a.bearing)) + std::fabs(Wrap(nearest->sector - nearest->bearing));
                 const float swapped = std::fabs(Wrap(nearest->sector - a.bearing)) + std::fabs(Wrap(a.sector - nearest->bearing));
                 if (now - swapped >= kSwapGain) {
                     std::swap(a.sector, nearest->sector);
+                    a.traded = nearest->traded = a_now;
                     break;
                 }
             }
@@ -193,7 +217,7 @@ namespace CombatAI::RingSlots
         auto &ring = g_rings[targetId];
         auto member = std::ranges::find(ring.members, id, &Member::id);
         if (member == ring.members.end()) {
-            ring.members.push_back({id, bearing, NewSector(ring, bearing), now});
+            ring.members.push_back({id, bearing, NewSector(ring, bearing), now, {}});
         } else {
             member->bearing = bearing;
             member->seen = now;
@@ -204,7 +228,7 @@ namespace CombatAI::RingSlots
         if (std::chrono::duration<float>(now - ring.solvedAt).count() >= kSolveEvery) {
             ring.solvedAt = now;
             if (ring.members.size() >= 2) {
-                Solve(ring);
+                Solve(ring, now);
             } else {
                 ring.solved = false;
             }
@@ -247,23 +271,27 @@ namespace CombatAI::RingSlots
         const float off = Wrap(sector - bearing);
         const float dist = a_state.target.distance;
         const float reach = a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f;
-        // Approaching: walk the arc a bit inside the current distance until in its sector, then straight in. Close
-        // to the target (1.5 x reach) it just fights: no walking around under its weapon.
+        // Approaching: walk the arc a bit inside the current distance until in its sector, then straight in. Inside
+        // 2 x reach (at least reach + 150) it just fights or closes straight in: no walking around under the target's
+        // weapon (1.12.1: at 1.5 x reach it flipped between the two every 0.2 s at 107-124 units).
         // Waiting: walk to its sector at the wait ring; once there, circle as before.
         float radius = 0.0f;
-        if (approaching && std::fabs(off) > kApproachTolerance && dist > reach * 1.5f) {
+        const bool close = dist <= (std::max)(reach * 2.0f, reach + 150.0f);
+        if (approaching && std::fabs(off) > kApproachTolerance && !close) {
             radius = std::clamp(dist * 0.85f, reach + 60.0f, dist);
         } else if (waiting && std::fabs(off) > kWaitTolerance) {
             radius = a_decision.holdDistance;
         }
-        const int mode = radius <= 0.0f ? 0 : (waiting ? 2 : 1);
+        const bool inSector = std::fabs(off) <= (waiting ? kWaitTolerance : kApproachTolerance);
+        const int mode = radius > 0.0f ? (waiting ? 2 : 1) : (inSector ? 0 : 3);
         if (Config::GetInstance().IsDebugTarget(id)) {
             auto &told = g_told[id];
             const auto now = Clock::now();
             if (told.mode != mode || std::fabs(Wrap(told.sector - sector)) > 5.0f * kDeg ||
                 now - told.at > std::chrono::seconds(3)) {
                 told = {mode, sector, now};
-                constexpr const char *kMode[] = {"in its sector", "approaching around the target", "waiting: moving to its sector"};
+                constexpr const char *kMode[] = {"in its sector", "approaching around the target", "waiting: moving to its sector",
+                                                 "close: fights from where it stands"};
                 LOG_DEBUG("Ring 0x{:08X}: sector {:.0f} of {} (now at {:.0f}, {:+.0f} off, dist {:.0f}) - {}{}",
                           static_cast<std::uint32_t>(id), sector / kDeg, count, bearing / kDeg, off / kDeg, dist, kMode[mode],
                           radius > 0.0f ? std::format(", arc goal at {:.0f}", radius) : std::string());

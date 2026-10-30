@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.12.2 (2026-10-31)
+
+Untested in game.
+
+- Spreading around you, part 3. In the last test the sides held (no change between checks 31 of 43 times), but when you moved or circled during the fight, NPCs ended up 110-168 degrees from their fixed sides and then walked back around you, right under your weapon; close in they also flipped between fighting and walking around every 0.2 seconds, and two NPCs traded sides back and forth. Now the layout turns slowly with the group (at most 10 degrees every half second, once it is 30 degrees off), keeping everyone's order and spacing; NPCs only walk around you from farther than twice their reach (at least reach + 150), closer in they fight from where they stand; an NPC that traded sides waits 5 seconds before trading again, and trades start at 90 degrees off instead of 120.
+
 ## Enhanced Combat Behavior 1.12.1 (2026-10-31)
 
 Untested in game.
