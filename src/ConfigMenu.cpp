@@ -329,6 +329,7 @@ namespace CombatAI
             // ---- Groups & Movement: pacing, flanking, ranged, target switching
             if (tab("Groups & Movement")) {
                 check("Enable combat pacing (attackers take turns)", &config.m_combatPacing.enableCombatPacing);
+                check("Spread around the target (each melee attacker its own side)", &config.m_combatPacing.enableRingSlots);
                 sliderInt("Max simultaneous attackers", &config.m_combatPacing.maxSimultaneousAttackers, 1, 6);
                 check("Archers and mages keep their distance", &config.m_decisionMatrix.enableRangedPositioning);
                 liveFloat("Flank only within x attack range", &config.m_decisionMatrix.flankingMaxReach, 1.0f, 10.0f, "%.1f");

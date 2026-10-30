@@ -21,6 +21,7 @@
 #include "Logger.h"
 #include "ModEventSinks.h"
 #include "NavmeshRedirect.h"
+#include "RingSlots.h"
 #include "ParryFeedbackTracker.h"
 #include "PrecisionIntegration.h"
 #include "SCARIntegration.h"
@@ -304,6 +305,9 @@ namespace CombatAI
         }
         MaybeSwitchTarget(a_actor, formID, state);
         Intents::NoteAttackReach(a_actor, state.weaponReach + state.target.boundRadius); // for the hit cone override
+        if (!state.self.isRanged && state.target.isValid && state.target.distance < 1500.0f) {
+            RingSlots::Note(a_actor, RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID));
+        }
         if (debugEnabled) {
             LogRing(RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID));
         }
@@ -742,6 +746,8 @@ namespace CombatAI
             executedDecision.direction.z = 0.0f;
             executedDecision.direction.Unitize();
         }
+        // Ring slots: an approach or a wait on the wrong side of the target walks around to the NPC's own sector
+        RingSlots::Steer(a_actor, executedDecision, a_state);
         if (!m_executor.Execute(a_actor, executedDecision, a_state)) {
             if (executedDecision.action != ActionType::ForwardDodge) {
                 return;
@@ -900,6 +906,7 @@ namespace CombatAI
         DefenseTiming::Evict(a_formID);
         ClipTiming::Evict(a_formID);
         NavmeshRedirect::Evict(a_formID);
+        RingSlots::Evict(a_formID);
         AttackCoordinator::GetSingleton().ClearHeld(a_formID);
         m_nextTargetSwitchTime.Erase(a_formID);
         m_drawStart.Erase(a_formID);

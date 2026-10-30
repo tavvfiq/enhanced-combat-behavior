@@ -294,6 +294,7 @@ namespace CombatAI
 
         // Combat pacing (Wait Your Turn)
         B("CombatPacing", "EnableCombatPacing", m_combatPacing.enableCombatPacing);
+        B("CombatPacing", "EnableRingSlots", m_combatPacing.enableRingSlots);
         L("CombatPacing", "MaxSimultaneousAttackers", static_cast<long>(m_combatPacing.maxSimultaneousAttackers));
         L("CombatPacing", "DangerExtraAttackers", static_cast<long>(m_combatPacing.dangerExtraAttackers));
         D("CombatPacing", "SlotWindowMinSeconds", m_combatPacing.slotWindowMinSeconds);
@@ -950,6 +951,7 @@ namespace CombatAI
     {
         m_combatPacing.enableCombatPacing =
             a_ini.GetBoolValue("CombatPacing", "EnableCombatPacing", m_combatPacing.enableCombatPacing);
+        m_combatPacing.enableRingSlots = a_ini.GetBoolValue("CombatPacing", "EnableRingSlots", m_combatPacing.enableRingSlots);
         m_combatPacing.maxSimultaneousAttackers = static_cast<int>(
             a_ini.GetLongValue("CombatPacing", "MaxSimultaneousAttackers", m_combatPacing.maxSimultaneousAttackers));
         m_combatPacing.slotWindowMinSeconds = static_cast<float>(

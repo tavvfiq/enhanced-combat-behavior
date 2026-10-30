@@ -4,6 +4,7 @@
 #include "ActorUtils.h"
 #include "Config.h"
 #include "Logger.h"
+#include "RingSlots.h"
 #include "ThreadSafeMap.h"
 
 #include <chrono>
@@ -19,6 +20,7 @@ namespace CombatAI::NavmeshRedirect
         constexpr float kOnNavmesh = 16.0f;  // the target's spot is on the navmesh when the closest point is this close (2D)
         constexpr float kWideFilter = 256.0f; // second try: a triangle up to this far above or below the spot
         constexpr float kMinRadius = 16.0f;   // goal radius once redirected: walk onto the point, not near it
+        constexpr float kRingRadius = 48.0f;  // goal radius of a ring move (an arc point, not an exact spot)
         // The game's default triangle filter (BSPathing ctor, SE + AE): a point is on a triangle when it is at most
         // 180 above it or 64 below it. The closest-point lookup returns a point outside these (1.10.0 run: 62 spots
         // with the navmesh 69-98 above the target's feet, 0 to the side), but the path search then finds no goal
@@ -49,7 +51,7 @@ namespace CombatAI::NavmeshRedirect
         // distance and a_radius shrinks so the NPC walks onto it. Returns whether it changed them. An Advance is only
         // redirected after one of the NPC's Advances failed; a flank always (its failures aren't tracked, and a goal
         // off the navmesh fails anyway). Flanks log only what they change or refuse, not goals on the navmesh.
-        bool Redirect(std::uintptr_t a_path, Kind a_kind, RE::NiPoint3 &a_point, float &a_radius)
+        bool Redirect(std::uintptr_t a_path, Kind a_kind, RE::NiPoint3 &a_point, float &a_radius, bool a_ring = false)
         {
             const auto &matrix = Config::GetInstance().GetDecisionMatrix();
             if (!matrix.advanceNavmeshRedirect) {
@@ -60,7 +62,7 @@ namespace CombatAI::NavmeshRedirect
                 return false;
             }
             const auto id = actor->GetFormID();
-            if (a_kind == Kind::Advance) {
+            if (a_kind == Kind::Advance && !a_ring) {
                 const auto failed = g_failed.Find(id);
                 if (!failed || std::chrono::duration<float>(Clock::now() - *failed).count() > kFailMemory) {
                     return false;
@@ -74,7 +76,7 @@ namespace CombatAI::NavmeshRedirect
                 return false;
             }
             const bool debug = Config::GetInstance().IsDebugTarget(id);
-            const char *what = kKindName[static_cast<int>(a_kind)];
+            const char *what = a_ring ? "Ring move" : kKindName[static_cast<int>(a_kind)];
             RE::BSTSmartPointer<RE::BSPathingCell> cell;
             if (!pathing->GetPathingCell(a_point, actor->GetParentCell(), actor->GetWorldspace(), cell) || !cell) {
                 if (debug) {
@@ -89,7 +91,7 @@ namespace CombatAI::NavmeshRedirect
             if (pathing->FindClosestPointOnNavmesh(cell, a_point, closest)) {
                 const float above = a_point.z - closest.z; // the goal above the navmesh (negative: below it)
                 if (Distance2D(closest, a_point) <= kOnNavmesh && above <= kMaxAbove && -above <= kMaxBelow) {
-                    if (debug && a_kind == Kind::Advance) {
+                    if (debug && a_kind == Kind::Advance && !a_ring) {
                         LOG_DEBUG("Navmesh 0x{:08X}: {}: the goal ({:.0f}, {:.0f}, {:.0f}) is on the navmesh (closest point "
                                   "{:.0f} away, {:+.0f} high) - left as is",
                                   static_cast<std::uint32_t>(id), what, a_point.x, a_point.y, a_point.z,
@@ -145,7 +147,18 @@ namespace CombatAI::NavmeshRedirect
                 const float savedRadius = *radius;
                 RE::NiPoint3 newPoint = savedPoint;
                 float newRadius = savedRadius;
-                const bool swap = Redirect(a_path, K, newPoint, newRadius);
+                bool swap = false;
+                if constexpr (K == Kind::Advance) {
+                    // Ring slots: an Advance toward the NPC's sector goes to its arc point (then the navmesh check on it)
+                    const auto actor = reinterpret_cast<const RE::ActorHandle *>(a_path + 0x10)->get();
+                    if (actor && RingSlots::Goal(actor.get(), newPoint)) {
+                        newRadius = kRingRadius;
+                        swap = true;
+                        Redirect(a_path, K, newPoint, newRadius, true);
+                        newRadius = (std::max)(newRadius, kMinRadius);
+                    }
+                }
+                swap = swap || Redirect(a_path, K, newPoint, newRadius);
                 if (swap) {
                     *point = newPoint;
                     *radius = newRadius;

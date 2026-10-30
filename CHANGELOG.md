@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.12.0 (2026-10-31)
+
+Untested in game.
+
+- **Groups spread around you.** The melee NPCs fighting one target each get their own side of it, spaced evenly (two: opposite sides; four: front, back and both flanks), and they keep their order so they don't swap places. One that approaches or waits its turn on the wrong side walks around you to its own side, in steps of up to 50 degrees, and then closes in from there. The game still does the walking (pathing, animation, avoiding others). In the last test four bandits mostly stood within a 60-90 degree wedge in front of you, and the game's own circling refused 15 of 21 tries; attacks should now come from several directions. Close in (within 1.5 times its reach) an NPC just fights. Setting: `EnableRingSlots` (`[CombatPacing]`, on), also on the menu's Groups & Movement tab.
+
 ## Enhanced Combat Behavior 1.11.1 (2026-10-31)
 
 Untested in game. Debug log only; no gameplay change.

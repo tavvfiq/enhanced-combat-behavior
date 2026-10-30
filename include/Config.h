@@ -243,6 +243,7 @@ namespace CombatAI
             bool paceTargetPlayerOnly = true;    // Only pace attacks against the player
             float engageMargin = 150.0f;         // Within reach + this (or attacking) = engaging, needs a slot
             float waitDistanceMargin = 120.0f;   // Waiting NPCs circle at reach + this
+            bool enableRingSlots = true;         // melee attackers of one target spread into their own sectors around it
             float retaliateMinSeconds = 1.0f;    // A waiting NPC hit by its target may fight back
             float retaliateMaxSeconds = 3.0f;    // for a random time in this range
         };
