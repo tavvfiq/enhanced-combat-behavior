@@ -1,8 +1,10 @@
 #include "Intents.h"
+#include "ActorUtils.h"
 #include "Config.h"
 #include "DefenseTiming.h"
 #include "Logger.h"
 #include "ThreadSafeMap.h"
+#include "Trees.h"
 
 namespace CombatAI::Intents
 {
@@ -20,6 +22,9 @@ namespace CombatAI::Intents
         // How long a taken attack kind steers the attack-chance hook (StartAttack runs right
         // after the branch is taken; this only has to outlast that one call).
         constexpr Seconds kCommitWindow{1.0f};
+
+        // Board reads per tree (NoteTreeRead), indexed by TreeRead
+        using TreeReads = std::array<std::uint32_t, 5>;
 
         struct Entry
         {
@@ -42,7 +47,7 @@ namespace CombatAI::Intents
             Clock::time_point swingAt{};
             Clock::time_point drinkSince{}, drinkUntil{}; // current drink wait (PostDrinkWait)
             bool dualBlockStarted = false;
-            std::array<std::uint32_t, 3> attackReads{}, defendReads{}; // tree reads when each was posted (debug)
+            TreeReads attackReads{}, defendReads{}; // tree reads when each was posted (debug)
         };
 
         ThreadSafeMap<RE::FormID, Entry> g_board;
@@ -60,8 +65,8 @@ namespace CombatAI::Intents
         // Last movement branch each actor's tree entered (debug log only, so we see when it changes)
         ThreadSafeMap<RE::FormID, Move> g_moveRun;
         ThreadSafeMap<RE::FormID, std::uint32_t> g_defendExpired; // per actor, since the last summary
-        // Reads of the board by our Melee, Block and CloseMovement trees, selected NPC only (NoteTreeRead)
-        ThreadSafeMap<RE::FormID, std::array<std::uint32_t, 3>> g_treeReads;
+        // Reads of the board by our Melee, Block, CloseMovement, Magic and RangedMovement trees, selected NPC only
+        ThreadSafeMap<RE::FormID, TreeReads> g_treeReads;
 
         // Block/bash requests in a row the tree never took, and when the latest expired (DefendUnavailable)
         struct Refusals
@@ -80,22 +85,91 @@ namespace CombatAI::Intents
                           t_swingTag.empty() ? "" : " ", t_swingTag);
             }
         }
-        // An attack or defense the tree never took: which trees read the board since it was posted
-        void LogUntaken(RE::Actor *a_actor, const char *a_what, int a_kind, const std::array<std::uint32_t, 3> &a_then,
-                        const std::array<std::uint32_t, 3> &a_now)
+        std::string ReadsSince(const TreeReads &a_then, const TreeReads &a_now)
         {
-            LOG_DEBUG("Intent 0x{:08X}: {} {} expired untaken; tree reads since posted: melee {}, block {}, move {}",
-                      static_cast<std::uint32_t>(a_actor->GetFormID()), a_what, a_kind, a_now[0] - a_then[0],
-                      a_now[1] - a_then[1], a_now[2] - a_then[2]);
+            return std::format("melee {}, block {}, move {}, magic {}, ranged move {}", a_now[0] - a_then[0],
+                               a_now[1] - a_then[1], a_now[2] - a_then[2], a_now[3] - a_then[3], a_now[4] - a_then[4]);
         }
+
+        // What the engine says about a stuck NPC: weapon drawn, attack/knock state, stagger, movement driven by its
+        // animation, blocking; in combat, the combat controller's and the actor's combat target, fleeing and the
+        // controller's inactive/stopped/ignoring flags; then the combat nodes running
+        std::string Snapshot(RE::Actor *a_actor)
+        {
+            const auto *state = ActorUtils::SafeAsActorState(a_actor);
+            auto *controller = ActorUtils::SafeGetCombatController(a_actor);
+            RE::FormID target = 0, actorTarget = 0;
+            if (controller) {
+                if (const auto t = controller->targetHandle.get()) {
+                    target = t->GetFormID();
+                }
+            }
+            if (const auto t = a_actor->GetActorRuntimeData().currentCombatTarget.get()) {
+                actorTarget = t->GetFormID();
+            }
+            return std::format(
+                "self=drawn{}/atk{}/knock{}/stg{}/anim{}/blk{} combat={}/target {:08X}/{:08X}/flee{}/inactive{}/stopped{}/"
+                "ignoring{}; running: {}",
+                state && state->IsWeaponDrawn() ? 1 : 0, static_cast<int>(ActorUtils::SafeGetAttackState(a_actor)),
+                static_cast<int>(ActorUtils::SafeGetKnockState(a_actor)), state && state->IsStaggered() ? 1 : 0,
+                a_actor->IsMovementAnimationDriven() ? 1 : 0, ActorUtils::SafeIsBlocking(a_actor) ? 1 : 0,
+                a_actor->IsInCombat() ? 1 : 0, static_cast<std::uint32_t>(target),
+                static_cast<std::uint32_t>(actorTarget), controller && controller->IsFleeing() ? 1 : 0,
+                controller && controller->inactive ? 1 : 0, controller && controller->stoppedCombat ? 1 : 0,
+                controller && controller->ignoringCombat ? 1 : 0, Trees::RunningNodes(a_actor));
+        }
+
+        // An attack or defense the tree never took: which trees read the board since it was posted, and the NPC
+        void LogUntaken(RE::Actor *a_actor, const char *a_what, int a_kind, const TreeReads &a_then, const TreeReads &a_now)
+        {
+            LOG_DEBUG("Intent 0x{:08X}: {} {} expired untaken; tree reads since posted: {}; {}",
+                      static_cast<std::uint32_t>(a_actor->GetFormID()), a_what, a_kind, ReadsSince(a_then, a_now),
+                      Snapshot(a_actor));
+        }
+
+        // The selected NPC's stand-still watch (WatchStall, main thread only)
+        struct StallWatch
+        {
+            RE::FormID id = 0;
+            RE::NiPoint3 at{};
+            Clock::time_point since{}, logged{};
+            TreeReads reads{};
+        } g_stall;
+        constexpr float kStallMove = 25.0f; // moving less than this from where it stopped is standing still
+        constexpr Seconds kStallTime{2.0f}, kStallRepeat{5.0f};
     } // namespace
 
     void NoteTreeRead(RE::Actor *a_actor, TreeRead a_tree)
     {
         if (a_actor && Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
-            g_treeReads.ModifyOrCreate(a_actor->GetFormID(),
-                                       [&](std::array<std::uint32_t, 3> &n) { ++n[static_cast<int>(a_tree)]; });
+            g_treeReads.ModifyOrCreate(a_actor->GetFormID(), [&](TreeReads &n) { ++n[static_cast<int>(a_tree)]; });
         }
+    }
+
+    void WatchStall(RE::Actor *a_actor, const char *a_action, float a_distance)
+    {
+        if (!a_actor || !Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+            return;
+        }
+        const auto now = Clock::now();
+        const auto id = a_actor->GetFormID();
+        const auto pos = a_actor->GetPosition();
+        const auto *state = ActorUtils::SafeAsActorState(a_actor);
+        // Swinging, blocking or staggered in place is not a stall
+        const bool busy = ActorUtils::SafeGetAttackState(a_actor) != RE::ATTACK_STATE_ENUM::kNone ||
+                          ActorUtils::SafeIsBlocking(a_actor) || (state && state->IsStaggered());
+        if (g_stall.id != id || busy || pos.GetDistance(g_stall.at) > kStallMove) {
+            g_stall = {id, pos, now, {}, g_treeReads.GetOrDefault(id, {})};
+            return;
+        }
+        if (now - g_stall.since < kStallTime || (g_stall.logged != Clock::time_point{} && now - g_stall.logged < kStallRepeat)) {
+            return;
+        }
+        g_stall.logged = now;
+        LOG_DEBUG("Stall 0x{:08X}: stood {:.1f}s (within {:.0f} units) at dist {:.0f} while the brain wants {}; tree reads "
+                  "since: {}; {}",
+                  static_cast<std::uint32_t>(id), Seconds(now - g_stall.since).count(), kStallMove, a_distance, a_action,
+                  ReadsSince(g_stall.reads, g_treeReads.GetOrDefault(id, {})), Snapshot(a_actor));
     }
 
     bool PostAttack(RE::Actor *a_actor, Attack a_kind)
@@ -105,10 +179,10 @@ namespace CombatAI::Intents
         }
         const auto now = Clock::now();
         const bool debug = Config::GetInstance().IsDebugTarget(a_actor->GetFormID());
-        const auto reads = debug ? g_treeReads.GetOrDefault(a_actor->GetFormID(), {}) : std::array<std::uint32_t, 3>{};
+        const auto reads = debug ? g_treeReads.GetOrDefault(a_actor->GetFormID(), {}) : TreeReads{};
         bool posted = false;
         int untaken = -1;
-        std::array<std::uint32_t, 3> then{};
+        TreeReads then{};
         g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
             if (e.attack == a_kind && now < e.attackUntil) {
                 return; // still waiting for the tree
@@ -139,10 +213,10 @@ namespace CombatAI::Intents
         }
         const auto now = Clock::now();
         const bool debug = Config::GetInstance().IsDebugTarget(a_actor->GetFormID());
-        const auto reads = debug ? g_treeReads.GetOrDefault(a_actor->GetFormID(), {}) : std::array<std::uint32_t, 3>{};
+        const auto reads = debug ? g_treeReads.GetOrDefault(a_actor->GetFormID(), {}) : TreeReads{};
         bool posted = false;
         int untaken = -1;
-        std::array<std::uint32_t, 3> then{};
+        TreeReads then{};
         g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
             if (e.defend == a_kind && now < e.defendUntil) {
                 return; // still waiting for the tree

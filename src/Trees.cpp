@@ -262,10 +262,12 @@ namespace CombatAI::Trees
             return Named(n, "Dual Block");
         }
 
-        // First child of the Melee selector: a read here is a Melee tree pass even when DualBlock then holds it
+        // First child of the Melee and Magic selectors: a read here is a pass of that tree (R) even when DualBlock
+        // then holds it
+        template <Intents::TreeRead R>
         float WantDualBlock(RE::Actor *a_me, RE::Actor *)
         {
-            Intents::NoteTreeRead(a_me, Intents::TreeRead::Melee);
+            Intents::NoteTreeRead(a_me, R);
             return Intents::WantsDualBlock(a_me) ? 1.0f : 0.0f;
         }
 
@@ -278,9 +280,10 @@ namespace CombatAI::Trees
             return Checked(RandomNode(Named(Idle(kHold), "Hold Cast"), WantHoldCast, "Intent - Hold Cast"), "intent hold cast");
         }
 
+        template <Intents::TreeRead R>
         Node *DualBlockBranch()
         {
-            return Checked(RandomNode(DualBlockNode(), WantDualBlock, "Intent - Dual Block"), "intent dual block");
+            return Checked(RandomNode(DualBlockNode(), WantDualBlock<R>, "Intent - Dual Block"), "intent dual block");
         }
 
         std::atomic<std::uint32_t> g_meleeBuilt{0}, g_blockBuilt{0}, g_magicBuilt{0};
@@ -291,7 +294,7 @@ namespace CombatAI::Trees
         {
             auto *selector = Checked(Named(NextSelector(), "Attack Selector"), "Attack Selector");
             SetChildren(selector,
-                        {DualBlockBranch(),
+                        {DualBlockBranch<Intents::TreeRead::Melee>(),
                          Checked(RandomNode(Named(Attack(), "attack"), IntentAttack, "Intent - Attack"), "intent attack"),
                          Checked(RandomNode(Named(SpecialAttack(), "Special Attack"), VanillaSpecialAttack,
                                             "RandomNode - Special Attack"),
@@ -329,9 +332,11 @@ namespace CombatAI::Trees
                 LOG_INFO("Tree: Block tree built (intent bash/block + vanilla branches, re-read every {}s)", kHold);
             }
         }
+        // First movement gate: one read per pass of the CloseMovement (Move) or RangedMovement (RangedMove) tree
+        template <Intents::TreeRead R>
         float WantAdvance(RE::Actor *a_me, RE::Actor *)
         {
-            Intents::NoteTreeRead(a_me, Intents::TreeRead::Move); // first movement gate: one per CloseMovement pass
+            Intents::NoteTreeRead(a_me, R);
             return Intents::WantsMove(a_me, Intents::Move::Advance) ? 1.0f : 0.0f;
         }
         float WantCircle(RE::Actor *a_me, RE::Actor *) { return Intents::WantsMove(a_me, Intents::Move::Circle) ? 1.0f : 0.0f; }
@@ -1159,7 +1164,7 @@ namespace CombatAI::Trees
                     Node *vanilla = castCase->children[0];
                     vanilla->parent = nullptr; // detach, or SetChildren would add the whole tree's root
                     auto *selector = Checked(Named(NextSelector(), "Intent Magic Selector"), "Intent Magic Selector");
-                    SetChildren(selector, {DualBlockBranch(), HoldCastBranch(), vanilla});
+                    SetChildren(selector, {DualBlockBranch<Intents::TreeRead::Magic>(), HoldCastBranch(), vanilla});
                     castCase->children[0] = selector; // the case keeps its one-slot child array
                     selector->parent = castCase;
                 }
@@ -1235,6 +1240,7 @@ namespace CombatAI::Trees
         // A running movement node is stopped early when the brain changes its mind (MoveUpdate above).
         // Context > Repeat > <vanilla selector> becomes Context > Repeat > NextSelector{ our moves, <vanilla> }.
         // False (tree left vanilla) if the shape differs.
+        template <Intents::TreeRead R>
         bool SpliceMovement(Node *a_root)
         {
             Node *repeat = a_root && a_root->childCount == 1 ? a_root->children[0] : nullptr;
@@ -1245,7 +1251,7 @@ namespace CombatAI::Trees
             vanilla->parent = nullptr; // detach, or SetChildren would add the whole tree's root
                 auto *selector = Checked(Named(NextSelector(), "Intent Movement Selector"), "Intent Movement Selector");
             SetChildren(selector,
-                        {Checked(RandomNode(Named(Advance(), "Advance"), WantAdvance, "Intent - Advance"), "intent advance"),
+                        {Checked(RandomNode(Named(Advance(), "Advance"), WantAdvance<R>, "Intent - Advance"), "intent advance"),
                          Checked(RandomNode(Named(Circle(), "Circle"), WantCircle, "Intent - Circle"), "intent circle"),
                          Checked(RandomNode(Named(Fallback(), "Fallback"), WantFallback, "Intent - Fallback"), "intent fallback"),
                          Checked(RandomNode(Named(Backoff(), "Backoff"), WantBackoff, "Intent - Backoff"), "intent backoff"),
@@ -1265,7 +1271,7 @@ namespace CombatAI::Trees
         {
             static void thunk(void *a_tree, Node *a_root)
             {
-                if (!Is(a_root, Id::vtContextCloseMovement) || !SpliceMovement(a_root)) {
+                if (!Is(a_root, Id::vtContextCloseMovement) || !SpliceMovement<Intents::TreeRead::Move>(a_root)) {
                     LOG_ERROR("Tree: CloseMovement tree has an unexpected shape - left vanilla");
                 } else if (g_closeBuilt.fetch_add(1) == 0) {
                     LOG_INFO("Tree: CloseMovement tree extended (intent Advance/Circle/Fallback/Backoff over vanilla)");
@@ -1275,11 +1281,41 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
 
+        // Copies each active behavior thread's node path (leaf first) into a_out. The threads run on the combat AI's
+        // threads, so a read can be torn: SEH turns a fault into a cut-short string. No C++ objects here (__try).
+        std::size_t CopyRunningNodes(const RE::CombatController *a_controller, char *a_out, std::size_t a_size)
+        {
+            std::size_t n = 0;
+            __try {
+                const auto *behavior = a_controller->behaviorController;
+                const std::uint32_t threads = behavior ? behavior->activeThreads.size() : 0;
+                for (std::uint32_t i = 0; i < threads && i < 8; ++i) {
+                    const auto *thread = behavior->activeThreads[i];
+                    const auto *node = thread ? reinterpret_cast<const Node *>(thread->currentNode) : nullptr;
+                    const char *sep = i ? " | " : "";
+                    for (int depth = 0; node && depth < 12; ++depth, node = node->parent) {
+                        for (; *sep && n + 1 < a_size; ++sep) {
+                            a_out[n++] = *sep;
+                        }
+                        const char *name = node->name.data();
+                        for (int c = 0; name && name[c] && c < 48 && n + 1 < a_size; ++c) {
+                            a_out[n++] = name[c] >= 0x20 && name[c] < 0x7F ? name[c] : '?';
+                        }
+                        sep = " < ";
+                    }
+                }
+            } __except (EXCEPTION_EXECUTE_HANDLER) {
+                // keep what was copied
+            }
+            a_out[n] = '\0';
+            return n;
+        }
+
         struct RangedMovementSetRoot
         {
             static void thunk(void *a_tree, Node *a_root)
             {
-                if (!SpliceMovement(a_root)) {
+                if (!SpliceMovement<Intents::TreeRead::RangedMove>(a_root)) {
                     LOG_ERROR("Tree: RangedMovement tree has an unexpected shape - left vanilla");
                 } else if (g_rangedBuilt.fetch_add(1) == 0) {
                     LOG_INFO("Tree: RangedMovement tree extended (archers and mages take the brain's moves)");
@@ -1289,6 +1325,17 @@ namespace CombatAI::Trees
             static inline REL::Relocation<decltype(thunk)> func;
         };
     } // namespace
+
+    std::string RunningNodes(RE::Actor *a_actor)
+    {
+        const auto *controller = ActorUtils::SafeGetCombatController(a_actor);
+        if (!controller) {
+            return "no combat controller";
+        }
+        char buffer[768];
+        const auto n = CopyRunningNodes(controller, buffer, sizeof(buffer));
+        return n ? std::string(buffer, n) : std::string("none");
+    }
 
     void ReleaseDualBlock(RE::Actor *a_actor, bool a_force)
     {

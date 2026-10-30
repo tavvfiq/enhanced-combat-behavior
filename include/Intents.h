@@ -52,9 +52,16 @@ namespace CombatAI::Intents
     {
         Melee,
         Block,
-        Move
+        Move, // CloseMovement
+        Magic,
+        RangedMove // RangedMovement
     };
     void NoteTreeRead(RE::Actor *a_actor, TreeRead a_tree);
+
+    // Debug, brain side (selected NPC): call each executed decision. Standing still 2 s while the brain wants
+    // a_action (not swinging, blocking or staggered) logs a Stall line: the NPC's state, our trees' reads and the
+    // combat nodes running (1.7.4 run: "Advancing" for 3-4 s at a flat distance; no attack posted, so no untaken line)
+    void WatchStall(RE::Actor *a_actor, const char *a_action, float a_distance);
     // Brain side, movement: (re)start the movement intent; always true (refreshing is expected).
     // a_param: Circle: +1 circle left, -1 right, 0 no preference. Advance: distance to the target to stop at
     // (the brain's attack range; 0 = vanilla's). Unused for the other moves.

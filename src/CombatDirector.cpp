@@ -218,8 +218,9 @@ namespace CombatAI
                     state.temporal.target.timeUntilEarliestHit = earliest;
                 }
                 if (debugEnabled) {
-                    LOG_DEBUG("Eta 0x{:08X}: src={} clip={} t={:.2f} blow={:.2f} contact={:.2f} median={:.2f} {}",
+                    LOG_DEBUG("Eta 0x{:08X}: src={} clip={} atk={} t={:.2f} blow={:.2f} contact={:.2f} median={:.2f} {}",
                               static_cast<std::uint32_t>(formID), timingSource, ClipTiming::Name(eta),
+                              static_cast<int>(ActorUtils::SafeGetAttackState(target)),
                               state.temporal.target.attackStartTime,
                               state.temporal.target.timeUntilAttackHits, state.temporal.target.timeUntilEarliestHit,
                               median, t_swingTag);
@@ -674,6 +675,7 @@ namespace CombatAI
                       executedDecision.priority, static_cast<std::uint32_t>(a_state.target.targetFormID),
                       a_state.target.distance, a_state.self.healthPercent * 100.0f,
                       a_state.target.healthPercent * 100.0f, t_swingTag.empty() ? "" : " ", t_swingTag);
+            Intents::WatchStall(a_actor, ActionName(executedDecision.action), a_state.target.distance);
         }
 
         switch (executedDecision.action) {

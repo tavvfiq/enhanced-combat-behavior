@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.7.7 (2026-10-30)
+
+Untested in game.
+
+- When one of your blows landed mid-swing, NPCs could count the rest of that same swing as a new attack. If that blow then hit a second NPC a moment later, the second NPC expected no blow and did not defend. This happened on 3 of 42 swings in the last run. A new swing now starts only when your attack really starts again.
+- Debug log: when an NPC's chosen attack or block is never carried out, or the NPC stands still for 2 seconds while it means to act, the log now records its state (weapon drawn, attacking, staggered, in combat, its target) and which parts of the game's combat AI it is running. This is to find why some NPCs go inert.
+
 ## Enhanced Combat Behavior 1.7.6 (2026-10-30)
 
 Untested in game. Debug log only; no gameplay change.
