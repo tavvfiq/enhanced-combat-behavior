@@ -333,7 +333,7 @@ namespace CombatAI
                 check("Archers and mages keep their distance", &config.m_decisionMatrix.enableRangedPositioning);
                 liveFloat("Flank only within x attack range", &config.m_decisionMatrix.flankingMaxReach, 1.0f, 10.0f, "%.1f");
                 check("Enable target switching", &config.m_targetSwitching.enableTargetSwitching);
-                check("Stuck advance: aim at the navmesh next to a target off it", &config.m_decisionMatrix.advanceNavmeshRedirect);
+                check("Stuck advance / flank: aim at the navmesh next to a goal off it", &config.m_decisionMatrix.advanceNavmeshRedirect);
                 liveFloat("...when that point is within (units)", &config.m_decisionMatrix.advanceRedirectMaxDistance, 0.0f, 1000.0f, "%.0f");
                 if (header("Advanced: pacing")) {
                     liveFloat("Slot window min (s)", &config.m_combatPacing.slotWindowMinSeconds, 0.5f, 10.0f, "%.1f");

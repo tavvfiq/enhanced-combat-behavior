@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.10.2 (2026-10-31)
+
+Untested in game.
+
+- Stuck advance fix, part 3: NPCs whose combat style flanks (they circle around you before closing in, like the Marauder Rogue) move through flanking paths, not the plain advance. Their flank goals can sit off the navmesh too: in the last test the Rogue stood still while its distant flank aimed at a spot with no navmesh. Flank goals off the navmesh now move to the closest navmesh point as well (same setting and 150-unit limit). In the same test the plain advance fix worked: advance failures dropped from 21 to 6, each followed within about 2 seconds by an advance that moved, and no 30-second freeze.
+
 ## Enhanced Combat Behavior 1.10.1 (2026-10-31)
 
 Untested in game.
