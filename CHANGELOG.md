@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.11.1 (2026-10-31)
+
+Untested in game. Debug log only; no gameplay change.
+
+- Groundwork for better circling while NPCs wait their turn. The game keeps a list of taken spots around each target (24 sectors): before an NPC circles, it must reserve its spot, and when another attacker holds it, the circle is refused on the spot even though every other check passed. The debug log now shows that reservation in the Circle start line, and a new "Ring" line every 2 seconds shows where each NPC fighting your target stands around it (angle from its facing, distance, swinging / waiting its turn / free) and how many stand crowded together.
+
 ## Enhanced Combat Behavior 1.11.0 (2026-10-31)
 
 Untested in game.

@@ -50,6 +50,73 @@ namespace CombatAI
                 return false;
             }
         }
+
+        // Ring probe (debug, every 2 s per target): where the actors fighting a_target stand around it. Bearing from
+        // the target's facing (0 = in front, +left / -right, 180 = behind), distance, and whether each swings, waits
+        // its turn (pacing hold) or is free. Two actors under 30 degrees and 100 units apart are flagged as crowded.
+        void LogRing(RE::Actor *a_target)
+        {
+            static std::unordered_map<RE::FormID, std::chrono::steady_clock::time_point> s_last;
+            if (!a_target) {
+                return;
+            }
+            const auto now = std::chrono::steady_clock::now();
+            auto &last = s_last[a_target->GetFormID()];
+            if (now - last < std::chrono::seconds(2)) {
+                return;
+            }
+            last = now;
+            const auto center = a_target->GetPosition();
+            const float yaw = a_target->GetAngleZ();
+            const float fx = std::sin(yaw), fy = std::cos(yaw);
+            struct Spot
+            {
+                RE::FormID id;
+                float bearing, distance;
+                const char *state;
+            };
+            std::vector<Spot> spots;
+            RE::ProcessLists::GetSingleton()->ForEachHighActor([&](RE::Actor *a_other) {
+                if (!a_other || a_other == a_target || a_other->IsDead() || !a_other->IsInCombat()) {
+                    return RE::BSContainer::ForEachResult::kContinue;
+                }
+                const auto t = a_other->GetActorRuntimeData().currentCombatTarget.get();
+                if (!t || t.get() != a_target) {
+                    return RE::BSContainer::ForEachResult::kContinue;
+                }
+                const auto p = a_other->GetPosition();
+                const float dx = p.x - center.x, dy = p.y - center.y;
+                const float distance = std::hypot(dx, dy);
+                if (distance > 1500.0f) {
+                    return RE::BSContainer::ForEachResult::kContinue;
+                }
+                const float bearing = std::atan2(fx * dy - fy * dx, fx * dx + fy * dy) * 57.2958f;
+                const char *state = ActorUtils::SafeGetAttackState(a_other) != RE::ATTACK_STATE_ENUM::kNone ? "swing"
+                                    : AttackCoordinator::GetSingleton().IsHeld(a_other->GetFormID())   ? "waits"
+                                                                                                       : "free";
+                spots.push_back({a_other->GetFormID(), bearing, distance, state});
+                return RE::BSContainer::ForEachResult::kContinue;
+            });
+            if (spots.empty()) {
+                return;
+            }
+            std::ranges::sort(spots, {}, &Spot::bearing);
+            std::string list;
+            int crowded = 0;
+            for (std::size_t i = 0; i < spots.size(); ++i) {
+                const auto &s = spots[i];
+                list += std::format("{}0x{:08X} {:+.0f} deg {:.0f}u {}", i ? ", " : "", static_cast<std::uint32_t>(s.id),
+                                    s.bearing, s.distance, s.state);
+                for (std::size_t j = i + 1; j < spots.size(); ++j) {
+                    const float gap = std::fabs(spots[j].bearing - s.bearing);
+                    if ((std::min)(gap, 360.0f - gap) < 30.0f && std::fabs(spots[j].distance - s.distance) < 100.0f) {
+                        ++crowded;
+                    }
+                }
+            }
+            LOG_DEBUG("Ring 0x{:08X}: {} around (bearing from its facing, +left): {}; crowded pairs {}",
+                      static_cast<std::uint32_t>(a_target->GetFormID()), spots.size(), list, crowded);
+        }
     } // namespace
 
     void CombatDirector::Initialize()
@@ -237,6 +304,9 @@ namespace CombatAI
         }
         MaybeSwitchTarget(a_actor, formID, state);
         Intents::NoteAttackReach(a_actor, state.weaponReach + state.target.boundRadius); // for the hit cone override
+        if (debugEnabled) {
+            LogRing(RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID));
+        }
         // Every NPC's own attack clips (the punish check's startups); logged for the selected NPC
         ClipTiming::ObserveOwnAttack(a_actor, RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID),
                                      state.target.distance, state.weaponReach, state.target.boundRadius, debugEnabled);

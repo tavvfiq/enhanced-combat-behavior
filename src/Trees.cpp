@@ -351,6 +351,8 @@ namespace CombatAI::Trees
         struct CircleChecks
         {
             std::int8_t animDriven = -1, facing = -1, angle = -1, viewCone = -1, straightPath = -1, pathCheck = -1;
+            std::int8_t reserve = -1; // the spot's reservation among the target's attackers (per side tried: the last)
+            std::int8_t reserveRefused = 0; // how many sides the reservation refused
         };
         thread_local bool t_circleAudit = false;
         thread_local CircleChecks t_circle;
@@ -599,6 +601,24 @@ namespace CombatAI::Trees
             static bool thunk(void *a_controller, const RE::NiPoint3 *a_pos) { return NoteCheck(t_circle.pathCheck, func(a_controller, a_pos)); }
             static inline REL::Relocation<decltype(thunk)> func;
         };
+        // After the checks pass, the Circle start reserves its spot around the target (SE 45732 / AE 47045: the
+        // target-location registry, iCombatTargetLocationCount 24 sectors, fCombatTargetLocationWidth*; 4 arguments,
+        // null = taken). Null on both sides tried = the Circle fails at 0 ms although every check passed.
+        struct CircleReserve
+        {
+            static std::uintptr_t thunk(std::uintptr_t a_registry, std::uintptr_t a_key, std::uintptr_t a_id, std::uintptr_t a_spot)
+            {
+                const auto reservation = func(a_registry, a_key, a_id, a_spot);
+                if (t_circleAudit) {
+                    t_circle.reserve = reservation ? 1 : 0;
+                    if (!reservation) {
+                        ++t_circle.reserveRefused;
+                    }
+                }
+                return reservation;
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
 
         constexpr REL::RelocationID kBackoffUpdate{46725, 47921};
         constexpr std::size_t kBackoffClosingSE = 0x10B;
@@ -689,6 +709,8 @@ namespace CombatAI::Trees
         };
         constexpr CircleSites kCircleSitesSE{0x179, 0x198, 0x366, 0x3C8, 0x3E7};
         constexpr CircleSites kCircleSitesAE{0x149, 0x16A, 0x2F2, 0x351, 0x370}; // same on 1.7.104
+        constexpr std::size_t kCircleReserveSE = 0x538, kCircleReserveAE = 0x4BC; // AE: 1.7.104
+        constexpr REL::RelocationID kCircleReserve{45732, 47045};
 
         // The Backoff Update check: same idea as the start, but its callee (46063) has no stable ID on 1.7, so it
         // is accepted as a call into the function right after 46062 (0xB0 later on SE/AE, 0xE0 on 1.7.104).
@@ -720,6 +742,12 @@ namespace CombatAI::Trees
             CircleViewCone::func = a_trampoline.write_call<5>(c + s.viewCone, CircleViewCone::thunk);
             CircleStraightPath::func = a_trampoline.write_call<5>(c + s.straightPath, CircleStraightPath::thunk);
             CirclePathCheck::func = a_trampoline.write_call<5>(c + s.pathCheck, CirclePathCheck::thunk);
+            const auto reserve = c + (REL::Module::IsAE() ? kCircleReserveAE : kCircleReserveSE);
+            if (CallsTarget(reserve, kCircleReserve.address())) {
+                CircleReserve::func = a_trampoline.write_call<5>(reserve, CircleReserve::thunk);
+            } else {
+                LOG_WARN("Tree: Circle spot reservation site does not match - not audited");
+            }
             LOG_INFO("Tree: Circle start checks audited (MoveNode lines show which one refused)");
         }
 
@@ -866,8 +894,10 @@ namespace CombatAI::Trees
                         std::scoped_lock guard(g_auditLock);
                         if (auto it = g_audit.find(a_thread); it != g_audit.end()) {
                             it->second.checks = std::format(
-                                " [start checks: not animation-driven {}, facing {}, angle {}, view cone {}, straight path {}, path {}]",
-                                c.animDriven, c.facing, c.angle, c.viewCone, c.straightPath, c.pathCheck);
+                                " [start checks: not animation-driven {}, facing {}, angle {}, view cone {}, straight path {}, path {}, "
+                                "spot reserved {} (refused on {} side(s))]",
+                                c.animDriven, c.facing, c.angle, c.viewCone, c.straightPath, c.pathCheck, c.reserve,
+                                c.reserveRefused);
                         }
                     }
                     t_circleAudit = false;
