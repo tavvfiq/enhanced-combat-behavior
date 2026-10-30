@@ -710,7 +710,8 @@ namespace CombatAI::ClipTiming
         }
     }
 
-    int FastestAttack(RE::FormID a_actor, float a_distance, float a_reach, float a_targetRadius, float &a_startup)
+    int FastestAttack(RE::FormID a_actor, float a_distance, float a_closing, float a_reach, float a_targetRadius,
+                      float &a_startup)
     {
         const auto own = g_ownAttacks.find(a_actor);
         if (own == g_ownAttacks.end() || own->second.empty()) {
@@ -718,7 +719,8 @@ namespace CombatAI::ClipTiming
         }
         int found = 0;
         for (const auto &[name, attack] : own->second) {
-            if (a_distance <= a_reach + a_targetRadius + attack.forward && (!found || attack.startup < a_startup)) {
+            const float atBlow = a_distance - a_closing * attack.startup;
+            if (atBlow <= a_reach + a_targetRadius + attack.forward && (!found || attack.startup < a_startup)) {
                 a_startup = attack.startup;
                 found = 1;
             }

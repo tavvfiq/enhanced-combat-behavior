@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.8.3 (2026-10-30)
+
+Untested in game.
+
+- Punish: an NPC's reach now includes its attack's forward lunge, measured against where you will be when its blow lands (your movement toward or away from it). In the last test your missed swings came from 105-135 units, just outside the NPCs' plain reach, so none were punished, although their 60-170 unit lunges would have covered the gap. If you are backing off, the lunge has to cover that too, which rules out the earlier case where you ran from 166 to 422 units.
+
 ## Enhanced Combat Behavior 1.8.2 (2026-10-30)
 
 Untested in game.

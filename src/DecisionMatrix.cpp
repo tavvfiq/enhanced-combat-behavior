@@ -1716,17 +1716,33 @@ namespace CombatAI
             note(std::format("waiting {:.2f}s to see if you chain", windowIn + wait));
             return result;
         }
-        // In the offense's attack range: vanilla starts an attack only within its weapon reach, the clip's lunge
-        // helps only after the start (1.8.1 run: a punish at 166 units, counting a long lunge, was refused and the
-        // player was gone). Timing: its fastest attack read so far; none yet: 0.6 s (1.7.10 run: 0.38-0.60 s)
+        // Reach: its fastest attack read so far whose lunge reaches the player where the player will be when the blow
+        // lands (weapon reach + body radius + the clip's forward motion, the player's speed toward it over the
+        // startup). Vanilla's range check counts the lunge too (the attack's hit-frame point against the predicted
+        // target). 1.8.2 used the plain range: the player's whiffs came from 105-135 units, all "out of reach"; 1.8.1's
+        // refusal at 166 units was the player running off (166 -> 422 in 1 s), which the speed term catches. No attack
+        // read yet: the offense's range and 0.6 s (1.7.10 run: 0.38-0.60 s)
         const float reach = a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f;
-        if (a_state.target.distance > EffectiveAttackRange(a_state, reach, matrix.offenseReachMultiplier,
-                                                           matrix.offenseReachSafetyMargin)) {
-            note(std::format("skipped (out of reach at {:.0f})", a_state.target.distance));
-            return result;
+        float closing = 0.0f;
+        if (target) {
+            RE::NiPoint3 velocity;
+            target->GetLinearVelocity(velocity);
+            RE::NiPoint3 toSelf = a_state.self.position - a_state.target.position;
+            toSelf.z = 0.0f;
+            if (toSelf.Unitize() > 1.0f) {
+                closing = velocity.x * toSelf.x + velocity.y * toSelf.y;
+            }
         }
         float startup = 0.6f;
-        const int known = ClipTiming::FastestAttack(a_actor->GetFormID(), 0.0f, reach, a_state.target.boundRadius, startup);
+        const int known = ClipTiming::FastestAttack(a_actor->GetFormID(), a_state.target.distance, closing, reach,
+                                                    a_state.target.boundRadius, startup);
+        if (known == 0 || (known < 0 && a_state.target.distance > EffectiveAttackRange(a_state, reach,
+                                                                                      matrix.offenseReachMultiplier,
+                                                                                      matrix.offenseReachSafetyMargin))) {
+            note(std::format("skipped (out of reach at {:.0f}, you moving {:+.0f}/s toward it)", a_state.target.distance,
+                             closing));
+            return result;
+        }
         // A tenth of a second to spare for the tree to start it
         constexpr float kMargin = 0.1f;
         if (recoverIn - startup < kMargin) {

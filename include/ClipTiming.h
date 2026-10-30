@@ -43,9 +43,11 @@ namespace CombatAI::ClipTiming
                           bool a_log);
 
     // The fastest of a_actor's attacks seen so far (ObserveOwnAttack) whose first blow reaches a target a_distance
-    // away (a_reach + a_targetRadius + the clip's forward motion): a_startup = seconds to its blow. 1 found, 0 attacks
-    // known but none reaches, -1 none known
-    int FastestAttack(RE::FormID a_actor, float a_distance, float a_reach, float a_targetRadius, float &a_startup);
+    // away moving a_closing units/s toward it (negative: away), at the moment the blow lands (a_reach + a_targetRadius
+    // + the clip's forward motion): a_startup = seconds to its blow. 1 found, 0 attacks known but none reaches, -1 none
+    // known
+    int FastestAttack(RE::FormID a_actor, float a_distance, float a_closing, float a_reach, float a_targetRadius,
+                      float &a_startup);
 
     // How long a_attacker (the player: its clip is sampled) stays in its swing: a_recoverIn seconds to its clip's
     // MCO_Recovery mark (else the clip's end), a_windowIn seconds to its combo window (negative: open since; false
