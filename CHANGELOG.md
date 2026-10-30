@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.10.1 (2026-10-31)
+
+Untested in game.
+
+- Stuck advance fix: your spot now counts as on the navmesh only within the game's own height limits (the navmesh at most 64 units above your feet, or 180 below). In the last test the navmesh on that slope floated 69-98 units above the ground, right over where you stood; 1.10.0 took that as "on the navmesh" and left 62 of those advances alone, and 21 advances failed. Now the NPC aims at that navmesh point, which is right above you.
+
 ## Enhanced Combat Behavior 1.10.0 (2026-10-30)
 
 Untested in game.

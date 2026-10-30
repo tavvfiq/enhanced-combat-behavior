@@ -19,6 +19,12 @@ namespace CombatAI::NavmeshRedirect
         constexpr float kOnNavmesh = 16.0f;  // the target's spot is on the navmesh when the closest point is this close (2D)
         constexpr float kWideFilter = 256.0f; // second try: a triangle up to this far above or below the spot
         constexpr float kMinRadius = 16.0f;   // goal radius once redirected: walk onto the point, not near it
+        // The game's default triangle filter (BSPathing ctor, SE + AE): a point is on a triangle when it is at most
+        // 180 above it or 64 below it. The closest-point lookup returns a point outside these (1.10.0 run: 62 spots
+        // with the navmesh 69-98 above the target's feet, 0 to the side), but the path search then finds no goal
+        // triangle, so those count as off the navmesh
+        constexpr float kMaxAbove = 180.0f;
+        constexpr float kMaxBelow = 64.0f;
 
         ThreadSafeMap<RE::FormID, Clock::time_point> g_failed;
 
@@ -66,7 +72,8 @@ namespace CombatAI::NavmeshRedirect
             RE::NiPoint3 closest;
             const char *filter = "default";
             if (pathing->FindClosestPointOnNavmesh(cell, a_point, closest)) {
-                if (Distance2D(closest, a_point) <= kOnNavmesh) {
+                const float above = a_point.z - closest.z; // the target's feet above the navmesh (negative: below it)
+                if (Distance2D(closest, a_point) <= kOnNavmesh && above <= kMaxAbove && -above <= kMaxBelow) {
                     if (debug) {
                         LOG_DEBUG("Navmesh 0x{:08X}: Advance after a failed one: the target's spot ({:.0f}, {:.0f}, {:.0f}) is on "
                                   "the navmesh (closest point {:.0f} away, {:+.0f} high) - left as is",
