@@ -1,5 +1,9 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.8.6 (2026-10-30)
+
+- The in-game menu shows the plugin version at the top.
+
 ## Enhanced Combat Behavior 1.8.5 (2026-10-30)
 
 - The combo branch test (`ComboBranchProbe`) can now be switched on in the in-game menu: "Test: combo branch probe", next to the combo follow-up settings.

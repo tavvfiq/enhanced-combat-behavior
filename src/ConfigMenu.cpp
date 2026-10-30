@@ -116,6 +116,13 @@ namespace CombatAI
         // its own changes; Save to keep it. The list (Default plus one entry per JSON file in the Presets folder, read
         // again on reload/save) only chooses; Load applies the choice. A loaded preset's name goes to the save field
         // (not Default's), so a tweaked preset is one click from being overwritten.
+        // The plugin's version (xmake set_version), so a screenshot of the menu says which build is loaded
+        static const std::string version = [] {
+            const auto v = SKSE::PluginDeclaration::GetSingleton()->GetVersion();
+            return std::format("Enhanced Combat Behavior {}.{}.{}", v.major(), v.minor(), v.patch());
+        }();
+        ImGuiMCP::TextDisabled("%s", version.c_str());
+
         static std::vector<std::string> presets = Config::ListPresets();
         static std::string selected; // chosen in the list; empty after a reload
         static char presetName[65] = "";
