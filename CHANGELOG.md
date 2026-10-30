@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.8.4 (2026-10-30)
+
+Untested in game. Test switch, off by default; no gameplay change unless you turn it on.
+
+- `ComboBranchProbe` (`[ModIntegrations]`, off): a test for picking which attack an NPC chains into. When it is on, the NPC selected in the console starts each combo follow-up with a different attack from its moveset, one it has already used. The debug log then shows whether that attack actually played. This answers the open question in the moveset plan: whether MCO and BFCO movesets let us choose the next attack in a combo.
+
 ## Enhanced Combat Behavior 1.8.3 (2026-10-30)
 
 Untested in game.

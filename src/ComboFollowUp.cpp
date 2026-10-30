@@ -1,6 +1,7 @@
 #include "ComboFollowUp.h"
 #include "AttackCoordinator.h"
 #include "Boss.h"
+#include "ClipTiming.h"
 #include "Config.h"
 #include "Intents.h"
 #include "Logger.h"
@@ -131,6 +132,26 @@ namespace CombatAI::ComboFollowUp
                 }
                 anim->target = RE::NiPointer<RE::TESObjectREFR>(them.get());
                 anim->animEvent = a_power ? "attackPowerStartInPlace" : "attackStart";
+                // Combo branch probe (moveset proposal step 5): the MCO/BFCO clips set the next slot with
+                // PIE.@SGVI|MCO_nextattack|N (power: MCO_nextpowerattack) before the window opens; write another slot
+                // this NPC has played before and see whether the graph plays it
+                if (Config::GetInstance().GetModIntegrations().comboBranchProbe &&
+                    Config::GetInstance().IsDebugTarget(me->GetFormID())) {
+                    const char *variable = a_power ? "MCO_nextpowerattack" : "MCO_nextattack";
+                    std::int32_t was = -1, now = -1;
+                    const bool exists = me->GetGraphVariableInt(variable, was);
+                    const int slot = exists ? ClipTiming::OtherKnownSlot(me->GetFormID(), a_power, was) : 0;
+                    bool set = false;
+                    if (slot > 0) {
+                        set = me->SetGraphVariableInt(variable, slot);
+                        me->GetGraphVariableInt(variable, now);
+                        ClipTiming::ExpectOwnClip(me->GetFormID(), a_power, slot);
+                    }
+                    LOG_DEBUG("Combo branch 0x{:08X}: {} {} -> {}", me->GetFormID(), variable,
+                              exists ? std::format("was {}", was) : std::string("not in the graph"),
+                              slot > 0 ? std::format("wrote {} ({}), reads {}", slot, set ? "set" : "refused", now)
+                                       : std::string("no other known slot, left as is"));
+                }
                 const bool ok = anim->Execute();
                 anim->~CombatAnimation();
                 RE::free(anim);

@@ -309,6 +309,37 @@ namespace CombatAI::ClipTiming
         std::unordered_map<RE::FormID, std::unordered_map<std::string, OwnAttack>> g_ownAttacks;
         std::pair<RE::FormID, std::uint32_t> g_punishLogged{}; // the swing LogPunishWindow logged last
 
+        // Combo branch probe: the slot each NPC was told to play next (ExpectOwnClip). Main thread
+        struct Expected
+        {
+            bool power = false;
+            int slot = 0;
+            Clock::time_point at{};
+        };
+        std::unordered_map<RE::FormID, Expected> g_expected;
+
+        // The attack slot of a clip name ("Animations\\BFCO_PowerAttack3.hkx" -> power, 3); 0 if not a numbered
+        // light or power attack (sprint, special, bash)
+        int SlotOf(const std::string &a_name, bool &a_power)
+        {
+            std::string lower = a_name;
+            std::ranges::transform(lower, lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            if (lower.find("sprint") != std::string::npos || lower.find("special") != std::string::npos) {
+                return 0;
+            }
+            const auto at = lower.rfind("attack");
+            const auto dot = lower.rfind(".hkx");
+            if (at == std::string::npos || dot == std::string::npos || dot <= at + 6) {
+                return 0;
+            }
+            const std::string digits = lower.substr(at + 6, dot - at - 6);
+            if (digits.empty() || !std::ranges::all_of(digits, [](char c) { return c >= '0' && c <= '9'; })) {
+                return 0;
+            }
+            a_power = lower.find("power") != std::string::npos;
+            return std::atoi(digits.c_str());
+        }
+
         struct Stats
         {
             int blows = 0, compared = 0, noPrediction = 0, noClip = 0, stale = 0;
@@ -664,6 +695,18 @@ namespace CombatAI::ClipTiming
         if (p.startup >= 0.0f) {
             g_ownAttacks[a_actor->GetFormID()][clip.name] = {p.startup / playback, p.forward};
         }
+        if (const auto it = g_expected.find(a_actor->GetFormID()); it != g_expected.end()) {
+            const auto expected = it->second;
+            g_expected.erase(it);
+            if (Since(expected.at, Clock::now()) <= 2.0f) {
+                bool power = false;
+                const int slot = SlotOf(clip.name, power);
+                LOG_DEBUG("Combo branch 0x{:08X}: told {}attack {}, played '{}' ({:.2f}s after): {}",
+                          static_cast<std::uint32_t>(a_actor->GetFormID()), expected.power ? "power " : "", expected.slot,
+                          clip.name, Since(expected.at, Clock::now()),
+                          slot == expected.slot && power == expected.power ? "MATCH" : "no match");
+            }
+        }
         if (!a_log) {
             return;
         }
@@ -708,6 +751,27 @@ namespace CombatAI::ClipTiming
             LOG_DEBUG("AttackClip 0x{:08X}: '{}' marks: {}", static_cast<std::uint32_t>(a_actor->GetFormID()), clip.name,
                       clip.marks);
         }
+    }
+
+    int OtherKnownSlot(RE::FormID a_actor, bool a_power, int a_not)
+    {
+        const auto own = g_ownAttacks.find(a_actor);
+        int best = 0;
+        if (own != g_ownAttacks.end()) {
+            for (const auto &entry : own->second) {
+                bool power = false;
+                const int slot = SlotOf(entry.first, power);
+                if (slot > 0 && power == a_power && slot != a_not && (!best || slot < best)) {
+                    best = slot;
+                }
+            }
+        }
+        return best;
+    }
+
+    void ExpectOwnClip(RE::FormID a_actor, bool a_power, int a_slot)
+    {
+        g_expected[a_actor] = {a_power, a_slot, Clock::now()};
     }
 
     int FastestAttack(RE::FormID a_actor, float a_distance, float a_closing, float a_reach, float a_targetRadius,
@@ -810,6 +874,7 @@ namespace CombatAI::ClipTiming
 
     void Evict(RE::FormID a_formID)
     {
+        g_expected.erase(a_formID);
         g_ownLast.erase(a_formID); // main thread, like ObserveOwnAttack
         g_ownAttacks.erase(a_formID);
         std::scoped_lock lock(g_lock);
