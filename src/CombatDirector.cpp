@@ -31,6 +31,7 @@
 #include "VanillaAttackShaper.h"
 #include "pch.h"
 #include <atomic>
+#include <unordered_set>
 #include <random>
 #include <sstream>
 
@@ -53,10 +54,11 @@ namespace CombatAI
             }
         }
 
-        // How far beyond reach a waiting NPC holds, by its combat style: a duelist waits close (half the margin), a
-        // flanker wide (+100: it watches from mid range and bursts in on its turn), a defensive style (defensive over
-        // offensive by 0.2) a bit wider (+60), an offensive one (offensive over defensive by 0.3) a bit closer (-40,
-        // at least 40). a_label names the style for the log.
+        // How far beyond reach a waiting NPC holds, by its combat style: a flanker wide (+100: it watches from mid
+        // range and bursts in on its turn), a defensive style (defensive over offensive by 0.2) a bit wider (+60), an
+        // offensive one (offensive over defensive by 0.3) a bit closer (-40, at least 40). The dueling flag says
+        // nothing here: Skyrim.esm sets it on 125 of its 145 combat styles, every csHumanMelee level included (1.13.0
+        // run: all bandits waited at half the margin, just outside reach). a_label names the style for the log.
         float StyleWaitMargin(RE::Actor *a_actor, float a_margin, const char *&a_label)
         {
             a_label = "default";
@@ -65,10 +67,6 @@ namespace CombatAI
                 return a_margin;
             }
             const auto flags = *reinterpret_cast<const std::uint32_t *>(reinterpret_cast<std::uintptr_t>(style) + 0x9C);
-            if (flags & 1u) { // kDuelingStyle
-                a_label = "dueling";
-                return a_margin * 0.5f;
-            }
             if (flags & 2u) { // kFlankingStyle
                 a_label = "flanking";
                 return a_margin + 100.0f;
@@ -85,12 +83,30 @@ namespace CombatAI
             return a_margin;
         }
 
+        // Why each NPC is or isn't waiting its turn, from its last ApplyCombatPacing (the ring probe prints it)
+        struct PaceNote
+        {
+            const char *why = "";
+            float engageWithin = 0.0f; // out of range: it needs a slot inside this distance
+            std::chrono::steady_clock::time_point at{};
+        };
+        ThreadSafeMap<RE::FormID, PaceNote> g_paceNotes;
+
+        void NotePace(RE::FormID a_formID, const char *a_why, float a_engageWithin = 0.0f)
+        {
+            const PaceNote note{a_why, a_engageWithin, std::chrono::steady_clock::now()};
+            g_paceNotes.ModifyOrCreate(a_formID, [&](PaceNote &a_note) { a_note = note; });
+        }
+
         // Ring probe (debug, every 2 s per target): where the actors fighting a_target stand around it. Bearing from
         // the target's facing (0 = in front, +left / -right, 180 = behind), distance, and whether each swings, waits
-        // its turn (pacing hold) or is free. Two actors under 30 degrees and 100 units apart are flagged as crowded.
+        // its turn (pacing hold) or is free, and why a free one isn't held (1.13.0 run: 17 of 841 entries waited
+        // with 4-6 NPCs within 300 units). Two actors under 30 degrees and 100 units apart are flagged as crowded.
+        // Each actor's combat style is logged once (flags, offensive/defensive, the waiting margin it gets).
         void LogRing(RE::Actor *a_target)
         {
             static std::unordered_map<RE::FormID, std::chrono::steady_clock::time_point> s_last;
+            static std::unordered_set<RE::FormID> s_styled;
             if (!a_target) {
                 return;
             }
@@ -108,6 +124,7 @@ namespace CombatAI
                 RE::FormID id;
                 float bearing, distance;
                 const char *state;
+                std::string why;
             };
             std::vector<Spot> spots;
             RE::ProcessLists::GetSingleton()->ForEachHighActor([&](RE::Actor *a_other) {
@@ -128,7 +145,30 @@ namespace CombatAI
                 const char *state = ActorUtils::SafeGetAttackState(a_other) != RE::ATTACK_STATE_ENUM::kNone ? "swing"
                                     : AttackCoordinator::GetSingleton().IsHeld(a_other->GetFormID())   ? "waits"
                                                                                                        : "free";
-                spots.push_back({a_other->GetFormID(), bearing, distance, state});
+                std::string why;
+                if (state[0] == 'f') {
+                    const auto note = g_paceNotes.Find(a_other->GetFormID());
+                    if (!note || now - note->at > std::chrono::seconds(1)) {
+                        why = " (not paced)";
+                    } else if (note->engageWithin > 0.0f) {
+                        why = std::format(" ({}, needs a slot within {:.0f})", note->why, note->engageWithin);
+                    } else {
+                        why = std::format(" ({})", note->why);
+                    }
+                }
+                if (s_styled.insert(a_other->GetFormID()).second) {
+                    if (const auto *style = CombatStyleEnhancer::GetCombatStyle(a_other)) {
+                        const char *label = "default";
+                        const float margin = Config::GetInstance().GetCombatPacing().waitDistanceMargin;
+                        const float wait = StyleWaitMargin(a_other, margin, label);
+                        LOG_DEBUG("Style 0x{:08X}: combat style 0x{:08X} flags 0x{:X}, offensive {:.2f} defensive {:.2f}; "
+                                  "waits as {} (reach + {:.0f})",
+                                  static_cast<std::uint32_t>(a_other->GetFormID()), style->GetFormID(),
+                                  *reinterpret_cast<const std::uint32_t *>(reinterpret_cast<std::uintptr_t>(style) + 0x9C),
+                                  style->generalData.offensiveMult, style->generalData.defensiveMult, label, wait);
+                    }
+                }
+                spots.push_back({a_other->GetFormID(), bearing, distance, state, std::move(why)});
                 return RE::BSContainer::ForEachResult::kContinue;
             });
             if (spots.empty()) {
@@ -139,8 +179,8 @@ namespace CombatAI
             int crowded = 0;
             for (std::size_t i = 0; i < spots.size(); ++i) {
                 const auto &s = spots[i];
-                list += std::format("{}0x{:08X} {:+.0f} deg {:.0f}u {}", i ? ", " : "", static_cast<std::uint32_t>(s.id),
-                                    s.bearing, s.distance, s.state);
+                list += std::format("{}0x{:08X} {:+.0f} deg {:.0f}u {}{}", i ? ", " : "", static_cast<std::uint32_t>(s.id),
+                                    s.bearing, s.distance, s.state, s.why);
                 for (std::size_t j = i + 1; j < spots.size(); ++j) {
                     const float gap = std::fabs(spots[j].bearing - s.bearing);
                     if ((std::min)(gap, 360.0f - gap) < 30.0f && std::fabs(spots[j].distance - s.distance) < 100.0f) {
@@ -573,11 +613,13 @@ namespace CombatAI
         if (Boss::Get(a_actor).boss) {
             coordinator.Release(target, a_formID);
             coordinator.ClearHeld(a_formID);
+            NotePace(a_formID, "boss");
             return a_decision;
         }
         if (pacing.paceTargetPlayerOnly && !a_state.target.isPlayer) {
             coordinator.Release(target, a_formID);
             coordinator.ClearHeld(a_formID);
+            NotePace(a_formID, "target not the player");
             return a_decision;
         }
 
@@ -606,6 +648,7 @@ namespace CombatAI
         if (!engaging && (ranged || (!attacking && !commit))) {
             coordinator.Release(target, a_formID);
             coordinator.ClearHeld(a_formID);
+            NotePace(a_formID, ranged ? "ranged" : "out of range", reach + engageMargin);
             return a_decision;
         }
 
@@ -619,6 +662,7 @@ namespace CombatAI
         if (retaliating || coordinator.TryAcquire(target, a_formID, slots, pacing.slotWindowMinSeconds,
                                                   pacing.slotWindowMaxSeconds, pacing.restSeconds)) {
             coordinator.ClearHeld(a_formID);
+            NotePace(a_formID, retaliating ? "fighting back" : "has a slot");
             if (debug && wasHeld) {
                 LOG_DEBUG("Pacing 0x{:08X}: {} - may engage", static_cast<std::uint32_t>(a_formID),
                           retaliating ? "retaliating" : "slot granted");
@@ -628,6 +672,7 @@ namespace CombatAI
 
         // Waiting its turn. The vanilla attack hook vetoes its swings meanwhile.
         coordinator.MarkHeld(a_formID);
+        NotePace(a_formID, "held");
         switch (a_decision.action) {
         case ActionType::Dodge:
         case ActionType::Parry:

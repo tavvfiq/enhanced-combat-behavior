@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.13.1 (2026-10-31)
+
+Untested in game.
+
+- **Waiting distance: the dueling flag no longer counts.** In the last test every waiting bandit was labelled "dueling" and waited just outside its reach. The game's own data explains it: Skyrim.esm sets the dueling flag on 125 of its 145 combat styles, every human melee level included, so it says nothing about how an NPC fights. Waiting distance now follows the flanking flag (wide) and the offensive/defensive balance (closer/wider); everyone else waits at the usual margin.
+- Debug log: in the last test NPCs rarely waited their turn even with 4-6 of them close to you, and the log did not say why. The ring probe now gives the reason for every NPC that isn't waiting ("has a slot", "fighting back", "out of range, needs a slot within N", "ranged", "boss", "not paced"), and a "Style" line names each NPC's combat style once (flags, offensive/defensive, the waiting distance it gets).
+
 ## Enhanced Combat Behavior 1.13.0 (2026-10-31)
 
 Untested in game.

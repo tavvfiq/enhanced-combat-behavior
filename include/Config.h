@@ -245,7 +245,7 @@ namespace CombatAI
             float waitDistanceMargin = 120.0f;   // Waiting NPCs circle at reach + this
             bool enableRingSlots = true;         // melee attackers of one target spread into their own sectors around it
             bool enableCloseSpacing = true;      // close in, an NPC crowding another one steps aside toward its sector
-            bool styleWaiting = true;            // the combat style sets how far a waiting NPC holds (duel close, flank wide)
+            bool styleWaiting = true;            // the combat style sets how far a waiting NPC holds (flank wide, defend wider)
             float restSeconds = 1.5f;            // after its turn an NPC sits out this long while others wait
             float retaliateMinSeconds = 1.0f;    // A waiting NPC hit by its target may fight back
             float retaliateMaxSeconds = 3.0f;    // for a random time in this range
