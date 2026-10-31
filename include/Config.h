@@ -204,6 +204,7 @@ namespace CombatAI
             bool enablePrecisionIntegration = true;
             bool enableTKDodgeIntegration = true;
             bool enableSCARIntegration = true;
+            bool enableAttackWarpIntegration = true; // Attack Warp loaded: per-NPC tracking, no stretch while waiting
             float scarComboWindowSeconds = 20.0f; // A SCAR_ComboStart this recent marks the moveset as SCAR-driven
             float scarStallSeconds = 3.0f;        // SCAR actor wanting to attack this long without one: we attack
             bool enableComboFollowUp = true;      // MCO/BFCO combo windows: start the next attack (off while SCAR.dll is loaded)

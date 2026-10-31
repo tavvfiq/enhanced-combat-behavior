@@ -1,3 +1,4 @@
+#include "AttackWarpIntegration.h"
 #include "ModEventSinks.h"
 #include "Intents.h"
 #include "ActorUtils.h"
@@ -100,6 +101,7 @@ namespace CombatAI
         CombatDirector::GetInstance().OnActorHit(target, attacker);
         AttackDefenseFeedbackTracker::GetInstance().OnRaceHit(attacker, target); // the player's hits count too
         if (a_event->projectile == 0) { // melee only: a shot's timing has nothing to do with a swing
+            AttackWarp::NoteHit(attacker, target, a_event->flags.any(RE::TESHitEvent::Flag::kHitBlocked));
             CombatDirector::GetInstance().OnHitLanded(attacker, target,
                                                       a_event->flags.any(RE::TESHitEvent::Flag::kPowerAttack),
                                                       a_event->flags.any(RE::TESHitEvent::Flag::kHitBlocked));

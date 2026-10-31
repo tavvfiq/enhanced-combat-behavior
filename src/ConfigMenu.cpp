@@ -184,6 +184,8 @@ namespace CombatAI
                     check("Precision integration", &config.m_modIntegrations.enablePrecisionIntegration);
                     check("TK Dodge integration (dodges)", &config.m_modIntegrations.enableTKDodgeIntegration);
                     check("SCAR integration (when SCAR.dll is loaded)", &config.m_modIntegrations.enableSCARIntegration);
+                    check("Attack Warp integration (when AttackWarp.dll is loaded)",
+                          &config.m_modIntegrations.enableAttackWarpIntegration);
                     liveFloat("SCAR combo window (s)", &config.m_modIntegrations.scarComboWindowSeconds, 1.0f, 120.0f);
                     liveFloat("SCAR stall fallback (s)", &config.m_modIntegrations.scarStallSeconds, 0.5f, 15.0f);
                 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.15.0 (2026-10-31)
+
+Untested in game. Needs Attack Warp 0.5.0 or later for any of this; without it nothing changes.
+
+- **Attack Warp integration.** With Attack Warp loaded, each NPC's lunge tracking follows what this mod knows about it: a more skilled NPC turns a little faster and aims further ahead of where you are going (a level-1 bandit about 40% as far as Attack Warp's setting, a high-level one fully), a reckless NPC stretches its lunge further and a careful one less, and an enraged or all-in boss tracks harder. Setting: `EnableAttackWarpIntegration` in `[ModIntegrations]`, on the menu's Integrations section.
+- **No lunging in from the waiting ring.** An NPC waiting its turn gets no lunge stretch: BFCO and MCO movesets pick their own attacks, so only distance keeps a waiting NPC's swing from landing, and a stretched lunge could reach you from where it waits.
+- Debug log: every swing of the selected NPC (how far off its aim was when it stopped turning and at the end, how far the lunge stretched, the predicted time to the hit, hit or miss), your own swings (to check that Attack Warp still reports them while True Directional Movement steers), and a summary every minute: NPC swings, hits and why the misses missed, and how often and how much you were hit. These logs decide the next steps (dodges timed to the hit, a reach learned from swings that landed).
+
 ## Enhanced Combat Behavior 1.14.2 (2026-10-31)
 
 Untested in game.

@@ -3,6 +3,7 @@
 #include "ActorUtils.h"
 #include "AttackCoordinator.h"
 #include "AttackDefenseFeedbackTracker.h"
+#include "AttackWarpIntegration.h"
 #include "Config.h"
 #include "EngineProbes.h"
 #include "ProjectileAwareness.h"
@@ -210,6 +211,7 @@ namespace CombatAI
         }
 
         SCARIntegration::GetInstance().Initialize();
+        AttackWarp::Initialize();
 
 
         // Apply processing interval + humanizer values from config
@@ -414,6 +416,12 @@ namespace CombatAI
         }
 
         decision = ApplyCombatPacing(a_actor, formID, state, decision);
+        if (AttackWarp::Available() && state.self.isMelee) {
+            AttackWarp::Observe(a_actor, state,
+                                m_humanizer.SkillChance(a_actor, ActionType::Attack,
+                                                        m_actorCombatTimes.Find(formID).value_or(0.0f), state),
+                                AttackCoordinator::GetSingleton().IsHeld(formID));
+        }
 
         // A dodge, bash or sprint change that cuts an attack's windup can leave the engine
         // in kDraw with no attack playing. Vanilla AI then never starts another swing until
@@ -908,6 +916,7 @@ namespace CombatAI
         AttackCoordinator::GetSingleton().Update(a_deltaTime);
         EngineProbes::Update(a_deltaTime);
         ProjectileAwareness::GetInstance().Update();
+        AttackWarp::Tick(a_deltaTime);
 
         auto &config = Config::GetInstance();
 
@@ -1006,6 +1015,7 @@ namespace CombatAI
         ClipTiming::Evict(a_formID);
         NavmeshRedirect::Evict(a_formID);
         RingSlots::Evict(a_formID);
+        AttackWarp::Evict(a_formID);
         AttackCoordinator::GetSingleton().ClearHeld(a_formID);
         m_nextTargetSwitchTime.Erase(a_formID);
         m_drawStart.Erase(a_formID);

@@ -271,6 +271,7 @@ namespace CombatAI
         B("ModIntegrations", "EnablePrecisionIntegration", m_modIntegrations.enablePrecisionIntegration);
         B("ModIntegrations", "EnableTKDodgeIntegration", m_modIntegrations.enableTKDodgeIntegration);
         B("ModIntegrations", "EnableSCARIntegration", m_modIntegrations.enableSCARIntegration);
+        B("ModIntegrations", "EnableAttackWarpIntegration", m_modIntegrations.enableAttackWarpIntegration);
         D("ModIntegrations", "SCARComboWindowSeconds", m_modIntegrations.scarComboWindowSeconds);
         D("ModIntegrations", "SCARStallSeconds", m_modIntegrations.scarStallSeconds);
         B("ModIntegrations", "EnableComboFollowUp", m_modIntegrations.enableComboFollowUp);
@@ -894,6 +895,8 @@ namespace CombatAI
                                                                         m_modIntegrations.enableTKDodgeIntegration);
         m_modIntegrations.enableSCARIntegration =
             a_ini.GetBoolValue("ModIntegrations", "EnableSCARIntegration", m_modIntegrations.enableSCARIntegration);
+        m_modIntegrations.enableAttackWarpIntegration = a_ini.GetBoolValue(
+            "ModIntegrations", "EnableAttackWarpIntegration", m_modIntegrations.enableAttackWarpIntegration);
         m_modIntegrations.scarComboWindowSeconds = (std::clamp)(
             static_cast<float>(a_ini.GetDoubleValue("ModIntegrations", "SCARComboWindowSeconds",
                                                     m_modIntegrations.scarComboWindowSeconds)),
