@@ -83,6 +83,24 @@ namespace CombatAI
         return granted;
     }
 
+    bool AttackCoordinator::SlotsFull(RE::FormID a_target, RE::FormID a_attacker, int a_maxSlots) const
+    {
+        const float now = m_now.load();
+        bool full = false;
+        m_slots.WithReadLock([&](const auto &a_map) {
+            const auto it = a_map.find(a_target);
+            if (it == a_map.end() || it->second.contains(a_attacker)) {
+                return;
+            }
+            int live = 0;
+            for (const auto &[id, slot] : it->second) {
+                live += now - slot.acquireTime <= slot.window ? 1 : 0;
+            }
+            full = live >= a_maxSlots;
+        });
+        return full;
+    }
+
     void AttackCoordinator::Release(RE::FormID a_target, RE::FormID a_attacker)
     {
         if (a_target == 0 || a_attacker == 0) {

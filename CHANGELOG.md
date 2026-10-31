@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.14.0 (2026-10-31)
+
+Untested in game.
+
+- **NPCs wait at the ring instead of walking in and backing out.** Until now an NPC without an attack turn walked all the way in, found every turn taken, and then backed off again; in the last tests few NPCs ever stood waiting their turn. Now, when every turn is taken, an NPC walking in stops at its waiting distance (its combat style's, from up to 200 units outside it) and circles there, a flanker at mid range, then comes in when a turn frees: an attacker whose turn ran out sits out for it. Setting: `HoldBeforeEngaging` in `[CombatPacing]`, on the menu's Groups & Movement tab.
+
 ## Enhanced Combat Behavior 1.13.6 (2026-10-31)
 
 Untested in game.

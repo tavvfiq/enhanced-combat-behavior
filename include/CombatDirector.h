@@ -128,5 +128,6 @@ namespace CombatAI
         static constexpr float STALE_DRAW_TIMEOUT = 2.0f;
         // A waiting NPC within this of its wait ring circles; closer in it falls back first (pacing)
         static constexpr float kWaitRingTolerance = 150.0f;
+        static constexpr float kPreHoldBand = 200.0f; // hold before engaging from this far outside the waiting ring
     };
 } // namespace CombatAI

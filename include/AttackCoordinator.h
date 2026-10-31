@@ -30,6 +30,9 @@ namespace CombatAI
         bool TryAcquire(RE::FormID a_target, RE::FormID a_attacker, int a_maxSlots, float a_windowMin, float a_windowMax,
                         float a_restSeconds = 1.5f);
 
+        // Every slot on a_target is held (by others, windows still running): a_attacker would have to wait
+        bool SlotsFull(RE::FormID a_target, RE::FormID a_attacker, int a_maxSlots) const;
+
         // Free the slot a_attacker holds on a_target (call when it stops attacking it).
         void Release(RE::FormID a_target, RE::FormID a_attacker);
 

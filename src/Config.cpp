@@ -297,6 +297,7 @@ namespace CombatAI
         B("CombatPacing", "EnableRingSlots", m_combatPacing.enableRingSlots);
         B("CombatPacing", "EnableCloseSpacing", m_combatPacing.enableCloseSpacing);
         B("CombatPacing", "StyleWaiting", m_combatPacing.styleWaiting);
+        B("CombatPacing", "HoldBeforeEngaging", m_combatPacing.holdBeforeEngaging);
         D("CombatPacing", "RestSeconds", m_combatPacing.restSeconds);
         L("CombatPacing", "MaxSimultaneousAttackers", static_cast<long>(m_combatPacing.maxSimultaneousAttackers));
         L("CombatPacing", "DangerExtraAttackers", static_cast<long>(m_combatPacing.dangerExtraAttackers));
@@ -958,6 +959,8 @@ namespace CombatAI
         m_combatPacing.enableCloseSpacing =
             a_ini.GetBoolValue("CombatPacing", "EnableCloseSpacing", m_combatPacing.enableCloseSpacing);
         m_combatPacing.styleWaiting = a_ini.GetBoolValue("CombatPacing", "StyleWaiting", m_combatPacing.styleWaiting);
+        m_combatPacing.holdBeforeEngaging =
+            a_ini.GetBoolValue("CombatPacing", "HoldBeforeEngaging", m_combatPacing.holdBeforeEngaging);
         m_combatPacing.maxSimultaneousAttackers = static_cast<int>(
             a_ini.GetLongValue("CombatPacing", "MaxSimultaneousAttackers", m_combatPacing.maxSimultaneousAttackers));
         m_combatPacing.slotWindowMinSeconds = static_cast<float>(

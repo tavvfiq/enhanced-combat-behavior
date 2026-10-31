@@ -645,20 +645,40 @@ namespace CombatAI
                                        ? pacing.waitDistanceMargin + kWaitRingTolerance
                                        : pacing.engageMargin;
         const bool engaging = a_state.target.distance <= reach + engageMargin;
+        const bool debug = Config::GetInstance().IsDebugTarget(a_formID);
+        // A giant or a werewolf (the player transformed, too) is ganged up on: more slots at once
+        const auto danger = TargetDanger::Of(a_actor);
+        const int slots = pacing.maxSimultaneousAttackers + (danger.huge || danger.beast ? pacing.dangerExtraAttackers : 0);
         if (!engaging && (ranged || (!attacking && !commit))) {
+            // Hold before engaging (1.14.0): with every slot taken, a melee NPC walking in stops at its waiting ring
+            // (within kPreHoldBand outside it) and circles there instead of walking into reach, being held and backing
+            // out (1.13.1 run: the free NPCs walked in at 300-500 units, only 21 of 841 probe entries waited). It is
+            // marked held, so a holder whose turn ran out sits out for it; once a slot frees it walks in on its turn.
+            const char *style = "default";
+            const float holdDistance = reach + StyleWaitMargin(a_actor, pacing.waitDistanceMargin, style);
+            if (!ranged && pacing.holdBeforeEngaging && a_decision.action == ActionType::Advancing &&
+                a_state.target.distance <= holdDistance + kPreHoldBand && coordinator.SlotsFull(target, a_formID, slots)) {
+                const bool wasHeldBefore = coordinator.IsHeld(a_formID);
+                coordinator.MarkHeld(a_formID);
+                NotePace(a_formID, "held before engaging");
+                DecisionResult held = m_decisionMatrix.EvaluateHeldBack(a_actor, a_state);
+                held.holdDistance = holdDistance;
+                if (debug && !wasHeldBefore) {
+                    LOG_DEBUG("Pacing 0x{:08X}: slots full - holds before engaging ({} at {:.0f}, {} style, dist {:.0f})",
+                              static_cast<std::uint32_t>(a_formID), ActionName(held.action), holdDistance, style,
+                              a_state.target.distance);
+                }
+                return held;
+            }
             coordinator.Release(target, a_formID);
             coordinator.ClearHeld(a_formID);
             NotePace(a_formID, ranged ? "ranged" : "out of range", reach + engageMargin);
             return a_decision;
         }
 
-        const bool debug = Config::GetInstance().IsDebugTarget(a_formID);
         const auto hit = m_retaliation.Find(a_formID);
         const bool retaliating =
             hit && hit->attacker == target && m_time.load(std::memory_order_relaxed) < hit->until;
-        // A giant or a werewolf (the player transformed, too) is ganged up on: more slots at once
-        const auto danger = TargetDanger::Of(a_actor);
-        const int slots = pacing.maxSimultaneousAttackers + (danger.huge || danger.beast ? pacing.dangerExtraAttackers : 0);
         if (retaliating || coordinator.TryAcquire(target, a_formID, slots, pacing.slotWindowMinSeconds,
                                                   pacing.slotWindowMaxSeconds, pacing.restSeconds)) {
             coordinator.ClearHeld(a_formID);
