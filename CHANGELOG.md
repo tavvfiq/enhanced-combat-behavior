@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.13.2 (2026-10-31)
+
+Untested in game.
+
+- Debug log only, no behaviour change. In the last test 40 of 93 approaches failed, nearly all on one hillside, the game's own approach as often as this mod's: the NPC stood still for about a second, then gave up. Each approach line for the selected NPC now ends with a path trace (what the game's pathfinder said at every update: still searching, no path, following; how many times the request was replaced; how long until the NPC started walking), so the next test shows whether the pathfinder answers too slowly or says there is no way through.
+
 ## Enhanced Combat Behavior 1.13.1 (2026-10-31)
 
 Untested in game.

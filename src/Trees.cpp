@@ -475,6 +475,20 @@ namespace CombatAI::Trees
         // Movement node audit (debug target only): one line per node run saying how it ended and what the
         // body did, so a log shows which brain moves the vanilla nodes really carry out. Enter (slot 2) and
         // Exit (slot 3) are called by CombatBehaviorThread::Update with (node, thread), like Update (slot 4).
+        // Advance path trace (1.13.2): the path manager's status at every node update of an audited Advance. 1.13.1
+        // run: 37 Advances (ours and vanilla's, in pairs from one spot) failed after 1085 ms without moving, both ends
+        // on the navmesh; this tells a search that never answered (searching throughout) from one that answered no
+        // path (cleared) or a request replaced over and over (requests > 1). Status meanings as in PathRead.
+        struct PathTrace
+        {
+            int samples = 0;
+            int status[5]{}; // 0 cleared, 1 searching, 2 following, 3 done, 4 other
+            int noRequest = 0;
+            int requests = 0; // distinct request objects seen (shortcut: a new request reusing a freed address counts once)
+            std::uintptr_t request = 0;
+            float firstFollowMs = -1.0f;
+        };
+
         struct MoveRun
         {
             std::chrono::steady_clock::time_point start;
@@ -483,6 +497,7 @@ namespace CombatAI::Trees
             Intents::Move want = Intents::Move::None;
             bool stoppedByBrain = false;
             std::string checks; // Circle: what its start checks answered
+            PathTrace path;     // Advance only
         };
         std::mutex g_auditLock;
         std::unordered_map<const void *, MoveRun> g_audit; // per thread
@@ -504,6 +519,61 @@ namespace CombatAI::Trees
         {
             auto *actor = a_thread ? RE::CombatBehaviorController::GetCurrentAttacker() : nullptr;
             return actor && Config::GetInstance().IsDebugTarget(actor->GetFormID()) ? actor : nullptr;
+        }
+
+        // The path manager's status (interface+0x28) and current request (+0x30), as CopyPathRead reads them; SEH
+        bool PeekPath(RE::MovementControllerNPC *a_controller, const RE::BSFixedString *a_name, std::int32_t &a_status,
+                      std::uintptr_t &a_request)
+        {
+            __try {
+                const auto iface = reinterpret_cast<std::uintptr_t>(a_controller->GetInterface2(*a_name));
+                if (!iface) {
+                    return false;
+                }
+                a_status = *reinterpret_cast<const std::int32_t *>(iface + 0x28);
+                a_request = *reinterpret_cast<const std::uintptr_t *>(iface + 0x30);
+                return true;
+            } __except (EXCEPTION_EXECUTE_HANDLER) {
+                return false;
+            }
+        }
+
+        void NotePathSample(RE::CombatBehaviorThread *a_thread, RE::Actor *a_actor)
+        {
+            static const RE::BSFixedString kName{"IMovementQueryPathingState"};
+            auto *controller = a_actor->GetActorRuntimeData().movementController.get();
+            std::int32_t status = -1;
+            std::uintptr_t request = 0;
+            if (!controller || !PeekPath(controller, &kName, status, request)) {
+                return;
+            }
+            std::scoped_lock guard(g_auditLock);
+            const auto it = g_audit.find(a_thread);
+            if (it == g_audit.end()) {
+                return;
+            }
+            auto &p = it->second.path;
+            ++p.samples;
+            ++p.status[status >= 0 && status <= 3 ? status : 4];
+            if (!request) {
+                ++p.noRequest;
+            } else if (request != p.request) {
+                ++p.requests;
+                p.request = request;
+            }
+            if (status == 2 && p.firstFollowMs < 0.0f) {
+                p.firstFollowMs =
+                    std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - it->second.start).count();
+            }
+        }
+
+        std::string FormatPathTrace(const PathTrace &a_p)
+        {
+            return std::format("; path trace: {} updates, cleared {} / searching {} / following {} / done {} / other {}, "
+                               "no request {}, requests {}, following {}",
+                               a_p.samples, a_p.status[0], a_p.status[1], a_p.status[2], a_p.status[3], a_p.status[4],
+                               a_p.noRequest, a_p.requests,
+                               a_p.firstFollowMs >= 0.0f ? std::format("after {:.0f} ms", a_p.firstFollowMs) : "never");
         }
 
         // Our Backoff/Fallback start. The vanilla starts (Backoff 46724/47920, Fallback 46712/47908) walk the NPC
@@ -970,12 +1040,13 @@ namespace CombatAI::Trees
                                                                                                                     : "done";
                         // A failed move: the path manager as the node gives up (before its Exit clears the goal)
                         const bool failed = a_thread->failState.any(RE::CombatBehaviorThread::FailState::kFailed);
-                        LOG_DEBUG("MoveNode 0x{:08X}: {} {} ran {:.0f} ms, moved {:.0f}, dist {:.0f} -> {:.0f}, {} (brain wanted {}){}{}",
+                        LOG_DEBUG("MoveNode 0x{:08X}: {} {} ran {:.0f} ms, moved {:.0f}, dist {:.0f} -> {:.0f}, {} (brain wanted {}){}{}{}",
                                   static_cast<std::uint32_t>(actor->GetFormID()),
                                   underOurs ? (ours ? "our" : "vanilla") : "other-tree", MoveName(K), ms,
                                   std::hypot(pos.x - run->pos.x, pos.y - run->pos.y), run->dist, TargetDistance(actor), end,
                                   MoveName(run->want), run->checks,
-                                  failed && ms > 0.0f ? "; " + PathState(actor) : std::string());
+                                  failed && ms > 0.0f ? "; " + PathState(actor) : std::string(),
+                                  K == Intents::Move::Advance ? FormatPathTrace(run->path) : std::string());
                     }
                 }
                 func(a_node, a_thread);
@@ -1261,6 +1332,11 @@ namespace CombatAI::Trees
                 }
                 func(a_node, a_thread);
                 t_ourStart = false;
+                if constexpr (K == Intents::Move::Advance) {
+                    if (auto *audited = AuditedActor(a_thread)) {
+                        NotePathSample(a_thread, audited);
+                    }
+                }
             }
             static inline REL::Relocation<decltype(thunk)> func;
         };
