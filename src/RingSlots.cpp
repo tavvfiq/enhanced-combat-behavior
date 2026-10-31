@@ -35,6 +35,7 @@ namespace CombatAI::RingSlots
         constexpr float kArcFrom = 600.0f;                 // farther than this an approach walks straight in first
         constexpr float kArcMaxRadius = 450.0f;            // ...and its arc runs no farther out than this
         constexpr float kArrived = 60.0f;                  // this close to its arc point it is there (no new goal)
+        constexpr float kLongWalk = 90.0f * kDeg;          // farther than this from its sector an approach goes straight in
         constexpr float kCrowdAngle = 30.0f * kDeg;        // two NPCs on one ring this close in bearing...
         constexpr float kCrowdDistance = 80.0f;            // ...and in distance crowd each other (close spacing)
         constexpr float kStepAngle = 35.0f * kDeg;         // a side step: at least this much around the target
@@ -306,20 +307,25 @@ namespace CombatAI::RingSlots
         float radius = 0.0f;
         const bool close = dist <= (std::max)(reach * 2.0f, reach + 150.0f);
         // Far out it walks straight in first (1.12.2 run: arcs at 600-790 units walked around the target instead of
-        // closing); the arc then spirals inward
-        if (approaching && std::fabs(off) > kApproachTolerance && !close && dist <= kArcFrom) {
+        // closing); the arc then spirals inward. More than kLongWalk from its sector it walks straight in too: the
+        // target moving and turning put NPCs 90-180 degrees off, and walking that half lap at 300-600 units was the
+        // most common far-off case (1.13.x runs: 79 of 160 lines over 90 off); trades and drift realign the sectors,
+        // and close spacing sorts out who stands where
+        const bool longWalk = std::fabs(off) > kLongWalk;
+        if (approaching && std::fabs(off) > kApproachTolerance && !close && dist <= kArcFrom && !longWalk) {
             radius = std::clamp(dist * 0.7f, reach + 60.0f, (std::min)(dist, kArcMaxRadius));
         } else if (waiting && std::fabs(off) > kWaitTolerance) {
             radius = a_decision.holdDistance;
         }
         const bool inSector = std::fabs(off) <= (waiting ? kWaitTolerance : kApproachTolerance);
         // Close in, crowding another NPC: the one farther from its sector steps aside at the same distance, toward its
-        // sector (or away from the other when already in it), far enough to be a real step (>= 80 units of arc).
+        // sector (or away from the other when already in it, or more than kLongWalk from it: near 180 off the side
+        // flips with every small move), far enough to be a real step (>= 80 units of arc).
         // 1.12.3 run: 2+ crowded pairs in 22 of 58 samples although the sectors were spread.
         float sideStep = 0.0f;
         if (close && radius <= 0.0f && crowder != 0 && yields && Config::GetInstance().GetCombatPacing().enableCloseSpacing) {
-            const float side = std::fabs(off) > 5.0f * kDeg ? (off > 0.0f ? 1.0f : -1.0f)
-                                                           : (Wrap(bearing - crowderBearing) >= 0.0f ? 1.0f : -1.0f);
+            const float side = std::fabs(off) > 5.0f * kDeg && !longWalk ? (off > 0.0f ? 1.0f : -1.0f)
+                                                                         : (Wrap(bearing - crowderBearing) >= 0.0f ? 1.0f : -1.0f);
             const float minStep = 2.0f * std::asin((std::min)(1.0f, kStepArc / (2.0f * (std::max)(dist, 1.0f))));
             sideStep = side * (std::max)(kStepAngle, minStep);
             radius = (std::max)(dist, reach * 0.8f);
@@ -329,6 +335,8 @@ namespace CombatAI::RingSlots
             mode = 4;
         } else if (mode == 3 && approaching && dist > kArcFrom) {
             mode = 5;
+        } else if (mode == 3 && approaching && longWalk && !close) {
+            mode = 6;
         }
         if (Config::GetInstance().IsDebugTarget(id)) {
             auto &told = g_told[id];
@@ -338,7 +346,7 @@ namespace CombatAI::RingSlots
                 told = {mode, sector, now};
                 constexpr const char *kMode[] = {"in its sector", "approaching around the target", "waiting: moving to its sector",
                                                  "close: fights from where it stands", "close: stepping aside from a crowding ally",
-                                                 "far: walks straight in"};
+                                                 "far: walks straight in", "far off its side: walks straight in"};
                 LOG_DEBUG("Ring 0x{:08X}: sector {:.0f} of {} (now at {:.0f}, {:+.0f} off, dist {:.0f}) - {}{}{}",
                           static_cast<std::uint32_t>(id), sector / kDeg, count, bearing / kDeg, off / kDeg, dist, kMode[mode],
                           radius > 0.0f ? std::format(", arc goal at {:.0f}", radius) : std::string(),

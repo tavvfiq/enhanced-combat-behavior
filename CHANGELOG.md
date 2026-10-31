@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.14.1 (2026-10-31)
+
+Untested in game.
+
+- **No more half laps around you.** When you move or turn, NPCs end up on the wrong side of you; until now an approaching NPC more than 90 degrees from its own side then walked half a circle around you at mid range before coming in (the most common far-off case in the last tests). Now it comes straight in from where it is; the sides are reassigned over time and close spacing keeps it off its neighbours. An NPC stepping aside from a crowding ally while far from its own side steps away from that ally, so it no longer flips direction with every small move.
+
 ## Enhanced Combat Behavior 1.14.0 (2026-10-31)
 
 Untested in game.
