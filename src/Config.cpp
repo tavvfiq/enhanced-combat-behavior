@@ -57,6 +57,15 @@ namespace CombatAI
                  m_damageMomentum.enableDamageRace ? "on" : "OFF", m_damageMomentum.raceRetreatHits,
                  m_damageMomentum.raceRetreatMaxHealth * 100.0f, m_damageMomentum.racePressBonus,
                  m_decisionMatrix.tradeBlowsChance, m_decisionMatrix.closeDodgeChance, m_decisionMatrix.defendOnSwingChance);
+        const auto onOff = [](bool a_on) { return a_on ? "on" : "OFF"; };
+        LOG_INFO("Pacing: {} ({}), {} attackers at once (+{} on a huge or beast target), turns {:.1f}-{:.1f} s, rest {:.1f} s, "
+                 "engaging within reach + {:.0f}, waiting at reach + {:.0f}; ring slots {}, close spacing {}, style waiting {}, "
+                 "hold before engaging {}",
+                 onOff(m_combatPacing.enableCombatPacing), m_combatPacing.paceTargetPlayerOnly ? "against the player only" : "any target",
+                 m_combatPacing.maxSimultaneousAttackers, m_combatPacing.dangerExtraAttackers, m_combatPacing.slotWindowMinSeconds,
+                 m_combatPacing.slotWindowMaxSeconds, m_combatPacing.restSeconds, m_combatPacing.engageMargin,
+                 m_combatPacing.waitDistanceMargin, onOff(m_combatPacing.enableRingSlots), onOff(m_combatPacing.enableCloseSpacing),
+                 onOff(m_combatPacing.styleWaiting), onOff(m_combatPacing.holdBeforeEngaging));
         return true;
     }
 

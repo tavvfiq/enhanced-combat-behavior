@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.14.2 (2026-10-31)
+
+Untested in game.
+
+- Debug log: the turn-taking settings (attackers at once, turn and rest times, engage and waiting distances, ring, spacing, style waiting, hold before engaging) are listed at startup, so a log shows which settings a test ran with.
+
 ## Enhanced Combat Behavior 1.14.1 (2026-10-31)
 
 Untested in game.
