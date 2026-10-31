@@ -619,13 +619,13 @@ namespace CombatAI
         const RE::FormID target = a_state.target.targetFormID;
         // A boss never waits its turn and takes no minion's slot
         if (Boss::Get(a_actor).boss) {
-            coordinator.Release(target, a_formID);
+            coordinator.Release(target, a_formID, "boss");
             coordinator.ClearHeld(a_formID);
             NotePace(a_formID, "boss");
             return a_decision;
         }
         if (pacing.paceTargetPlayerOnly && !a_state.target.isPlayer) {
-            coordinator.Release(target, a_formID);
+            coordinator.Release(target, a_formID, "target not the player");
             coordinator.ClearHeld(a_formID);
             NotePace(a_formID, "target not the player");
             return a_decision;
@@ -664,8 +664,28 @@ namespace CombatAI
             // marked held, so a holder whose turn ran out sits out for it; once a slot frees it walks in on its turn.
             const char *style = "default";
             const float holdDistance = reach + StyleWaitMargin(a_actor, pacing.waitDistanceMargin, style);
-            if (!ranged && pacing.holdBeforeEngaging && a_decision.action == ActionType::Advancing &&
-                a_state.target.distance <= holdDistance + kPreHoldBand && coordinator.SlotsFull(target, a_formID, slots)) {
+            const bool walkingIn = !ranged && pacing.holdBeforeEngaging && a_decision.action == ActionType::Advancing &&
+                                   a_state.target.distance <= holdDistance + kPreHoldBand;
+            // Turns hand over at the ring (1.15.1). 1.15.0 run: a waiter there flickered every 0.3 s - held 2 ticks,
+            // free 1, held again - as a turn freed and was taken straight back, and between holds it walked in and got
+            // turned back. Now a turn holder walking in keeps its turn outside the engage edge (it was given up there
+            // and taken back), and a waiter takes a freed turn itself and walks in, ahead of whoever is closer.
+            if (walkingIn && coordinator.HasSlot(target, a_formID)) {
+                NotePace(a_formID, "has a slot, walking in");
+                return a_decision;
+            }
+            if (walkingIn && wasHeld && !coordinator.SlotsFull(target, a_formID, slots) &&
+                coordinator.TryAcquire(target, a_formID, slots, pacing.slotWindowMinSeconds, pacing.slotWindowMaxSeconds,
+                                       pacing.restSeconds)) {
+                coordinator.ClearHeld(a_formID);
+                NotePace(a_formID, "has a slot, walking in");
+                if (debug) {
+                    LOG_DEBUG("Pacing 0x{:08X}: a turn freed - walks in from the ring (dist {:.0f})",
+                              static_cast<std::uint32_t>(a_formID), a_state.target.distance);
+                }
+                return a_decision;
+            }
+            if (walkingIn && coordinator.SlotsFull(target, a_formID, slots)) {
                 const bool wasHeldBefore = coordinator.IsHeld(a_formID);
                 coordinator.MarkHeld(a_formID);
                 NotePace(a_formID, "held before engaging");
@@ -678,7 +698,7 @@ namespace CombatAI
                 }
                 return held;
             }
-            coordinator.Release(target, a_formID);
+            coordinator.Release(target, a_formID, ranged ? "ranged" : "out of range");
             coordinator.ClearHeld(a_formID);
             NotePace(a_formID, ranged ? "ranged" : "out of range", reach + engageMargin);
             return a_decision;

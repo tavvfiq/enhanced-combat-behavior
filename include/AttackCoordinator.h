@@ -33,8 +33,11 @@ namespace CombatAI
         // Every slot on a_target is held (by others, windows still running): a_attacker would have to wait
         bool SlotsFull(RE::FormID a_target, RE::FormID a_attacker, int a_maxSlots) const;
 
-        // Free the slot a_attacker holds on a_target (call when it stops attacking it).
-        void Release(RE::FormID a_target, RE::FormID a_attacker);
+        // a_attacker holds a slot on a_target whose window still runs
+        bool HasSlot(RE::FormID a_target, RE::FormID a_attacker) const;
+
+        // Free the slot a_attacker holds on a_target (call when it stops attacking it). a_why goes to the debug log.
+        void Release(RE::FormID a_target, RE::FormID a_attacker, const char *a_why = "released");
 
         // Attackers currently waiting for a slot. Refreshed every processed tick; goes stale
         // after a second so a forgotten actor isn't vetoed forever.

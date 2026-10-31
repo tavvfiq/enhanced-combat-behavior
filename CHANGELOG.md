@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.15.1 (2026-10-31)
+
+Untested in game.
+
+- **Turns hand over at the ring.** An NPC waiting its turn at its waiting distance stuttered: held, let go, held again every third of a second, because a turn freed and was taken straight back, and between holds it walked in and was turned back. Now an NPC waiting at the ring takes a freed turn itself and walks in (instead of whoever happens to be closer), and an NPC with a turn that is walking in keeps it even outside attack range instead of giving it up and taking it back.
+- Debug log: every turn taken, given up (and why), run out or dropped, per target.
+
 ## Enhanced Combat Behavior 1.15.0 (2026-10-31)
 
 Untested in game. Needs Attack Warp 0.5.0 or later for any of this; without it nothing changes.

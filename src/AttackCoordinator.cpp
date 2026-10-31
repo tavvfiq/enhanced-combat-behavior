@@ -57,9 +57,13 @@ namespace CombatAI
                 const auto holderTarget = controller ? controller->targetHandle.get() : nullptr; // the brain's target
                 if (!holder || holder->IsDead() || !holder->IsInCombat() || !holderTarget ||
                     holderTarget->GetFormID() != a_target) {
+                    LOG_DEBUG("Slots 0x{:08X}: 0x{:08X} drops its turn (dead, out of combat or another target)",
+                              static_cast<std::uint32_t>(a_target), static_cast<std::uint32_t>(it->first));
                     it = bucket.erase(it);
                 } else if (now - it->second.acquireTime > it->second.window) {
                     m_rested.ModifyOrCreate(it->first, [&](float &a_time) { a_time = now; });
+                    LOG_DEBUG("Slots 0x{:08X}: turn of 0x{:08X} ran out ({:.1f} s)", static_cast<std::uint32_t>(a_target),
+                              static_cast<std::uint32_t>(it->first), it->second.window);
                     it = bucket.erase(it);
                 } else {
                     ++it;
@@ -75,8 +79,12 @@ namespace CombatAI
             }
 
             if (static_cast<int>(bucket.size()) < a_maxSlots) {
-                bucket.emplace(a_attacker, SlotInfo{now, RandRange(a_windowMin, a_windowMax)});
+                const auto &slot = bucket.emplace(a_attacker, SlotInfo{now, RandRange(a_windowMin, a_windowMax)}).first->second;
                 granted = true;
+                // Every turn change on a target (1.15.1): proves what freed a slot when a waiter flickers
+                LOG_DEBUG("Slots 0x{:08X}: 0x{:08X} takes a turn ({:.1f} s), {} of {} taken",
+                          static_cast<std::uint32_t>(a_target), static_cast<std::uint32_t>(a_attacker), slot.window,
+                          bucket.size(), a_maxSlots);
             }
         });
 
@@ -101,12 +109,32 @@ namespace CombatAI
         return full;
     }
 
-    void AttackCoordinator::Release(RE::FormID a_target, RE::FormID a_attacker)
+    bool AttackCoordinator::HasSlot(RE::FormID a_target, RE::FormID a_attacker) const
+    {
+        const float now = m_now.load();
+        bool has = false;
+        m_slots.WithReadLock([&](const auto &a_map) {
+            const auto it = a_map.find(a_target);
+            if (it == a_map.end()) {
+                return;
+            }
+            const auto slot = it->second.find(a_attacker);
+            has = slot != it->second.end() && now - slot->second.acquireTime <= slot->second.window;
+        });
+        return has;
+    }
+
+    void AttackCoordinator::Release(RE::FormID a_target, RE::FormID a_attacker, const char *a_why)
     {
         if (a_target == 0 || a_attacker == 0) {
             return;
         }
-        m_slots.Modify(a_target, [&](SlotBucket &bucket) { bucket.erase(a_attacker); });
+        bool released = false;
+        m_slots.Modify(a_target, [&](SlotBucket &bucket) { released = bucket.erase(a_attacker) > 0; });
+        if (released) {
+            LOG_DEBUG("Slots 0x{:08X}: 0x{:08X} gives up its turn ({})", static_cast<std::uint32_t>(a_target),
+                      static_cast<std::uint32_t>(a_attacker), a_why);
+        }
     }
 
     void AttackCoordinator::Cleanup()
