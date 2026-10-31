@@ -503,10 +503,17 @@ namespace CombatAI::Trees
         std::mutex g_auditLock;
         std::unordered_map<const void *, MoveRun> g_audit; // per thread
 
-        // Where each running Advance started (every NPC, per thread): a failed one that hardly moved got no path
+        // Where and when each running Advance started (every NPC, per thread): a failed one that ran its full retry
+        // time (fCombatAdvancePathRetryTime 1.0) and hardly moved got no path; one that walked reached its goal
+        struct AdvanceStart
+        {
+            RE::NiPoint3 pos;
+            std::chrono::steady_clock::time_point at;
+        };
         std::mutex g_advanceLock;
-        std::unordered_map<const void *, RE::NiPoint3> g_advanceStart;
+        std::unordered_map<const void *, AdvanceStart> g_advanceStart;
         constexpr float kNoPathMoved = 40.0f;
+        constexpr float kNoPathRan = 0.9f; // 1.13.4 run: quick failures counted too and the memory covered the fight
 
         // The failed request's goal (its navmesh location), read like PathState; defined below with PathRead
         bool ReadPathGoal(RE::Actor *a_actor, RE::NiPoint3 &a_goal);
@@ -944,7 +951,7 @@ namespace CombatAI::Trees
                         if (g_advanceStart.size() > 128) {
                             g_advanceStart.clear();
                         }
-                        g_advanceStart[a_thread] = actor->GetPosition();
+                        g_advanceStart[a_thread] = {actor->GetPosition(), std::chrono::steady_clock::now()};
                     }
                 }
                 if constexpr (K == Intents::Move::Backoff || K == Intents::Move::Fallback || K == Intents::Move::Advance) {
@@ -1024,7 +1031,7 @@ namespace CombatAI::Trees
             static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
             {
                 if constexpr (K == Intents::Move::Advance) {
-                    std::optional<RE::NiPoint3> from;
+                    std::optional<AdvanceStart> from;
                     if (a_thread) {
                         std::scoped_lock guard(g_advanceLock);
                         if (const auto it = g_advanceStart.find(a_thread); it != g_advanceStart.end()) {
@@ -1033,14 +1040,22 @@ namespace CombatAI::Trees
                         }
                     }
                     // Any NPC's failed Advance (ours or vanilla's) arms the navmesh redirect for its next ones. One that
-                    // hardly moved got no path at all (1.13.2/1.13.3 runs: every search answered "none" within an update):
-                    // its goal is remembered, so later Advances (any NPC's) aim elsewhere
-                    if (a_thread && a_thread->failState.any(RE::CombatBehaviorThread::FailState::kFailed)) {
-                        auto *actor = RE::CombatBehaviorController::GetCurrentAttacker();
+                    // ran its retry time without moving got no path at all (1.13.2/1.13.3 runs: every search answered
+                    // "none" within an update): its goal is remembered, so later Advances (any NPC's) aim elsewhere. One
+                    // that walked clears what is remembered near its goal (that ground is reachable after all)
+                    auto *actor = a_thread ? RE::CombatBehaviorController::GetCurrentAttacker() : nullptr;
+                    const bool failed = a_thread && a_thread->failState.any(RE::CombatBehaviorThread::FailState::kFailed);
+                    if (failed) {
                         NavmeshRedirect::NoteAdvanceFailed(actor);
-                        RE::NiPoint3 goal;
-                        if (actor && from && actor->GetPosition().GetDistance(*from) < kNoPathMoved && ReadPathGoal(actor, goal)) {
+                    }
+                    RE::NiPoint3 goal;
+                    if (actor && from) {
+                        const float moved = actor->GetPosition().GetDistance(from->pos);
+                        const float ran = std::chrono::duration<float>(std::chrono::steady_clock::now() - from->at).count();
+                        if (failed && moved < kNoPathMoved && ran >= kNoPathRan && ReadPathGoal(actor, goal)) {
                             NavmeshRedirect::NoteNoPath(actor, goal);
+                        } else if (!failed && moved >= kNoPathMoved && ReadPathGoal(actor, goal)) {
+                            NavmeshRedirect::NotePathWalked(actor, goal);
                         }
                     }
                 }

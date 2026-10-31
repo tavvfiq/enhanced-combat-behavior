@@ -8,8 +8,9 @@
 // flanking) path through Flank and Flank distant paths, whose goal can sit off the navmesh too (1.10.1 run: a Marauder
 // Rogue's distant flank goal had no navmesh): those goals are moved the same way, without waiting for a failure.
 // Some navmesh is walkable but cut off (1.13.3 run: one triangle on a hill in every instant "no path" of three runs,
-// our Advance and vanilla's alike). An Advance that got no path is remembered by its goal for 30 s, for every NPC; a
-// later Advance goal near one moves toward the NPC onto other navmesh (1.13.4).
+// our Advance and vanilla's alike). An Advance that got no path is remembered by its goal for 15 s, for every NPC; a
+// later Advance goal near one moves toward the NPC onto other navmesh (1.13.4). An Advance that walks toward a goal
+// near a remembered one clears it (1.13.5: the target moves, and the memory had covered the whole fight).
 namespace CombatAI::NavmeshRedirect
 {
     // Hook the request fill of the Advance, Flank and Flank distant paths (vtable slot 7 of their CombatPath classes)
@@ -20,6 +21,9 @@ namespace CombatAI::NavmeshRedirect
 
     // a_actor's Advance failed without moving: its path request's goal (a navmesh point) got no path
     void NoteNoPath(RE::Actor *a_actor, const RE::NiPoint3 &a_goal);
+
+    // a_actor's Advance walked (>= 40 units) toward a_goal: remembered no-path goals near it are cleared
+    void NotePathWalked(RE::Actor *a_actor, const RE::NiPoint3 &a_goal);
 
     // Forget a_actor (death, combat end)
     void Evict(RE::FormID a_formID);

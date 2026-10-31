@@ -43,7 +43,7 @@ namespace CombatAI::NavmeshRedirect
         };
         std::mutex g_badLock;
         std::vector<BadGoal> g_bad;
-        constexpr float kBadMemory = 30.0f;
+        constexpr float kBadMemory = 15.0f;
         constexpr float kBadRadius = 120.0f;
         constexpr float kAvoidSteps[] = {140.0f, 220.0f};
 
@@ -326,10 +326,32 @@ namespace CombatAI::NavmeshRedirect
                 g_bad.push_back({a_goal, now});
             }
         }
-        if (Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
-            LOG_DEBUG("Navmesh 0x{:08X}: Advance got no path to ({:.0f}, {:.0f}, {:.0f}) - Advance goals within {:.0f} of it "
-                      "aim elsewhere for {:.0f} s",
-                      a_actor->GetFormID(), a_goal.x, a_goal.y, a_goal.z, kBadRadius, kBadMemory);
+        std::size_t count = 0;
+        {
+            std::scoped_lock guard(g_badLock);
+            count = g_bad.size();
+        }
+        // Every NPC's: notes are rare (one per instant no-path failure) and tell who fills the memory
+        LOG_DEBUG("Navmesh 0x{:08X}: Advance got no path to ({:.0f}, {:.0f}, {:.0f}) - Advance goals within {:.0f} of it "
+                  "aim elsewhere for {:.0f} s ({} remembered)",
+                  a_actor->GetFormID(), a_goal.x, a_goal.y, a_goal.z, kBadRadius, kBadMemory, count);
+    }
+
+    void NotePathWalked(RE::Actor *a_actor, const RE::NiPoint3 &a_goal)
+    {
+        if (!a_actor) {
+            return;
+        }
+        std::size_t cleared = 0, left = 0;
+        {
+            std::scoped_lock guard(g_badLock);
+            cleared = std::erase_if(g_bad, [&](const BadGoal &a_b) { return a_b.point.GetDistance(a_goal) < kBadRadius; });
+            left = g_bad.size();
+        }
+        if (cleared) {
+            LOG_DEBUG("Navmesh 0x{:08X}: Advance walked to ({:.0f}, {:.0f}, {:.0f}) - {} remembered no-path goal(s) near it "
+                      "cleared ({} left)",
+                      a_actor->GetFormID(), a_goal.x, a_goal.y, a_goal.z, cleared, left);
         }
     }
 

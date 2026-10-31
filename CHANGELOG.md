@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.13.5 (2026-10-31)
+
+Untested in game.
+
+- **Dead-end memory, fixed.** In the last test the cut-off spot was remembered, but the memory then spread across the whole fight: quick failures of other kinds were counted, the remembered spots followed you as you moved, and nothing ever cleared them, so NPCs were sent to points short of you (one walked 182 units and got no closer). Now a spot is remembered only when an approach ran its full second without the NPC moving, an NPC that walks toward a remembered spot clears it, and spots are forgotten after 15 seconds instead of 30. Every remembered and cleared spot is in the debug log.
+
 ## Enhanced Combat Behavior 1.13.4 (2026-10-31)
 
 Untested in game.
