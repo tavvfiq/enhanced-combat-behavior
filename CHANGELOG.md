@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.13.4 (2026-10-31)
+
+Untested in game.
+
+- **NPCs stop walking into a dead end over and over.** Some walkable ground in the game's navmesh is cut off from the ground around it (the last three tests: one patch on a hill was in every approach where the game found no route at all, for this mod's approach and the game's own). The NPC then stood still for about a second, gave up, and tried the same spot again. Now, when an approach fails without the NPC moving, its goal is remembered for 30 seconds, for every NPC; a later approach aimed near it (within 120 units) is aimed 140 or 220 units closer to the NPC instead, onto walkable ground away from the dead end. When the NPC itself stands in the cut-off patch nothing changes (no route out exists). Part of the existing `AdvanceNavmeshRedirect` setting.
+
 ## Enhanced Combat Behavior 1.13.3 (2026-10-31)
 
 Untested in game.

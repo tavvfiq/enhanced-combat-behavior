@@ -9,6 +9,8 @@
 
 #include <chrono>
 #include <cmath>
+#include <mutex>
+#include <vector>
 
 namespace CombatAI::NavmeshRedirect
 {
@@ -30,12 +32,36 @@ namespace CombatAI::NavmeshRedirect
 
         ThreadSafeMap<RE::FormID, Clock::time_point> g_failed;
 
+        // Goals that got no path (NoteNoPath), for every NPC: a later Advance goal within kBadRadius of one moves
+        // kAvoidSteps toward the NPC, onto navmesh outside every bad radius. shortcut: by distance, not by triangle
+        // (no triangle lookup in CommonLib; tri 287 spanned ~300 units) - a goal still in the bad patch fails, gets
+        // remembered too, and the next one moves on from there
+        struct BadGoal
+        {
+            RE::NiPoint3 point;
+            Clock::time_point at;
+        };
+        std::mutex g_badLock;
+        std::vector<BadGoal> g_bad;
+        constexpr float kBadMemory = 30.0f;
+        constexpr float kBadRadius = 120.0f;
+        constexpr float kAvoidSteps[] = {140.0f, 220.0f};
+
+        bool NearBadGoal(const RE::NiPoint3 &a_point)
+        {
+            const auto now = Clock::now();
+            std::scoped_lock guard(g_badLock);
+            std::erase_if(g_bad, [&](const BadGoal &a_b) { return std::chrono::duration<float>(now - a_b.at).count() > kBadMemory; });
+            return std::ranges::any_of(g_bad, [&](const BadGoal &a_b) { return a_b.point.GetDistance(a_point) < kBadRadius; });
+        }
+
         float Distance2D(const RE::NiPoint3 &a_a, const RE::NiPoint3 &a_b)
         {
             return std::hypot(a_a.x - a_b.x, a_a.y - a_b.y);
         }
 
         bool OnNavmesh(RE::Actor *a_actor, const RE::NiPoint3 &a_point);
+        bool AvoidBadGoal(std::uintptr_t a_path, RE::NiPoint3 &a_point, float &a_radius);
 
         // The three combat paths whose goal can sit off the navmesh, with their destination's layout. The path's actor
         // handle sits at path+0x10 (CombatPath). A Ref destination (Advance, Flank) holds the target's point at +8 and
@@ -163,6 +189,9 @@ namespace CombatAI::NavmeshRedirect
                     }
                 }
                 swap = swap || Redirect(a_path, K, newPoint, newRadius);
+                if constexpr (K == Kind::Advance) {
+                    swap = AvoidBadGoal(a_path, newPoint, newRadius) || swap;
+                }
                 if (swap) {
                     *point = newPoint;
                     *radius = newRadius;
@@ -189,6 +218,63 @@ namespace CombatAI::NavmeshRedirect
             }
             const float above = a_point.z - closest.z;
             return Distance2D(closest, a_point) <= kOnNavmesh && above <= kMaxAbove && -above <= kMaxBelow;
+        }
+
+        // An Advance goal near a remembered no-path goal moves toward the NPC (kAvoidSteps), snapped to the navmesh, to
+        // the first spot outside every bad radius. Not when the NPC itself stands in one (its start is the problem) or
+        // is closer to the goal than the step.
+        bool AvoidBadGoal(std::uintptr_t a_path, RE::NiPoint3 &a_point, float &a_radius)
+        {
+            if (!Config::GetInstance().GetDecisionMatrix().advanceNavmeshRedirect || !NearBadGoal(a_point)) {
+                return false;
+            }
+            const auto actor = reinterpret_cast<const RE::ActorHandle *>(a_path + 0x10)->get();
+            if (!actor || actor->IsPlayerRef()) {
+                return false;
+            }
+            const auto from = actor->GetPosition();
+            const bool debug = Config::GetInstance().IsDebugTarget(actor->GetFormID());
+            const float dist = a_point.GetDistance(from);
+            if (NearBadGoal(from)) {
+                if (debug) {
+                    LOG_DEBUG("Navmesh 0x{:08X}: Advance goal ({:.0f}, {:.0f}, {:.0f}) got no path before, but the NPC stands "
+                              "there too - left as is",
+                              actor->GetFormID(), a_point.x, a_point.y, a_point.z);
+                }
+                return false;
+            }
+            auto *pathing = RE::Pathing::GetSingleton();
+            for (const float step : kAvoidSteps) {
+                if (!pathing || dist < step + 40.0f) {
+                    break;
+                }
+                const RE::NiPoint3 candidate = a_point + (from - a_point) * (step / dist);
+                RE::BSTSmartPointer<RE::BSPathingCell> cell;
+                RE::NiPoint3 closest;
+                if (!pathing->GetPathingCell(candidate, actor->GetParentCell(), actor->GetWorldspace(), cell) || !cell ||
+                    !pathing->FindClosestPointOnNavmesh(cell, candidate, closest)) {
+                    continue;
+                }
+                const float above = candidate.z - closest.z;
+                if (Distance2D(closest, candidate) > kOnNavmesh || above > kMaxAbove || -above > kMaxBelow || NearBadGoal(closest)) {
+                    continue;
+                }
+                if (debug) {
+                    LOG_DEBUG("Navmesh 0x{:08X}: Advance goal ({:.0f}, {:.0f}, {:.0f}) got no path before; goal moved {:.0f} "
+                              "toward the NPC to ({:.0f}, {:.0f}, {:.0f}), radius {:.0f} -> {:.0f}",
+                              actor->GetFormID(), a_point.x, a_point.y, a_point.z, step, closest.x, closest.y, closest.z,
+                              a_radius, kMinRadius);
+                }
+                a_point = closest;
+                a_radius = kMinRadius;
+                return true;
+            }
+            if (debug) {
+                LOG_DEBUG("Navmesh 0x{:08X}: Advance goal ({:.0f}, {:.0f}, {:.0f}) got no path before; no other navmesh "
+                          "toward the NPC ({:.0f} away) - left as is",
+                          actor->GetFormID(), a_point.x, a_point.y, a_point.z, dist);
+            }
+            return false;
         }
 
         template <class Hook>
@@ -218,6 +304,32 @@ namespace CombatAI::NavmeshRedirect
         if (a_actor) {
             const auto now = Clock::now();
             g_failed.ModifyOrCreate(a_actor->GetFormID(), [&](Clock::time_point &a_at) { a_at = now; });
+        }
+    }
+
+    void NoteNoPath(RE::Actor *a_actor, const RE::NiPoint3 &a_goal)
+    {
+        if (!a_actor || !Config::GetInstance().GetDecisionMatrix().advanceNavmeshRedirect) {
+            return;
+        }
+        const auto now = Clock::now();
+        {
+            std::scoped_lock guard(g_badLock);
+            // The same spot again refreshes its entry
+            auto it = std::ranges::find_if(g_bad, [&](const BadGoal &a_b) { return a_b.point.GetDistance(a_goal) < kBadRadius * 0.5f; });
+            if (it != g_bad.end()) {
+                it->at = now;
+            } else {
+                if (g_bad.size() >= 32) {
+                    g_bad.erase(g_bad.begin());
+                }
+                g_bad.push_back({a_goal, now});
+            }
+        }
+        if (Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+            LOG_DEBUG("Navmesh 0x{:08X}: Advance got no path to ({:.0f}, {:.0f}, {:.0f}) - Advance goals within {:.0f} of it "
+                      "aim elsewhere for {:.0f} s",
+                      a_actor->GetFormID(), a_goal.x, a_goal.y, a_goal.z, kBadRadius, kBadMemory);
         }
     }
 

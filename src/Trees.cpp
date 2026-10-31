@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cmath>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 
 namespace CombatAI::Trees
@@ -502,6 +503,14 @@ namespace CombatAI::Trees
         std::mutex g_auditLock;
         std::unordered_map<const void *, MoveRun> g_audit; // per thread
 
+        // Where each running Advance started (every NPC, per thread): a failed one that hardly moved got no path
+        std::mutex g_advanceLock;
+        std::unordered_map<const void *, RE::NiPoint3> g_advanceStart;
+        constexpr float kNoPathMoved = 40.0f;
+
+        // The failed request's goal (its navmesh location), read like PathState; defined below with PathRead
+        bool ReadPathGoal(RE::Actor *a_actor, RE::NiPoint3 &a_goal);
+
         const char *MoveName(Intents::Move a_move)
         {
             constexpr const char *kNames[] = {"none", "Advance", "Circle", "Fallback", "Backoff"};
@@ -929,6 +938,15 @@ namespace CombatAI::Trees
         {
             static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
             {
+                if constexpr (K == Intents::Move::Advance) {
+                    if (auto *actor = a_thread ? RE::CombatBehaviorController::GetCurrentAttacker() : nullptr) {
+                        std::scoped_lock guard(g_advanceLock);
+                        if (g_advanceStart.size() > 128) {
+                            g_advanceStart.clear();
+                        }
+                        g_advanceStart[a_thread] = actor->GetPosition();
+                    }
+                }
                 if constexpr (K == Intents::Move::Backoff || K == Intents::Move::Fallback || K == Intents::Move::Advance) {
                     bool ours = false;
                     const auto &matrix = Config::GetInstance().GetDecisionMatrix();
@@ -1006,9 +1024,24 @@ namespace CombatAI::Trees
             static void thunk(Node *a_node, RE::CombatBehaviorThread *a_thread)
             {
                 if constexpr (K == Intents::Move::Advance) {
-                    // Any NPC's failed Advance (ours or vanilla's) arms the navmesh redirect for its next ones
+                    std::optional<RE::NiPoint3> from;
+                    if (a_thread) {
+                        std::scoped_lock guard(g_advanceLock);
+                        if (const auto it = g_advanceStart.find(a_thread); it != g_advanceStart.end()) {
+                            from = it->second;
+                            g_advanceStart.erase(it);
+                        }
+                    }
+                    // Any NPC's failed Advance (ours or vanilla's) arms the navmesh redirect for its next ones. One that
+                    // hardly moved got no path at all (1.13.2/1.13.3 runs: every search answered "none" within an update):
+                    // its goal is remembered, so later Advances (any NPC's) aim elsewhere
                     if (a_thread && a_thread->failState.any(RE::CombatBehaviorThread::FailState::kFailed)) {
-                        NavmeshRedirect::NoteAdvanceFailed(RE::CombatBehaviorController::GetCurrentAttacker());
+                        auto *actor = RE::CombatBehaviorController::GetCurrentAttacker();
+                        NavmeshRedirect::NoteAdvanceFailed(actor);
+                        RE::NiPoint3 goal;
+                        if (actor && from && actor->GetPosition().GetDistance(*from) < kNoPathMoved && ReadPathGoal(actor, goal)) {
+                            NavmeshRedirect::NoteNoPath(actor, goal);
+                        }
                     }
                 }
                 if constexpr (K == Intents::Move::Circle) {
@@ -1515,6 +1548,22 @@ namespace CombatAI::Trees
 
     namespace
     {
+        bool ReadPathGoal(RE::Actor *a_actor, RE::NiPoint3 &a_goal)
+        {
+            static const RE::BSFixedString kName{"IMovementQueryPathingState"};
+            auto *controller = a_actor ? a_actor->GetActorRuntimeData().movementController.get() : nullptr;
+            if (!controller) {
+                return false;
+            }
+            PathRead r;
+            CopyPathRead(controller, &kName, REL::Module::get().base(), r);
+            if (!r.request || !r.goalMesh) {
+                return false;
+            }
+            a_goal = {r.goal[0], r.goal[1], r.goal[2]};
+            return true;
+        }
+
         // "; navmeshes: start 0x.. (NAVM), goal 0x.. (NAVM), same | neighbours | not neighbours (start has N
         // neighbours, M doors)"; an id that is no NAVM form says the BSNavmeshInfo layout is wrong
         std::string NavmeshPair(const PathRead &a_r)
