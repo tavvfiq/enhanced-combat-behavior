@@ -32,8 +32,6 @@ namespace CombatAI
         bool HasMagicEquipped(RE::Actor *a_actor) const;
 
         // Enhance based on combat style flags and multipliers
-        DecisionResult EnhanceForDuelingStyle(RE::Actor *a_actor, const DecisionResult &a_decision,
-                                              const ActorStateData &a_state, RE::TESCombatStyle *a_style);
         DecisionResult EnhanceForFlankingStyle(RE::Actor *a_actor, const DecisionResult &a_decision,
                                                const ActorStateData &a_state, RE::TESCombatStyle *a_style);
         DecisionResult EnhanceForAggressiveStyle(RE::Actor *a_actor, const DecisionResult &a_decision,

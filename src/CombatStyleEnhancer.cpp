@@ -57,10 +57,10 @@ namespace CombatAI
             return enhanced; // No combat style, armor adjustment only
         }
 
-        // Apply style-specific enhancements based on flags (mutually exclusive styles)
-        if (style->flags.any(RE::TESCombatStyle::FLAG::kDuelingStyle)) {
-            enhanced = EnhanceForDuelingStyle(a_actor, enhanced, a_state, style);
-        } else if (style->flags.any(RE::TESCombatStyle::FLAG::kFlankingStyle)) {
+        // Flanking styles get their nudges. The dueling flag gets none (1.13.6): Skyrim.esm sets it on 125 of its 145
+        // combat styles, every csHumanMelee level included, so its nudges (retreat -0.3, backoff -0.2, sprint attack
+        // -0.3, bash/dodge/power attack +0.15) applied to nearly every NPC as a hidden baseline
+        if (style->flags.any(RE::TESCombatStyle::FLAG::kFlankingStyle)) {
             enhanced = EnhanceForFlankingStyle(a_actor, enhanced, a_state, style);
         }
 
@@ -143,48 +143,6 @@ namespace CombatAI
         // Check if casting or has spell equipped
         return ActorUtils::SafeWhoIsCasting(a_actor) != 0 ||
                ActorUtils::SafeGetEquippedObject(a_actor, true) != nullptr;
-    }
-
-    DecisionResult CombatStyleEnhancer::EnhanceForDuelingStyle([[maybe_unused]] RE::Actor *a_actor,
-                                                               const DecisionResult &a_decision,
-                                                               const ActorStateData &a_state,
-                                                               RE::TESCombatStyle *a_style)
-    {
-        DecisionResult result = a_decision;
-
-        // Dueling style: More focused on 1v1, prefers bash interrupts and precise attacks - subtle nudge
-        if (result.action == ActionType::Bash) {
-            result.priority += 0.15f; // Subtle boost
-        }
-
-        if (result.action == ActionType::Dodge) {
-            result.priority += 0.15f; // Subtle boost
-        }
-
-        // Prefer power attacks when stamina allows (duelists are precise)
-        if (result.action == ActionType::PowerAttack && HasMeleeWeapon(a_actor)) {
-            result.priority += 0.15f; // Subtle boost
-        }
-
-        // Less likely to retreat, use combat style fallback threshold
-        if (result.action == ActionType::Retreat) {
-            float retreatThreshold = a_style ? a_style->closeRangeData.fallbackMult * 0.1f : 0.15f;
-            if (a_state.self.healthPercent > retreatThreshold) {
-                result.priority = (std::max)(0.0f, result.priority - 0.3f);
-            }
-        }
-
-        // Dueling style: Less likely to backoff (prefer dodging/strafe for positioning)
-        if (result.action == ActionType::Backoff) {
-            result.priority = (std::max)(0.0f, result.priority - 0.2f); // Prefer dodging over backing off
-        }
-
-        // Don't use sprint attacks (duelists prefer precision)
-        if (result.action == ActionType::SprintAttack) {
-            result.priority = (std::max)(0.0f, result.priority - 0.3f);
-        }
-
-        return result;
     }
 
     DecisionResult CombatStyleEnhancer::EnhanceForFlankingStyle([[maybe_unused]] RE::Actor *a_actor,

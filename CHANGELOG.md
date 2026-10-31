@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.13.6 (2026-10-31)
+
+Untested in game.
+
+- **No more hidden "dueling" adjustments for almost everyone.** Since the first release, NPCs whose combat style has the dueling flag were made less likely to retreat (-0.3), back off (-0.2) or sprint attack (-0.3), and a bit more likely to bash, dodge or power attack (+0.15). The game sets that flag on 125 of its 145 combat styles, every bandit and soldier level included, so this applied to nearly every NPC. It is gone: retreating, backing off and sprint attacks now follow the brain's own scores. Expect NPCs to back off, retreat and sprint attack somewhat more often than before; flanking, offensive, defensive and magic style adjustments are unchanged.
+
 ## Enhanced Combat Behavior 1.13.5 (2026-10-31)
 
 Untested in game.
