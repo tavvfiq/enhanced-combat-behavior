@@ -1434,10 +1434,16 @@ namespace CombatAI::Trees
         // its retry time of answers <= 0, and Advance then fails). Status 0 cleared, 1 searching, 2 following, 3 done
         // (SE writers 88455 / 88452 / 88451 / 88454; meanings likely, not proven). The request is a BSPathingRequest
         // (CommonLib layout): start location +0x10 (navmesh info +0x20, triangle +0x38), goal point +0x48, goal
-        // location +0x58 (navmesh info +0x68, triangle +0x80), goal radius +0x8C
+        // location +0x58 (navmesh info +0x68, triangle +0x80), goal radius +0x8C. The navmesh info is a BSNavmeshInfo
+        // (layout from lib/CommonLibSSE BSNavmeshInfoMap.h, absent in NG): navmesh id +0x00, connected doors +0x10 /
+        // count +0x20, adjacent mesh ids +0x18 / count +0x22. 1.13.3: the 1.13.2 run's no-path answers came within one
+        // update with both ends on the navmesh; same navmesh, neighbours or neither tells a broken cell edge or an
+        // island from a search refused inside one navmesh. The id is checked against the form table (a NAVM form)
         struct PathRead
         {
-            bool iface = false, request = false, startMesh = false, goalMesh = false;
+            bool iface = false, request = false, startMesh = false, goalMesh = false, goalAdjacent = false;
+            std::uint32_t startNav = 0, goalNav = 0;
+            std::uint16_t startAdjacent = 0, startDoors = 0;
             std::int32_t status = 0;
             std::uint16_t startTri = 0, goalTri = 0;
             float start[3]{}, goalPoint[3]{}, goal[3]{}, radius = 0.0f;
@@ -1467,6 +1473,18 @@ namespace CombatAI::Trees
                 a_out.goalMesh = *reinterpret_cast<const std::uintptr_t *>(request + 0x68) != 0;
                 a_out.goalTri = *reinterpret_cast<const std::uint16_t *>(request + 0x80);
                 a_out.radius = *reinterpret_cast<const float *>(request + 0x8C);
+                if (const auto info = *reinterpret_cast<const std::uintptr_t *>(request + 0x68)) {
+                    a_out.goalNav = *reinterpret_cast<const std::uint32_t *>(info);
+                }
+                if (const auto info = *reinterpret_cast<const std::uintptr_t *>(request + 0x20)) {
+                    a_out.startNav = *reinterpret_cast<const std::uint32_t *>(info);
+                    a_out.startDoors = *reinterpret_cast<const std::uint16_t *>(info + 0x20);
+                    a_out.startAdjacent = *reinterpret_cast<const std::uint16_t *>(info + 0x22);
+                    const auto *adjacent = *reinterpret_cast<const std::uint32_t *const *>(info + 0x18);
+                    for (std::uint16_t i = 0; adjacent && i < a_out.startAdjacent && i < 64; ++i) {
+                        a_out.goalAdjacent |= adjacent[i] == a_out.goalNav;
+                    }
+                }
                 // The request's class from its RTTI (vtable[-1] -> complete object locator -> type descriptor name)
                 const auto vtable = *reinterpret_cast<const std::uintptr_t *>(request);
                 const auto locator = *reinterpret_cast<const std::uintptr_t *>(vtable - 8);
@@ -1493,6 +1511,26 @@ namespace CombatAI::Trees
             }
             static inline REL::Relocation<decltype(thunk)> func;
         };
+    } // namespace
+
+    namespace
+    {
+        // "; navmeshes: start 0x.. (NAVM), goal 0x.. (NAVM), same | neighbours | not neighbours (start has N
+        // neighbours, M doors)"; an id that is no NAVM form says the BSNavmeshInfo layout is wrong
+        std::string NavmeshPair(const PathRead &a_r)
+        {
+            const auto kind = [](std::uint32_t a_id) {
+                const auto *form = a_id ? RE::TESForm::LookupByID(a_id) : nullptr;
+                return !a_id ? "none" : !form ? "no form" : form->GetFormType() == RE::FormType::NavMesh ? "NAVM" : "not a NAVM";
+            };
+            const char *relation = !a_r.startNav || !a_r.goalNav   ? "unknown"
+                                   : a_r.startNav == a_r.goalNav   ? "same navmesh"
+                                   : a_r.goalAdjacent              ? "neighbours"
+                                                                   : "not neighbours";
+            return std::format("; navmeshes: start 0x{:08X} ({}), goal 0x{:08X} ({}), {} (start has {} neighbours, {} doors)",
+                               a_r.startNav, kind(a_r.startNav), a_r.goalNav, kind(a_r.goalNav), relation,
+                               a_r.startAdjacent, a_r.startDoors);
+        }
     } // namespace
 
     std::string PathState(RE::Actor *a_actor)
@@ -1530,7 +1568,8 @@ namespace CombatAI::Trees
                            "{:.0f}; {}",
                            r.status, status, type, r.start[0], r.start[1], r.start[2], r.startMesh ? "yes" : "no",
                            r.startTri, r.goalPoint[0], r.goalPoint[1], r.goalPoint[2], r.goal[0], r.goal[1], r.goal[2],
-                           r.goalMesh ? "yes" : "no", r.goalTri, r.radius, target);
+                           r.goalMesh ? "yes" : "no", r.goalTri, r.radius, target) +
+               NavmeshPair(r);
     }
 
     std::string RunningNodes(RE::Actor *a_actor)

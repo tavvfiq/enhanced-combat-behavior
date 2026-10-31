@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.13.3 (2026-10-31)
+
+Untested in game.
+
+- Debug log only, no behaviour change. The last test showed that failed approaches are the game's pathfinder answering "no path" at once, not a slow search, with both ends on walkable ground. A failed approach now also names the navmesh (the game's walkable-ground mesh, one or more per cell) under each end and whether they are the same mesh, neighbours, or not connected at all, to tell a broken link between two cells or a cut-off patch of ground from something else.
+
 ## Enhanced Combat Behavior 1.13.2 (2026-10-31)
 
 Untested in game.
