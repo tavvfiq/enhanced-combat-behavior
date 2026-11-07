@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.18.4 (2026-11-07)
+
+Untested in game. Debug probe for the selected NPC only.
+
+- **Swing probe:** when the selected NPC is in reach, idle, weapon drawn and its graph is not attack-ready, every 3 s it is sent an attack event directly (`attackStart`, then `attackStartLeftHand`, in turn) and the log says whether the graph took it. The 1.18.3 run: an NPC with a pistol (right, OHCF) and Ronin's Main-Gauche (left) sat idle, drawn, with no attack/block/stagger/recoil/equip/jump flag set, and `IsAttackReady` false 161 of 188 times in reach; it never swung. This tells whether the graph can swing at all. Only the selected NPC (debug log on) gets these events: it may swing where it otherwise would not.
+
 ## Enhanced Combat Behavior 1.18.3 (2026-11-07)
 
 Untested in game. Debug log only, no behavior change.
