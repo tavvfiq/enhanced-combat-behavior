@@ -35,6 +35,13 @@ namespace CombatAI
     {
         return (value < minVal) ? minVal : ((value > maxVal) ? maxVal : value);
     }
+
+    // A bow or crossbow from the start of the draw to the release: bows have their own attack states
+    // (ActorState.h kBowDraw 8 .. kBowReleasing 11); the melee kDraw (1) never shows on a bow
+    static bool IsBowDrawState(RE::ATTACK_STATE_ENUM a_state)
+    {
+        return a_state >= RE::ATTACK_STATE_ENUM::kBowDraw && a_state <= RE::ATTACK_STATE_ENUM::kBowReleasing;
+    }
     ActorStateData ActorStateObserver::GatherState(RE::Actor *a_actor, float a_deltaTime)
     {
         ActorStateData data;
@@ -273,9 +280,7 @@ namespace CombatAI
         if (equippedWeapon && equippedWeapon->IsWeapon()) {
             auto weapon = equippedWeapon->As<RE::TESObjectWEAP>();
             if (weapon && (weapon->IsBow() || weapon->IsCrossbow())) {
-                RE::ATTACK_STATE_ENUM attackState = ActorUtils::SafeGetAttackState(a_target);
-                // kDraw means they're drawing the bow
-                state.isDrawingBow = (attackState == RE::ATTACK_STATE_ENUM::kDraw);
+                state.isDrawingBow = IsBowDrawState(ActorUtils::SafeGetAttackState(a_target));
             }
         }
 
@@ -1185,8 +1190,7 @@ namespace CombatAI
                     if (targetEquippedWeapon && targetEquippedWeapon->IsWeapon()) {
                         auto weapon = targetEquippedWeapon->As<RE::TESObjectWEAP>();
                         if (weapon && (weapon->IsBow() || weapon->IsCrossbow())) {
-                            RE::ATTACK_STATE_ENUM targetAttackState = ActorUtils::SafeGetAttackState(a_target);
-                            targetIsDrawing = (targetAttackState == RE::ATTACK_STATE_ENUM::kDraw);
+                            targetIsDrawing = IsBowDrawState(ActorUtils::SafeGetAttackState(a_target));
                         }
                     }
                     RE::ATTACK_STATE_ENUM targetAttackState = ActorUtils::SafeGetAttackState(a_target);

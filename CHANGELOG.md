@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.15.2 (2026-11-07)
+
+Untested in game.
+
+- **NPCs now notice you drawing a bow or crossbow.** The check looked for the melee wind-up state, which a bow never uses (bows have their own draw states), so "the target is drawing a bow" was never true. Everything keyed on it starts working: NPCs treat a drawing archer as open (bash to interrupt, press in, stagger shouts), close in on a kiting archer, and weigh how long you have held the draw.
+
 ## Enhanced Combat Behavior 1.15.1 (2026-10-31)
 
 Untested in game.
