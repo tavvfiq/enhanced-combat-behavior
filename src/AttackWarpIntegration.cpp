@@ -233,7 +233,7 @@ namespace CombatAI::AttackWarp
             if (Config::GetInstance().IsDebugTarget(id)) {
                 LOG_DEBUG("Warp 0x{:08X}: tuning turn x{:.2f}, lead x{:.2f}, stretch x{:.2f}{} (skill {:.2f}){}",
                           static_cast<std::uint32_t>(id), wanted.turnRate, wanted.lead, wanted.stretch,
-                          a_held ? " - waiting its turn, no stretch" : "", a_skill,
+                          a_held ? " - no stretch (waiting its turn, or a gun)" : "", a_skill,
                           result == ATTACKWARP_API::APIResult::OK ? "" : " - refused");
             }
         }

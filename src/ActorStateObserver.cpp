@@ -21,6 +21,7 @@
 #include "AttackDefenseFeedbackTracker.h"
 #include "Config.h"
 #include "EnvSensor.h"
+#include "Guns.h"
 #include "GuardCounterFeedbackTracker.h"
 #include "ParryFeedbackTracker.h"
 #include "PrecisionIntegration.h"
@@ -41,36 +42,6 @@ namespace CombatAI
     static bool IsBowDrawState(RE::ATTACK_STATE_ENUM a_state)
     {
         return a_state >= RE::ATTACK_STATE_ENUM::kBowDraw && a_state <= RE::ATTACK_STATE_ENUM::kBowReleasing;
-    }
-
-    // A weapon carrying one of [DecisionMatrix] GunKeywords (comma-separated keyword EditorIDs). Keywords keep their
-    // EditorIDs in memory, KID's included, so the list works for any mod's guns whatever weapon type they use.
-    static bool IsGun(RE::TESForm *a_item)
-    {
-        const std::string &list = Config::GetInstance().GetDecisionMatrix().gunKeywords;
-        auto *weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr;
-        if (list.empty() || !weapon) {
-            return false;
-        }
-        std::size_t start = 0;
-        while (start < list.size()) {
-            const std::size_t comma = list.find(',', start);
-            std::string_view entry(list.data() + start, (comma == std::string::npos ? list.size() : comma) - start);
-            while (!entry.empty() && entry.front() == ' ') {
-                entry.remove_prefix(1);
-            }
-            while (!entry.empty() && entry.back() == ' ') {
-                entry.remove_suffix(1);
-            }
-            if (!entry.empty() && weapon->HasKeywordString(entry)) {
-                return true;
-            }
-            if (comma == std::string::npos) {
-                break;
-            }
-            start = comma + 1;
-        }
-        return false;
     }
 
     // A gun with a melee weapon in the other hand counts as a gun from this far: closer in it is a sword fight
@@ -236,6 +207,14 @@ namespace CombatAI
         state.isRanged = (state.weaponType == WeaponType::Bow || state.weaponType == WeaponType::Crossbow);
         state.isMelee = (state.isOneHanded || state.isTwoHanded || state.weaponType == WeaponType::Unarmed ||
                          state.weaponType == WeaponType::Staff);
+        // A gunman (1.17.0): guns only, whatever weapon type they have (an axe to OHCF) - a ranged fighter
+        state.isGunman = Guns::IsGunman(a_actor);
+        if (state.isGunman) {
+            state.isRanged = true;
+            state.isMelee = false;
+            state.isOneHanded = false;
+            state.isTwoHanded = false;
+        }
 
         // Body armor class from the worn biped (cheap; GetWornArmor walks the whole inventory)
         if (const auto &biped = a_actor->GetCurrentBiped()) {
@@ -394,16 +373,12 @@ namespace CombatAI
         // Guns (1.16.0): a GunKeywords weapon in either hand. Alone (or two of them, or with a spell or staff in the
         // other hand) its holder is a ranged fighter; with a melee weapon in the other hand only beyond
         // kGunCloseRange. A gun has no bow draw, so its wind-up (any attack state) is the shot being aimed.
-        RE::TESForm *leftHand = ActorUtils::SafeGetEquippedObject(a_target, true);
-        state.gunRight = IsGun(state.equippedRightHand);
-        state.gunLeft = IsGun(leftHand);
-        state.hasGun = state.gunRight || state.gunLeft;
+        const auto hands = Guns::Of(a_target);
+        state.gunRight = hands.right;
+        state.gunLeft = hands.left;
+        state.hasGun = hands.Any();
         if (state.hasGun) {
-            RE::TESForm *other = state.gunRight ? (state.gunLeft ? nullptr : leftHand) : state.equippedRightHand;
-            auto *otherWeapon = other ? other->As<RE::TESObjectWEAP>() : nullptr;
-            const bool meleeOther =
-                otherWeapon && !otherWeapon->IsBow() && !otherWeapon->IsCrossbow() && !otherWeapon->IsStaff();
-            if (!meleeOther || state.distance > kGunCloseRange) {
+            if (!hands.meleeOther || state.distance > kGunCloseRange) {
                 state.isRanged = true;
                 state.isMelee = false;
                 state.isDrawingBow = ActorUtils::SafeGetAttackState(a_target) != RE::ATTACK_STATE_ENUM::kNone;

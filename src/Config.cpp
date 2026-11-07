@@ -52,8 +52,11 @@ namespace CombatAI
         if (m_decisionMatrix.gunKeywords.empty()) {
             LOG_INFO("Guns: off (no GunKeywords) - a pistol counts as its weapon type");
         } else {
-            LOG_INFO("Guns: weapons with keyword(s) {} count as guns in either hand - their holder is a ranged fighter",
-                     m_decisionMatrix.gunKeywords);
+            LOG_INFO("Guns: weapons with keyword(s) {} count as guns in either hand - their holder is a ranged fighter; "
+                     "NPC gunmen keep their range, own shots {}",
+                     m_decisionMatrix.gunKeywords,
+                     m_decisionMatrix.enableGunShots ? std::format("every {:.1f} s", m_decisionMatrix.gunShotInterval)
+                                                     : std::string("off"));
         }
         LOG_INFO("Stamina: retreat/backoff {}; power attacks, sprint attacks and power bashes need {:.0f}% stamina",
                  m_decisionMatrix.staminaAffectsRetreat ? "also on low stamina" : "on health only",
@@ -191,6 +194,8 @@ namespace CombatAI
         D("DecisionMatrix", "EvasionJumpChance", m_decisionMatrix.evasionJumpChance);
         D("DecisionMatrix", "JumpHeight", m_decisionMatrix.jumpHeight);
         S("DecisionMatrix", "GunKeywords", m_decisionMatrix.gunKeywords);
+        B("DecisionMatrix", "EnableGunShots", m_decisionMatrix.enableGunShots);
+        D("DecisionMatrix", "GunShotInterval", m_decisionMatrix.gunShotInterval);
         D("DecisionMatrix", "JumpStaminaCost", m_decisionMatrix.jumpStaminaCost);
         D("DecisionMatrix", "StaminaThreshold", m_decisionMatrix.staminaThreshold);
         B("DecisionMatrix", "StaminaAffectsRetreat", m_decisionMatrix.staminaAffectsRetreat);
@@ -698,6 +703,11 @@ namespace CombatAI
         m_decisionMatrix.jumpHeight =
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "JumpHeight", m_decisionMatrix.jumpHeight));
         m_decisionMatrix.gunKeywords = a_ini.GetValue("DecisionMatrix", "GunKeywords", m_decisionMatrix.gunKeywords.c_str());
+        m_decisionMatrix.enableGunShots =
+            a_ini.GetBoolValue("DecisionMatrix", "EnableGunShots", m_decisionMatrix.enableGunShots);
+        m_decisionMatrix.gunShotInterval = std::clamp(
+            static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "GunShotInterval", m_decisionMatrix.gunShotInterval)),
+            0.5f, 10.0f);
         m_decisionMatrix.jumpStaminaCost = (std::max)(
             0.0f, static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "JumpStaminaCost", m_decisionMatrix.jumpStaminaCost)));
         m_decisionMatrix.staminaThreshold = static_cast<float>(

@@ -3,6 +3,7 @@
 #include "Config.h"
 #include "BlockRules.h"
 #include "FlankingStyle.h"
+#include "Guns.h"
 #include "Intents.h"
 #include "TargetDanger.h"
 #include "Personality.h"
@@ -386,6 +387,12 @@ namespace CombatAI
         }
         const float dist = a_state.target.distance;
         const bool debug = a_actor && Config::GetInstance().IsDebugTarget(a_actor->GetFormID());
+        // A gunman (1.17.0) keeps the band its personality sets (Guns::RangeOf); archers and mages the INI's
+        const bool gunman = a_state.self.isGunman;
+        const auto band = gunman ? Guns::RangeOf(a_actor) : Guns::Band{};
+        const float keepAway = gunman ? band.backOff : dm.rangedKeepAwayDistance;
+        const float maxDistance = gunman ? band.max : dm.rangedMaxDistance;
+        const float farHold = gunman ? band.ideal : dm.rangedMaxDistance * 0.8f;
         RE::NiPoint3 away = a_state.self.position - a_state.target.position;
         away.z = 0.0f;
         away.Unitize();
@@ -403,14 +410,14 @@ namespace CombatAI
         // A melee attacker inside the keep-away distance: fall back (kite). More urgent when it is swinging at us.
         // Not mid-draw or mid-cast: the Fallback node refuses to start then (run 46: an archer's 9 fallbacks all
         // failed at once, 7 of them in bow states 8-12). It lets the shot go and falls back after.
-        if (!a_state.target.isRanged && dist < dm.rangedKeepAwayDistance &&
+        if (!a_state.target.isRanged && dist < keepAway &&
             a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone) {
             if (debug) {
                 LOG_DEBUG("Ranged 0x{:08X}: melee target at {:.0f}, finishing its shot first", a_actor->GetFormID(), dist);
             }
             return result;
         }
-        if (!a_state.target.isRanged && dist < dm.rangedKeepAwayDistance) {
+        if (!a_state.target.isRanged && dist < keepAway) {
             const bool swinging = (a_state.target.isAttacking || a_state.target.isPowerAttacking) &&
                                   TargetAimedAtUs(a_actor, a_state);
             result.action = ActionType::Retreat;
@@ -419,7 +426,7 @@ namespace CombatAI
             result.intensity = 1.0f;
             if (debug) {
                 LOG_DEBUG("Ranged 0x{:08X}: melee target at {:.0f} (keep away {:.0f}) -> fall back", a_actor->GetFormID(),
-                          dist, dm.rangedKeepAwayDistance);
+                          dist, keepAway);
             }
             return result;
         }
@@ -429,11 +436,11 @@ namespace CombatAI
         // closed in "out of sight" behind an ally and held fire 15 s).
         const bool noSight = a_state.env.losChecked && !a_state.env.losToTarget;
         RE::NiPoint3 blocker;
-        const bool allyInLine = dist <= dm.rangedMaxDistance && AllyInLineOfFire(a_state, &blocker);
-        if (dist > dm.rangedMaxDistance || (noSight && !allyInLine)) {
+        const bool allyInLine = dist <= maxDistance && AllyInLineOfFire(a_state, &blocker);
+        if (dist > maxDistance || (noSight && !allyInLine)) {
             result.action = ActionType::Advancing;
             result.priority = 1.0f;
-            result.holdDistance = noSight ? (std::max)(dm.rangedKeepAwayDistance, dist * 0.6f) : dm.rangedMaxDistance * 0.8f;
+            result.holdDistance = noSight ? (std::max)(keepAway, dist * 0.6f) : farHold;
             result.direction = -away;
             result.intensity = 0.8f;
             if (debug) {
@@ -464,7 +471,72 @@ namespace CombatAI
                           flipped ? " (other side: the last one failed)" : "");
             }
         }
+        // A gunman in its band (1.17.0): its vanilla AI fights melee (the gun is an axe or a staff to it) and keeps walking
+        // in, so the brain holds the band - in from beyond the ideal distance, circling inside it, and, reckless, pressing
+        // to the near edge while the target recovers from a swing. Its moveset still shoots on its own.
+        if (gunman && result.action == ActionType::None) {
+            constexpr float kSlack = 100.0f;
+            const char *why = "circles in its range";
+            if (dist > band.ideal + kSlack) {
+                result.action = ActionType::Advancing;
+                result.priority = 1.0f;
+                result.holdDistance = band.ideal;
+                result.direction = -away;
+                result.intensity = 0.8f;
+                why = "moves in to its ideal range";
+            } else if (Personality::Effective(a_actor).risk >= 0.55f && a_state.target.isInAttackRecovery &&
+                       dist > band.backOff + kSlack) {
+                result.action = ActionType::Advancing;
+                result.priority = 1.2f;
+                result.holdDistance = band.backOff + 50.0f;
+                result.direction = -away;
+                result.intensity = 1.0f;
+                why = "presses in while the target recovers";
+            } else {
+                result = EvaluateHeldBack(a_actor, a_state);
+            }
+            if (debug) {
+                LOG_DEBUG("Gun 0x{:08X}: target at {:.0f} (range: backs away inside {:.0f}, holds at {:.0f}, moves in beyond "
+                          "{:.0f}) -> {}",
+                          a_actor->GetFormID(), dist, band.backOff, band.ideal, band.max, why);
+            }
+        }
         // Otherwise in its band: vanilla shoots, casts, strafes and keeps its own optimal range
+        return result;
+    }
+
+    // A gunman's own shot (1.17.0), a backup to its moveset's: in range, facing the target with a clear line and no ally
+    // in it, idle, and its last attack (any source) GunShotInterval ago (x0.8-1.2 by patience). Run through our Melee
+    // tree's attack, so the engine's own attack checks still apply. In contact the moveset fights.
+    DecisionResult DecisionMatrix::EvaluateGunShot(RE::Actor *a_actor, const ActorStateData &a_state)
+    {
+        DecisionResult result;
+        const auto &dm = Config::GetInstance().GetDecisionMatrix();
+        if (!dm.enableGunShots || !a_state.target.isValid || (a_state.target.isPlayer && !a_state.target.isDetected) ||
+            a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone) {
+            return result;
+        }
+        constexpr float kContact = 150.0f;
+        constexpr float kFacingCos = 0.966f; // 15 degrees
+        const auto band = Guns::RangeOf(a_actor);
+        const float dist = a_state.target.distance;
+        const float interval = dm.gunShotInterval * (0.8f + 0.4f * Personality::Effective(a_actor).patience);
+        const float since = a_state.temporal.self.timeSinceLastAttack;
+        RE::NiPoint3 toTarget = a_state.target.position - a_state.self.position;
+        toTarget.z = 0.0f;
+        toTarget.Unitize();
+        const float facing = toTarget.x * a_state.self.forwardVector.x + toTarget.y * a_state.self.forwardVector.y;
+        const bool noSight = a_state.env.losChecked && !a_state.env.losToTarget;
+        if (dist > band.max || dist < kContact || since < interval || facing < kFacingCos || noSight ||
+            AllyInLineOfFire(a_state)) {
+            return result;
+        }
+        result.action = ActionType::Attack;
+        result.priority = 1.7f;
+        if (Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+            LOG_DEBUG("Gun 0x{:08X}: shoots at {:.0f} (last attack {:.1f} s ago, interval {:.1f} s)", a_actor->GetFormID(),
+                      dist, since, interval);
+        }
         return result;
     }
 
@@ -539,6 +611,12 @@ namespace CombatAI
         }
         if (offenseResult.action != ActionType::None) {
             possibleDecisions.push_back(offenseResult);
+        }
+
+        // A gunman's own shot (1.17.0): ranged fighters get no melee offense, this is its attack
+        DecisionResult gunShotResult = ranged && a_state.self.isGunman ? EvaluateGunShot(a_actor, a_state) : DecisionResult();
+        if (gunShotResult.action != ActionType::None) {
+            possibleDecisions.push_back(gunShotResult);
         }
 
         DecisionResult punishResult = ranged ? DecisionResult() : EvaluatePunish(a_actor, a_state);

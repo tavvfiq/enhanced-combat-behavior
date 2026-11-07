@@ -416,11 +416,12 @@ namespace CombatAI
         }
 
         decision = ApplyCombatPacing(a_actor, formID, state, decision);
-        if (AttackWarp::Available() && state.self.isMelee) {
+        // A gunman (1.17.0) is tracked too, never stretched: Attack Warp would lunge its shot toward the target
+        if (AttackWarp::Available() && (state.self.isMelee || state.self.isGunman)) {
             AttackWarp::Observe(a_actor, state,
                                 m_humanizer.SkillChance(a_actor, ActionType::Attack,
                                                         m_actorCombatTimes.Find(formID).value_or(0.0f), state),
-                                AttackCoordinator::GetSingleton().IsHeld(formID));
+                                AttackCoordinator::GetSingleton().IsHeld(formID) || state.self.isGunman);
         }
 
         // A dodge, bash or sprint change that cuts an attack's windup can leave the engine

@@ -3,6 +3,7 @@
 #include "AttackCoordinator.h"
 #include "Config.h"
 #include "DefenseTiming.h"
+#include "Guns.h"
 #include "Intents.h"
 #include "Logger.h"
 #include "NavmeshRedirect.h"
@@ -154,8 +155,16 @@ namespace CombatAI::Trees
         // Vanilla branches stay out of the way while the brain has something pending.
         float VanillaAttack(RE::Actor *a_me, RE::Actor *a_target)
         {
-            return !a_me || Intents::HasPending(a_me) ? 0.0f : Rescaled(Vanilla2(kAttackChance, a_me, a_target));
+            if (!a_me || Intents::HasPending(a_me)) {
+                return 0.0f;
+            }
+            const float chance = Rescaled(Vanilla2(kAttackChance, a_me, a_target));
+            // A gunman's shot takes the brain's shot factor, as an archer's does (0 with an ally in the line of fire)
+            return Guns::IsGunman(a_me) ? std::clamp(chance * Intents::RangedShotFactor(a_me), 0.0f, 1.0f) : chance;
         }
+
+        // A gunman (1.17.0) never blocks or bashes with its gun: the engine sees an axe or a staff it could block with
+        bool NoGuard(RE::Actor *a_me) { return !a_me || Intents::HasPending(a_me) || Guns::IsGunman(a_me); }
 
         float VanillaSpecialAttack(RE::Actor *a_me, RE::Actor *)
         {
@@ -175,25 +184,24 @@ namespace CombatAI::Trees
 
         float VanillaBlockAttack(RE::Actor *a_me, RE::Actor *)
         {
-            return !a_me || Intents::HasPending(a_me) ? 0.0f : Rescaled(Vanilla1(kBlockAttackChance, a_me));
+            return NoGuard(a_me) ? 0.0f : Rescaled(Vanilla1(kBlockAttackChance, a_me));
         }
 
         float VanillaOffensiveBash(RE::Actor *a_me, RE::Actor *a_target)
         {
-            return !a_me || Intents::HasPending(a_me) ? 0.0f
-                                                      : Rescaled(Vanilla2(kOffensiveBashChance, a_me, a_target));
+            return NoGuard(a_me) ? 0.0f : Rescaled(Vanilla2(kOffensiveBashChance, a_me, a_target));
         }
 
         float VanillaBlock(RE::Actor *a_me, RE::Actor *)
         {
-            return !a_me || Intents::HasPending(a_me) ? 0.0f : Rescaled(Vanilla1(kBlockChance, a_me));
+            return NoGuard(a_me) ? 0.0f : Rescaled(Vanilla1(kBlockChance, a_me));
         }
 
         // Post-block counter bash: one roll when a block ends, as in vanilla, so no rescale. A bash
         // the brain asked for while the Block node was holding fires here, as the block ends.
         float VanillaCounterBash(RE::Actor *a_me, RE::Actor *a_target)
         {
-            if (!a_me) {
+            if (!a_me || Guns::IsGunman(a_me)) {
                 return 0.0f;
             }
             return Intents::TakeDefend(a_me, Intents::Defend::Bash) ? 1.0f : Vanilla2(kBashChance, a_me, a_target);

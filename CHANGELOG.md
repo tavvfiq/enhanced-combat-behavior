@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.17.0 (2026-11-07)
+
+Untested in game. Needs `GunKeywords` set (1.16.0).
+
+- **NPC gunmen.** An NPC with guns only (one, two, or a gun with a spell) fights as a gunman instead of walking in like a melee fighter: it keeps a firing range set by its personality (careful about 900 units, average 650, reckless 450), backs away when you get closer than 250-450, moves in when you are 300 beyond it or out of sight, and circles in between; a reckless one presses in while you recover from a swing. It never blocks or bashes with the gun, and holds fire (and steps aside) with an ally in its line of fire. Its moveset still fires on its own; it also fires on the brain's timing as a backup, every `GunShotInterval` seconds (2.5, a little longer for patient NPCs), only facing you with a clear line (`EnableGunShots`). With Attack Warp it turns to aim but its shot is never stretched into a lunge. A gun with a melee weapon in the other hand stays a melee fighter for now.
+- Debug log (selected NPC): its range and what it does about it, and every shot the brain fires.
+
 ## Enhanced Combat Behavior 1.16.0 (2026-11-07)
 
 Untested in game.

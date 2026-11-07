@@ -96,6 +96,8 @@ namespace CombatAI
             float jumpHeight = 100.0f; // Jump apex height in game units
             // Comma-separated keyword EditorIDs marking guns (OHCF pistols are one-handed axes, others staves); empty = off
             std::string gunKeywords;
+            bool enableGunShots = true;   // a gunman NPC also fires on the brain's timing (the moveset fires on its own)
+            float gunShotInterval = 2.5f; // seconds between a gunman's shots (x0.8-1.2 by patience)
             float jumpStaminaCost = 20.0f; // Spent per jump; no cooldown, an NPC without this much stamina can't jump
             float staminaThreshold = 0.2f;
             bool brainBackoffFallback = true;    // Our Backoff/Fallback start where the brain asks (false: vanilla start rules)
