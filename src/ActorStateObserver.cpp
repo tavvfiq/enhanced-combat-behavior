@@ -208,7 +208,9 @@ namespace CombatAI
         state.isMelee = (state.isOneHanded || state.isTwoHanded || state.weaponType == WeaponType::Unarmed ||
                          state.weaponType == WeaponType::Staff);
         // A gunman (1.17.0): guns only, whatever weapon type they have (an axe to OHCF) - a ranged fighter
-        state.isGunman = Guns::IsGunman(a_actor);
+        const auto hands = Guns::Of(a_actor);
+        state.isGunman = hands.Any() && !hands.meleeOther;
+        state.isDuelist = hands.Any() && hands.meleeOther;
         if (state.isGunman) {
             state.isRanged = true;
             state.isMelee = false;

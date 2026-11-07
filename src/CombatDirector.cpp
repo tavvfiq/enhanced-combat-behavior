@@ -6,6 +6,7 @@
 #include "AttackWarpIntegration.h"
 #include "Config.h"
 #include "EngineProbes.h"
+#include "Guns.h"
 #include "ProjectileAwareness.h"
 #include "GuardCounterFeedbackTracker.h"
 #include "Intents.h"
@@ -198,6 +199,7 @@ namespace CombatAI
     {
         LOG_INFO("CombatDirector initialized");
         DecisionMatrix::RollSelfTest();
+        Humanizer::TimingSelfTest();
 
         // Initialize Precision integration (if enabled in config)
         auto &config = Config::GetInstance();
@@ -1032,6 +1034,7 @@ namespace CombatAI
         m_retaliation.Erase(a_formID);
         m_humanizer.Evict(a_formID);
         DefenseTiming::Evict(a_formID);
+        Guns::Evict(a_formID);
         ClipTiming::Evict(a_formID);
         NavmeshRedirect::Evict(a_formID);
         RingSlots::Evict(a_formID);

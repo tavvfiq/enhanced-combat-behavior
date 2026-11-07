@@ -76,6 +76,8 @@ namespace CombatAI
         // Archers and mages: keep away from melee attackers, close in when too far or out of sight
         DecisionResult EvaluateRangedPositioning(RE::Actor *a_actor, const ActorStateData &a_state);
         DecisionResult EvaluateGunShot(RE::Actor *a_actor, const ActorStateData &a_state);
+        // A duelist (gun + melee weapon, 1.19.0) in pistol range: hold, circling, for its gun to fire, then close in
+        DecisionResult EvaluateDuelistHold(RE::Actor *a_actor, const ActorStateData &a_state);
 
         // Parry (timed bash for parrying incoming attacks)
         DecisionResult EvaluateParry(RE::Actor *a_actor, const ActorStateData &a_state);

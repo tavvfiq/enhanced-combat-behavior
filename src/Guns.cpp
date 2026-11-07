@@ -4,11 +4,29 @@
 #include "Config.h"
 #include "Personality.h"
 
+#include "ThreadSafeMap.h"
+
 #include <algorithm>
+#include <chrono>
 #include <string_view>
 
 namespace CombatAI::Guns
 {
+    namespace
+    {
+        using Clock = std::chrono::steady_clock;
+        struct Duel
+        {
+            Clock::time_point lastShot{};
+            Clock::time_point holdStart{};
+            bool holding = false;
+            bool over = false; // held (or skipped) since it last left melee range
+        };
+        ThreadSafeMap<RE::FormID, Duel> g_duel;
+
+        float Seconds(Clock::duration a_duration) { return std::chrono::duration<float>(a_duration).count(); }
+    } // namespace
+
     bool IsGun(RE::TESForm *a_item)
     {
         auto *weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr;
@@ -54,4 +72,50 @@ namespace CombatAI::Guns
         band.max = band.ideal + 300.0f;
         return band;
     }
+
+    void NoteShot(RE::Actor *a_actor)
+    {
+        if (a_actor) {
+            g_duel.ModifyOrCreate(a_actor->GetFormID(), [](Duel &a_duel) { a_duel.lastShot = Clock::now(); });
+        }
+    }
+
+    Hold DuelHold(RE::FormID a_formID, float a_maxSeconds)
+    {
+        const auto now = Clock::now();
+        Hold hold;
+        g_duel.ModifyOrCreate(a_formID, [&](Duel &a_duel) {
+            if (!a_duel.holding && !a_duel.over) {
+                if (a_duel.lastShot != Clock::time_point{} && Seconds(now - a_duel.lastShot) < a_maxSeconds) {
+                    a_duel.over = true; // its gun is still cooling down from that shot
+                    hold.why = "it fired on the way in";
+                    return;
+                }
+                a_duel.holding = hold.started = true;
+                a_duel.holdStart = now;
+            }
+            if (!a_duel.holding) {
+                return;
+            }
+            hold.held = Seconds(now - a_duel.holdStart);
+            if (a_duel.lastShot > a_duel.holdStart) {
+                hold.why = "its gun fired";
+            } else if (hold.held > a_maxSeconds) {
+                hold.why = "no shot came";
+            }
+            if (hold.why) {
+                a_duel.holding = false;
+                a_duel.over = true;
+            }
+            hold.holding = a_duel.holding;
+        });
+        return hold;
+    }
+
+    void EndDuelHold(RE::FormID a_formID)
+    {
+        g_duel.Modify(a_formID, [](Duel &a_duel) { a_duel.holding = a_duel.over = false; });
+    }
+
+    void Evict(RE::FormID a_formID) { g_duel.Erase(a_formID); }
 } // namespace CombatAI::Guns

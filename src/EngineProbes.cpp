@@ -3,6 +3,7 @@
 #include "CombatDirector.h"
 #include "ActorUtils.h"
 #include "Config.h"
+#include "Guns.h"
 #include "Logger.h"
 #include "pch.h"
 
@@ -25,6 +26,14 @@ namespace CombatAI::EngineProbes
                 const bool accepted = func(a_this, a_event);
                 // This vtable belongs to Character, so a_this is always a Character's holder subobject
                 auto *actor = static_cast<RE::Character *>(a_this);
+                // A gun framework's NPC shot (1.19.0): it releases the aimed "cast" of the gun's hand
+                if (const std::string_view event = a_event.c_str();
+                    (event == "MLh_SpellRelease_Event" || event == "MRh_SpellRelease_Event") && Guns::Of(actor).Any()) {
+                    Guns::NoteShot(actor);
+                    if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
+                        LOG_DEBUG("Gun 0x{:08X}: shot ({}, {})", actor->GetFormID(), event, accepted ? "accepted" : "rejected");
+                    }
+                }
                 // Melee/bash start events (attackStart*, attackPowerStart*, bashStart, bashPowerStart): the swing began
                 if (accepted) {
                     const std::string_view name = a_event.c_str();

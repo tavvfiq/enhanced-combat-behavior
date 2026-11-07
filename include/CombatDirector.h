@@ -57,6 +57,10 @@ namespace CombatAI
         }
         void OnHitBlocked(RE::Actor *a_victim) { m_observer.OnHitBlocked(a_victim); }
 
+        // The brain's skill model and an actor's seconds in combat (DecisionMatrix: timing and reach judgment)
+        Humanizer &GetHumanizer() { return m_humanizer; }
+        float CombatTime(RE::FormID a_formID) const { return m_actorCombatTimes.Find(a_formID).value_or(0.0f); }
+
       private:
         CombatDirector() = default;
         ~CombatDirector() = default;

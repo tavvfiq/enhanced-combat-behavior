@@ -31,4 +31,22 @@ namespace CombatAI::Guns
         float max = 950.0f;     // beyond this it moves in
     };
     Band RangeOf(RE::Actor *a_actor);
+
+    // Duelists (1.19.0): a gun and a melee weapon. The gun framework fires an NPC's gun on its own timer (not attacking,
+    // blocking or sprinting, line of sight), so from range a duelist holds still for that shot, then closes in.
+    // NoteShot: the framework released a_actor's aimed gun (its MLh/MRh_SpellRelease_Event)
+    void NoteShot(RE::Actor *a_actor);
+    // Call each brain tick while in pistol range: whether it still holds for its shot. The hold ends once its gun fires
+    // or after a_maxSeconds, and none starts within a_maxSeconds of a shot.
+    struct Hold
+    {
+        bool holding = false;
+        bool started = false;      // this call began the hold
+        float held = 0.0f;         // seconds held so far
+        const char *why = nullptr; // set when this call ended the hold (or skipped it)
+    };
+    Hold DuelHold(RE::FormID a_formID, float a_maxSeconds);
+    // Back in melee range: the next time out in pistol range it holds again
+    void EndDuelHold(RE::FormID a_formID);
+    void Evict(RE::FormID a_formID);
 } // namespace CombatAI::Guns

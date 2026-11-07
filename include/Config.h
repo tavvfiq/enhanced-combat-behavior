@@ -45,6 +45,12 @@ namespace CombatAI
             static constexpr float skillRerollSeconds = 1.0f;  // Openings that aren't one swing re-roll this often
             float skillActorValueWeight = 0.4f;  // skill per 100 points of actor-value gap to the target (0 = level only)
             static constexpr float skillActorValueMaxGap = 50.0f; // the gap counts up to this many points either way
+            // Skill as timing: a parry or timed block never fails its roll; it starts early or late by a per-swing
+            // error the skill sizes (the skill chance is the chance the error stays inside half the window)
+            bool skillAsTiming = true;
+            // Reach judgment: an NPC misreads its distance to the target by this fraction (one sigma at skill 0.75,
+            // less with more skill) when it decides to attack, so a weak one swings from too far; 0 = off
+            float reachJudgmentError = 0.1f;
 
             // Fatigue: long fights and low stamina make the actor sloppier
             bool enableFatigue = true;
@@ -95,6 +101,8 @@ namespace CombatAI
             float jumpHeight = 100.0f; // Jump apex height in game units
             bool enableGunShots = true;   // a gunman NPC also fires on the brain's timing (the moveset fires on its own)
             float gunShotInterval = 2.5f; // seconds between a gunman's shots (x0.8-1.2 by patience)
+            bool enableDuelists = true;          // a gun + melee weapon NPC holds at pistol range for its shot, then closes in
+            float duelistShotHoldSeconds = 2.5f; // longest hold for that shot (x0.8-1.2 by patience)
             float jumpStaminaCost = 20.0f; // Spent per jump; no cooldown, an NPC without this much stamina can't jump
             float staminaThreshold = 0.2f;
             bool brainBackoffFallback = true;    // Our Backoff/Fallback start where the brain asks (false: vanilla start rules)

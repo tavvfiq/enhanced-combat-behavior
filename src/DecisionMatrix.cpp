@@ -9,6 +9,7 @@
 #include "Personality.h"
 #include "Boss.h"
 #include "ClipTiming.h"
+#include "CombatDirector.h"
 #include "Logger.h"
 #include "ProjectileAwareness.h"
 #include "SCARIntegration.h"
@@ -227,6 +228,52 @@ namespace CombatAI
                       a_timeUntilHit, won ? a_what : "no (roll)");
         }
         return won;
+    }
+
+    // A parry or timed block's moment. Without skill as timing: the blow within a_end and the earliest contact not
+    // closer than a_start (else the defense comes up after it). With it (1.19.0): the blow within a_end + this swing's
+    // timing error - early starts before the window (it comes up ahead of the blow), late ones inside it or past its
+    // start (the blow lands first); one past the blow never starts. Offset 0 starts as without the mode.
+    static bool InDefendMoment(RE::Actor *a_actor, const ActorStateData &a_state, ActionType a_action, float a_start,
+                               float a_end)
+    {
+        const float timeUntilHit = a_state.temporal.target.timeUntilAttackHits;
+        auto &director = CombatDirector::GetInstance();
+        auto &humanizer = director.GetHumanizer();
+        if (!humanizer.TimingMode()) {
+            return timeUntilHit <= a_end && a_state.temporal.target.timeUntilEarliestHit >= a_start;
+        }
+        // The first look at a swing is only drawn once the blow is within reach of the widest early error (3 sigma)
+        constexpr float kSoonest = 0.02f; // closer than this to the blow it can't start in time at all
+        const float window = (std::max)(0.01f, a_end - a_start);
+        if (timeUntilHit > a_end + 3.0f * Humanizer::TimingSigma(0.2f, window) || timeUntilHit < kSoonest) {
+            return false;
+        }
+        const float offset = humanizer.TimingOffset(a_actor, a_actor->GetFormID(), a_action, a_state,
+                                                    director.CombatTime(a_actor->GetFormID()), window);
+        return timeUntilHit <= a_end + offset;
+    }
+
+    // The offense sees the distance as the NPC judges it (reach judgment, 1.19.0): the target's distance and the
+    // attack-range tiers scaled by a_factor (the same formula as ActorStateObserver's range context)
+    static ActorStateData WithJudgedDistance(const ActorStateData &a_state, float a_factor)
+    {
+        ActorStateData judged = a_state;
+        judged.target.distance = a_state.target.distance * a_factor;
+        const auto &dm = Config::GetInstance().GetDecisionMatrix();
+        const float maxRange = StateHelpers::EffectiveAttackRange(a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f,
+                                                                  a_state.target.boundRadius, dm.offenseReachMultiplier,
+                                                                  dm.offenseReachSafetyMargin);
+        auto &cc = judged.combatContext;
+        const float d = judged.target.distance;
+        cc.isInCloseRange = d <= maxRange * 0.54f;
+        cc.isInOptimalRange = d <= maxRange * 0.9f;
+        cc.isInAttackRange = d <= maxRange;
+        cc.rangeCategory = cc.isInCloseRange     ? RangeCategory::CloseRange
+                           : cc.isInOptimalRange ? RangeCategory::OptimalRange
+                           : cc.isInAttackRange  ? RangeCategory::MaxRange
+                                                 : RangeCategory::OutOfRange;
+        return judged;
     }
 
     // Fights from range: bow, crossbow, staff or a spell in the right hand. Vanilla runs its RangedMovement tree for
@@ -572,6 +619,46 @@ namespace CombatAI
         return result;
     }
 
+    // A duelist in pistol range (1.19.0): from kDuelistMinRange out to its gunman range, with a line of sight, it circles
+    // instead of running in, so the gun framework (which never fires while it attacks, blocks or sprints) gets its shot.
+    // The hold ends once the gun fires or after DuelistShotHoldSeconds (x0.8-1.2 by patience); then it closes in. Back
+    // in melee range it may hold again the next time the target gets away.
+    DecisionResult DecisionMatrix::EvaluateDuelistHold(RE::Actor *a_actor, const ActorStateData &a_state)
+    {
+        DecisionResult result;
+        const auto &dm = Config::GetInstance().GetDecisionMatrix();
+        if (!dm.enableDuelists || !a_state.self.isDuelist || !a_state.target.isValid ||
+            (a_state.target.isPlayer && !a_state.target.isDetected)) {
+            return result;
+        }
+        constexpr float kDuelistMinRange = 400.0f;
+        const RE::FormID formID = a_actor->GetFormID();
+        const float dist = a_state.target.distance;
+        if (dist < kDuelistMinRange) {
+            Guns::EndDuelHold(formID);
+            return result;
+        }
+        const bool noSight = a_state.env.losChecked && !a_state.env.losToTarget;
+        if (dist > Guns::RangeOf(a_actor).max || noSight) {
+            return result;
+        }
+        const float maxSeconds = dm.duelistShotHoldSeconds * (0.8f + 0.4f * Personality::Effective(a_actor).patience);
+        const auto hold = Guns::DuelHold(formID, maxSeconds);
+        if (Config::GetInstance().IsDebugTarget(formID) && (hold.started || hold.why)) {
+            if (hold.started) {
+                LOG_DEBUG("Duelist 0x{:08X}: target at {:.0f} -> holds up to {:.1f}s for its shot", formID, dist, maxSeconds);
+            } else {
+                LOG_DEBUG("Duelist 0x{:08X}: {} ({:.1f}s held) -> closes in at {:.0f}", formID, hold.why, hold.held, dist);
+            }
+        }
+        if (!hold.holding) {
+            return result;
+        }
+        result = EvaluateHeldBack(a_actor, a_state);
+        result.priority = 1.5f; // above the approach it replaces, below defenses
+        return result;
+    }
+
     DecisionResult DecisionMatrix::Evaluate(RE::Actor *a_actor, const ActorStateData &a_state)
     {
         std::vector<DecisionResult> possibleDecisions;
@@ -635,7 +722,15 @@ namespace CombatAI
             possibleDecisions.push_back(bossResult);
         }
 
-        DecisionResult offenseResult = ranged ? DecisionResult() : EvaluateOffense(a_actor, a_state);
+        // Reach judgment (1.19.0): the offense decides on the distance as this NPC misreads it
+        DecisionResult offenseResult;
+        if (!ranged) {
+            auto &director = CombatDirector::GetInstance();
+            const float judged = director.GetHumanizer().ReachJudgment(a_actor, a_actor->GetFormID(), a_state,
+                                                                       director.CombatTime(a_actor->GetFormID()));
+            offenseResult = judged == 1.0f ? EvaluateOffense(a_actor, a_state)
+                                           : EvaluateOffense(a_actor, WithJudgedDistance(a_state, judged));
+        }
         // SCAR-patched movesets pick their own normal/power attacks (sprint attack stays ours)
         if ((offenseResult.action == ActionType::Attack || offenseResult.action == ActionType::PowerAttack) &&
             SCARIntegration::GetInstance().OwnsAttacks(a_actor->GetFormID())) {
@@ -654,6 +749,17 @@ namespace CombatAI
         DecisionResult punishResult = ranged ? DecisionResult() : EvaluatePunish(a_actor, a_state);
         if (punishResult.action != ActionType::None) {
             possibleDecisions.push_back(punishResult);
+        }
+
+        // A duelist holding for its shot: no running in meanwhile (an approach, a sprint attack or a forward dodge would
+        // keep its gun from firing); the hold's circle takes their place
+        DecisionResult duelResult = ranged ? DecisionResult() : EvaluateDuelistHold(a_actor, a_state);
+        if (duelResult.action != ActionType::None) {
+            std::erase_if(possibleDecisions, [](const DecisionResult &a_result) {
+                return a_result.action == ActionType::Advancing || a_result.action == ActionType::SprintAttack ||
+                       a_result.action == ActionType::ForwardDodge;
+            });
+            possibleDecisions.push_back(duelResult);
         }
 
         // Waiting for room to drink or coat (Potions::Update): only the retreat and defensive moves stay. Run 1.3.5:
@@ -1089,9 +1195,8 @@ namespace CombatAI
         // The blow within the window end, and the earliest contact (Precision: anywhere in the clip's hit window, up to
         // ~0.1 s before HitFrame) not closer than the window start, or the bash comes up after it
         float timeUntilHit = a_state.temporal.target.timeUntilAttackHits;
-        if (timeUntilHit > parryConfig.parryWindowEnd ||
-            a_state.temporal.target.timeUntilEarliestHit < parryConfig.parryWindowStart) {
-            return result; // Outside parry window
+        if (!InDefendMoment(a_actor, a_state, ActionType::Parry, parryConfig.parryWindowStart, parryConfig.parryWindowEnd)) {
+            return result; // Not its moment (skill as timing: early or late by this swing's error)
         }
         if (!DefendRoll(a_actor, a_state, "parry", timeUntilHit)) {
             return result;
@@ -1142,9 +1247,9 @@ namespace CombatAI
         // Check timing - need valid attack timing data
         // As for parry: the blow within the window end, the earliest contact not closer than the window start
         float timeUntilHit = a_state.temporal.target.timeUntilAttackHits;
-        if (timeUntilHit > timedBlockConfig.timedBlockWindowEnd ||
-            a_state.temporal.target.timeUntilEarliestHit < timedBlockConfig.timedBlockWindowStart) {
-            return result; // Outside timed block window
+        if (!InDefendMoment(a_actor, a_state, ActionType::TimedBlock, timedBlockConfig.timedBlockWindowStart,
+                            timedBlockConfig.timedBlockWindowEnd)) {
+            return result; // Not its moment (skill as timing: early or late by this swing's error)
         }
         // No Block tree: a weapon with a spell, torch or second weapon blocks through our DualBlock node instead
         if (!blockTree && !BlockRules::CanDualBlock(a_actor)) {

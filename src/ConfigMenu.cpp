@@ -233,6 +233,8 @@ namespace CombatAI
                     }
                     check("Gunman NPCs also fire on the brain's timing", &config.m_decisionMatrix.enableGunShots);
                     liveFloat("Gunman: seconds between shots", &config.m_decisionMatrix.gunShotInterval, 0.5f, 10.0f, "%.1f");
+                    check("Duelists (gun + blade) hold at range for a shot, then close in", &config.m_decisionMatrix.enableDuelists);
+                    liveFloat("Duelist: longest hold for the shot (s)", &config.m_decisionMatrix.duelistShotHoldSeconds, 0.0f, 10.0f, "%.1f");
                 }
                 if (header("Performance")) {
                     humanFloat("Processing interval (s)", &config.m_general.processingInterval, 0.01f, 1.0f, "%.2f");
@@ -419,6 +421,10 @@ namespace CombatAI
                     config.MarkHumanizerDirty();
                 }
                 humanFloat("Skill at level 1", &config.m_humanizer.skillBase, 0.0f, 1.0f);
+                if (check("Skill as timing (parries and timed blocks come early or late)", &config.m_humanizer.skillAsTiming)) {
+                    config.MarkHumanizerDirty();
+                }
+                humanFloat("Reach judgment error (0 = off)", &config.m_humanizer.reachJudgmentError, 0.0f, 0.3f);
                 check("Enable boss detection", &config.m_boss.enableBossDetection);
                 textSetting("Boss names (comma-separated)", &config.m_boss.bossNames);
                 liveFloat("Boss skill bonus", &config.m_boss.skillBonus, 0.0f, 1.0f);

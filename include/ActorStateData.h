@@ -51,6 +51,7 @@ namespace CombatAI
         bool isTwoHanded = false;                 // True if two-handed weapon
         bool isRanged = false;                    // True if ranged weapon (bow/crossbow)
         bool isMelee = false;                     // True if melee weapon
+        bool isDuelist = false;                   // A gun and a melee weapon (1.19.0): melee, holds at range for its shot
         bool isGunman = false;                    // Guns only (1.17.0, Guns::IsGunman): isRanged, not isMelee
         ArmorClass armorClass = ArmorClass::None; // Body armor weight class
     };

@@ -56,10 +56,20 @@ namespace CombatAI
             LOG_INFO("Guns: off (no GunKeywords) - a pistol counts as its weapon type");
         } else {
             LOG_INFO("Guns: weapons with keyword(s) {} count as guns in either hand - their holder is a ranged fighter; "
-                     "NPC gunmen keep their range, own shots {}",
+                     "NPC gunmen keep their range, own shots {}; duelists (gun + melee weapon) {}",
                      m_modIntegrations.gunKeywords,
                      m_decisionMatrix.enableGunShots ? std::format("every {:.1f} s", m_decisionMatrix.gunShotInterval)
-                                                     : std::string("off"));
+                                                     : std::string("off"),
+                     m_decisionMatrix.enableDuelists
+                         ? std::format("hold up to {:.1f} s at range for a shot", m_decisionMatrix.duelistShotHoldSeconds)
+                         : std::string("off"));
+        }
+        if (m_humanizer.enableSkillRolls) {
+            LOG_INFO("Skill: parry and timed block {}; reach judgment {}",
+                     m_humanizer.skillAsTiming ? "start early or late by the skill's timing error" : "pass or fail a roll",
+                     m_humanizer.reachJudgmentError > 0.0f
+                         ? std::format("off by up to {:.0f}% (one sigma at skill 0.75)", m_humanizer.reachJudgmentError * 100.0f)
+                         : std::string("off"));
         }
         LOG_INFO("Stamina: retreat/backoff {}; power attacks, sprint attacks and power bashes need {:.0f}% stamina",
                  m_decisionMatrix.staminaAffectsRetreat ? "also on low stamina" : "on health only",
@@ -157,6 +167,8 @@ namespace CombatAI
         D("Humanizer", "SkillMin", m_humanizer.skillMin);
         D("Humanizer", "SkillMax", m_humanizer.skillMax);
         D("Humanizer", "SkillActorValueWeight", m_humanizer.skillActorValueWeight);
+        B("Humanizer", "SkillAsTiming", m_humanizer.skillAsTiming);
+        D("Humanizer", "ReachJudgmentError", m_humanizer.reachJudgmentError);
         B("Humanizer", "EnableFatigue", m_humanizer.enableFatigue);
         D("Humanizer", "FatigueStaminaThreshold", m_humanizer.fatigueStaminaThreshold);
         D("Humanizer", "FatigueSkillPenalty", m_humanizer.fatigueSkillPenalty);
@@ -191,6 +203,8 @@ namespace CombatAI
         D("DecisionMatrix", "JumpHeight", m_decisionMatrix.jumpHeight);
         B("DecisionMatrix", "EnableGunShots", m_decisionMatrix.enableGunShots);
         D("DecisionMatrix", "GunShotInterval", m_decisionMatrix.gunShotInterval);
+        B("DecisionMatrix", "EnableDuelists", m_decisionMatrix.enableDuelists);
+        D("DecisionMatrix", "DuelistShotHoldSeconds", m_decisionMatrix.duelistShotHoldSeconds);
         D("DecisionMatrix", "JumpStaminaCost", m_decisionMatrix.jumpStaminaCost);
         D("DecisionMatrix", "StaminaThreshold", m_decisionMatrix.staminaThreshold);
         B("DecisionMatrix", "StaminaAffectsRetreat", m_decisionMatrix.staminaAffectsRetreat);
@@ -605,6 +619,8 @@ namespace CombatAI
         H("SkillMin", m_humanizer.skillMin, 0.0f, 1.0f);
         H("SkillMax", m_humanizer.skillMax, 0.0f, 1.0f);
         H("SkillActorValueWeight", m_humanizer.skillActorValueWeight, 0.0f, 2.0f);
+        m_humanizer.skillAsTiming = a_ini.GetBoolValue("Humanizer", "SkillAsTiming", m_humanizer.skillAsTiming);
+        H("ReachJudgmentError", m_humanizer.reachJudgmentError, 0.0f, 0.3f);
         m_humanizer.skillMax = (std::max)(m_humanizer.skillMax, m_humanizer.skillMin);
 
 
@@ -700,6 +716,12 @@ namespace CombatAI
         m_decisionMatrix.gunShotInterval = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "GunShotInterval", m_decisionMatrix.gunShotInterval)),
             0.5f, 10.0f);
+        m_decisionMatrix.enableDuelists =
+            a_ini.GetBoolValue("DecisionMatrix", "EnableDuelists", m_decisionMatrix.enableDuelists);
+        m_decisionMatrix.duelistShotHoldSeconds = std::clamp(
+            static_cast<float>(
+                a_ini.GetDoubleValue("DecisionMatrix", "DuelistShotHoldSeconds", m_decisionMatrix.duelistShotHoldSeconds)),
+            0.0f, 10.0f);
         m_decisionMatrix.jumpStaminaCost = (std::max)(
             0.0f, static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "JumpStaminaCost", m_decisionMatrix.jumpStaminaCost)));
         m_decisionMatrix.staminaThreshold = static_cast<float>(

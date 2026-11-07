@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <bit>
 #include <cmath>
+#include <numbers>
 #include <random>
 #include <tuple>
 
@@ -147,6 +148,10 @@ namespace CombatAI
         if (!m_config.enableSkillRolls || skillClass == SkillClass::None || !a_actor) {
             return true;
         }
+        // Skill as timing: these err in their timing (TimingOffset), not by a failed roll
+        if (m_config.skillAsTiming && (a_action == ActionType::Parry || a_action == ActionType::TimedBlock)) {
+            return true;
+        }
 
         // Opportunity key. Defense: the target's current swing (its start time identifies it),
         // so one roll covers the whole swing. Otherwise a time window, so a failed roll
@@ -181,6 +186,109 @@ namespace CombatAI
                       parts.panic, passed ? "pass" : "fail");
         }
         return passed;
+    }
+
+    namespace
+    {
+        // erf^-1 by bisection (the standard library has none); 0 <= a_x < 1
+        double ErfInv(double a_x)
+        {
+            double lo = 0.0;
+            double hi = 6.0; // erf(6) rounds to 1
+            for (int i = 0; i < 60; ++i) {
+                const double mid = 0.5 * (lo + hi);
+                (std::erf(mid) < a_x ? lo : hi) = mid;
+            }
+            return 0.5 * (lo + hi);
+        }
+    } // namespace
+
+    float Humanizer::TimingSigma(float a_skill, float a_window)
+    {
+        // P(|X| < w/2) = erf(w/2 / (sigma sqrt 2)) = skill
+        const double skill = std::clamp(static_cast<double>(a_skill), 0.01, 0.999);
+        return static_cast<float>(a_window * 0.5 / (std::numbers::sqrt2 * ErfInv(skill)));
+    }
+
+    bool Humanizer::TimingSelfTest()
+    {
+        // The review's numbers: skill 0.75 -> 0.43 window, 0.95 -> 0.26 window; and a draw that lands inside half the
+        // window at the skill rate
+        const float s75 = TimingSigma(0.75f, 1.0f);
+        const float s95 = TimingSigma(0.95f, 1.0f);
+        std::mt19937 gen(12345);
+        std::normal_distribution<float> normal(0.0f, 1.0f);
+        constexpr int kDraws = 20000;
+        int inside = 0;
+        for (int i = 0; i < kDraws; ++i) {
+            inside += std::abs(normal(gen) * s75) < 0.5f;
+        }
+        const float rate = static_cast<float>(inside) / kDraws;
+        const bool ok = std::abs(s75 - 0.4347f) < 0.002f && std::abs(s95 - 0.2551f) < 0.002f && std::abs(rate - 0.75f) < 0.015f;
+        LOG_INFO("Timing self-test{} (sigma at skill 0.75 {:.3f} window, at 0.95 {:.3f}; in half the window {:.3f} at 0.75)",
+                 ok ? " passed" : " FAILED", s75, s95, rate);
+        return ok;
+    }
+
+    float Humanizer::TimingOffset(RE::Actor *a_actor, RE::FormID a_formID, ActionType a_action,
+                                  const ActorStateData &a_state, float a_combatTime, float a_window)
+    {
+        if (!TimingMode() || !a_actor || !a_state.target.isValid) {
+            return 0.0f;
+        }
+        const std::uint64_t key =
+            (static_cast<std::uint64_t>(a_state.target.targetFormID) << 32) | a_state.temporal.target.swingCount;
+        const auto stored = m_skillRolls.Find(a_formID);
+        float z = 0.0f;
+        float skill = 1.0f;
+        if (stored && stored->timingKey == key) {
+            z = stored->timingZ;
+            skill = stored->timingSkill;
+        } else {
+            skill = ExplainSkill(a_actor, a_action, a_combatTime, a_state).chance;
+            z = std::clamp(std::normal_distribution<float>(0.0f, 1.0f)(g_gen), -3.0f, 3.0f);
+            m_skillRolls.ModifyOrCreate(a_formID, [&](SkillState &a_rolls) {
+                a_rolls.timingKey = key;
+                a_rolls.timingZ = z;
+                a_rolls.timingSkill = skill;
+            });
+            if (Config::GetInstance().IsDebugTarget(a_formID)) {
+                const float sigma = TimingSigma(skill, a_window);
+                const float offset = z * sigma;
+                LOG_DEBUG("Roll 0x{:08X}: {} timing {:+.2f}s ({}; skill {:.2f} -> sigma {:.2f}s, window {:.2f}s)", a_formID,
+                          ActionName(a_action), offset,
+                          std::abs(offset) < a_window * 0.5f ? "on time" : offset > 0.0f ? "early" : "late", skill, sigma,
+                          a_window);
+            }
+        }
+        return z * TimingSigma(skill, a_window);
+    }
+
+    float Humanizer::ReachJudgment(RE::Actor *a_actor, RE::FormID a_formID, const ActorStateData &a_state,
+                                   float a_combatTime)
+    {
+        if (!m_config.enableSkillRolls || m_config.reachJudgmentError <= 0.0f || !a_actor || !a_state.target.isValid) {
+            return 1.0f;
+        }
+        // The offense roll's window, so one misreading lasts one opening
+        const float now = m_time.load(std::memory_order_relaxed);
+        const float window = (std::max)(0.1f, m_config.skillRerollSeconds);
+        const std::uint64_t key = static_cast<std::uint64_t>(now / window + WindowPhase(a_formID)) | (1ull << 62);
+        if (const auto stored = m_skillRolls.Find(a_formID); stored && stored->reachKey == key) {
+            return stored->reachFactor;
+        }
+        const float skill = ExplainSkill(a_actor, ActionType::Attack, a_combatTime, a_state).chance;
+        const float sigma = m_config.reachJudgmentError * (std::max)(0.0f, 1.0f - skill) / 0.25f;
+        const float factor = std::clamp(1.0f + std::normal_distribution<float>(0.0f, 1.0f)(g_gen) * sigma, 0.6f, 1.4f);
+        m_skillRolls.ModifyOrCreate(a_formID, [&](SkillState &a_rolls) {
+            a_rolls.reachKey = key;
+            a_rolls.reachFactor = factor;
+        });
+        if (Config::GetInstance().IsDebugTarget(a_formID)) {
+            LOG_DEBUG("Roll 0x{:08X}: reads its distance x{:.2f} ({:.0f} as {:.0f}; skill {:.2f} -> sigma {:.2f})", a_formID,
+                      factor, a_state.target.distance, a_state.target.distance * factor, skill, sigma);
+        }
+        return factor;
     }
 
     bool Humanizer::RollBackoff(RE::FormID a_formID, std::uint64_t a_key, float a_chance)
