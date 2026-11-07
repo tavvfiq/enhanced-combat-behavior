@@ -371,6 +371,7 @@ namespace CombatAI
             start = comma + 1;
         }
         m_modIntegrations.gunKeywords = a_list;
+        LOG_INFO("Guns: {} keyword(s) active ({})", list->size(), a_list.empty() ? "none" : a_list);
         m_gunKeywordList.store(std::move(list));
     }
 

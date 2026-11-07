@@ -1,5 +1,13 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.18.1 (2026-11-07)
+
+Untested in game.
+
+- **Pistol in one hand, blade in the other: melee reach comes from the blade.** Precision measured the right hand's weapon, so a right-hand pistol's short mesh set the NPC's reach and it was rarely close enough for the brain to attack. With `GunKeywords` set, a gun beside a melee weapon no longer counts for reach. Any dual wielder now reaches with its longer melee weapon (without keywords, too).
+- The log notes the gun keyword list each time it is set (load and the menu's Apply).
+- 1.18.0 note corrected: 26 internal values were fixed in code (39 fewer settings), not 25 (38).
+
 ## Enhanced Combat Behavior 1.18.0 (2026-11-07)
 
 Untested in game. Settings cleanup: 38 fewer settings, same behavior at the defaults. Old keys left in your INI are ignored.
