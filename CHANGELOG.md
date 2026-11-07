@@ -1,5 +1,15 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.18.2 (2026-11-07)
+
+Untested in game. Your settings and presets survive a mod update.
+
+- **The menu's Save writes `SKSE/Plugins/EnhancedCombatBehavior_User.ini`**, not the shipped INI. The game reads the shipped INI, then yours over it. The mod archive never contains this file, so MO2 puts it in overwrite (Vortex: the game folder) and an update leaves it alone.
+- **Saved presets go to `SKSE/Plugins/EnhancedCombatBehavior/UserPresets`.** The shipped ones stay in `Presets`. Saving over a shipped preset's name makes your own copy, which wins.
+- Menu buttons: "Save settings", "Reload saved settings", with the user INI's path beside them.
+- Updating from 1.18.1 or older: the old Save wrote into the mod's own INI, which this update replaces. To keep those settings, copy that INI to `SKSE/Plugins/EnhancedCombatBehavior_User.ini` in overwrite before updating (old keys in it are ignored and dropped at the next Save).
+- A saved user INI holds every setting, so a later update's new defaults reach only the settings you have not saved. Delete the file to go back to the shipped defaults.
+
 ## Enhanced Combat Behavior 1.18.1 (2026-11-07)
 
 Untested in game.

@@ -28,21 +28,24 @@ namespace CombatAI
     {
         return (value < minVal) ? minVal : ((value > maxVal) ? maxVal : value);
     }
-    bool Config::Load(const std::string &a_filePath)
+    bool Config::Load()
     {
         CSimpleIniA ini;
         ini.SetUnicode();
 
-        // Try to load the INI file
-        SI_Error rc = ini.LoadFile(a_filePath.c_str());
-        if (rc < 0) {
-            LOG_WARN("Failed to load config file: {}. Using defaults.", a_filePath);
-            return false;
+        // The shipped INI, then the user INI's values over it (the readers keep a value the file does not set)
+        if (ini.LoadFile(ShippedIniPath) < 0) {
+            LOG_WARN("Failed to load config file: {}. Using defaults.", ShippedIniPath);
+        } else {
+            LOG_INFO("Loading configuration from: {}", ShippedIniPath);
+            ReadAll(ini);
         }
-
-        LOG_INFO("Loading configuration from: {}", a_filePath);
-
-        ReadAll(ini);
+        CSimpleIniA user;
+        user.SetUnicode();
+        if (user.LoadFile(UserIniPath) >= 0) {
+            LOG_INFO("Loading your saved settings from: {}", UserIniPath);
+            ReadAll(user);
+        }
 
         LOG_INFO("Configuration loaded successfully");
         LOG_INFO("Jump evasion: {} (chance {:.2f}, aimed bow/crossbow at {:.0f}-{:.0f} units, height {:.0f}, stamina {:.0f}); skill at level 1 {:.2f}",
@@ -78,12 +81,12 @@ namespace CombatAI
         return true;
     }
 
-    bool Config::Save(const std::string &a_filePath)
+    bool Config::Save()
     {
         CSimpleIniA ini;
         ini.SetUnicode();
-        // Load the existing file first so comments and unknown keys are preserved.
-        ini.LoadFile(a_filePath.c_str());
+        // The shipped INI first, for its comments; every value is then written from the current settings
+        ini.LoadFile(ShippedIniPath);
 
         // Every key written is recorded; keys the file still has but this version no longer
         // uses (renamed/removed settings) are pruned before saving.
@@ -108,12 +111,12 @@ namespace CombatAI
             LOG_INFO("Removed {} obsolete setting(s) from the INI", stale.size());
         }
 
-        SI_Error rc = ini.SaveFile(a_filePath.c_str());
+        SI_Error rc = ini.SaveFile(UserIniPath);
         if (rc < 0) {
-            LOG_WARN("Failed to save config file: {}", a_filePath);
+            LOG_WARN("Failed to save config file: {}", UserIniPath);
             return false;
         }
-        LOG_INFO("Configuration saved to: {}", a_filePath);
+        LOG_INFO("Configuration saved to: {}", UserIniPath);
         return true;
     }
 
@@ -434,13 +437,16 @@ namespace CombatAI
     std::vector<std::string> Config::ListPresets()
     {
         std::vector<std::string> names;
-        std::error_code ec;
-        for (const auto &entry : std::filesystem::directory_iterator(PresetDirectory, ec)) {
-            if (entry.path().extension() == ".json") {
-                names.push_back(entry.path().stem().string());
+        for (const char *directory : {PresetDirectory, UserPresetDirectory}) {
+            std::error_code ec;
+            for (const auto &entry : std::filesystem::directory_iterator(directory, ec)) {
+                if (entry.path().extension() == ".json") {
+                    names.push_back(entry.path().stem().string());
+                }
             }
         }
         std::ranges::sort(names);
+        names.erase(std::ranges::unique(names).begin(), names.end());
         return names;
     }
 
@@ -450,7 +456,11 @@ namespace CombatAI
         CSimpleIniA preset;
         preset.SetUnicode();
         if (a_name != "Default") {
-            const auto path = std::filesystem::path(PresetDirectory) / (a_name + ".json");
+            // The user's copy of a preset wins over the shipped one
+            auto path = std::filesystem::path(UserPresetDirectory) / (a_name + ".json");
+            if (std::error_code ec; !std::filesystem::exists(path, ec)) {
+                path = std::filesystem::path(PresetDirectory) / (a_name + ".json");
+            }
             nlohmann::json json;
             try {
                 std::ifstream file(path);
@@ -550,8 +560,8 @@ namespace CombatAI
             }
         }
         std::error_code ec;
-        std::filesystem::create_directories(PresetDirectory, ec);
-        const auto path = std::filesystem::path(PresetDirectory) / (a_name + ".json");
+        std::filesystem::create_directories(UserPresetDirectory, ec);
+        const auto path = std::filesystem::path(UserPresetDirectory) / (a_name + ".json");
         std::ofstream file(path, std::ios::trunc);
         if (!(file << json.dump(4) << '\n')) {
             LOG_WARN("Preset {}: can't write {}", a_name, path.string());

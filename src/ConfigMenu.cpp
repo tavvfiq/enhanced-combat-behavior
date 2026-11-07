@@ -141,7 +141,7 @@ namespace CombatAI
         };
 
         // A preset resets all tuning (not General's switches, performance or integrations) to the defaults, then applies
-        // its own changes; Save to keep it. The list (Default plus one entry per JSON file in the Presets folder, read
+        // its own changes; Save to keep it. The list (Default plus one entry per JSON file in Presets and UserPresets, read
         // again on reload/save) only chooses; Load applies the choice. A loaded preset's name goes to the save field
         // (not Default's), so a tweaked preset is one click from being overwritten.
         // The plugin's version (xmake set_version), so a screenshot of the menu says which build is loaded
@@ -182,7 +182,7 @@ namespace CombatAI
             selected = presetName;
         }
         ImGuiMCP::SameLine();
-        ImGuiMCP::TextDisabled("current tuning, what differs from the defaults");
+        ImGuiMCP::TextDisabled("current tuning, what differs from the defaults (to UserPresets)");
         ImGuiMCP::Separator();
 
         // Search: a non-empty query drops the tabs and headers and lists every matching setting under its
@@ -479,11 +479,12 @@ namespace CombatAI
         }
 
         ImGuiMCP::Separator();
-        if (ImGuiMCP::Button("Save to INI")) {
+        // Saves go to the user INI, which a mod update does not replace (Config::UserIniPath)
+        if (ImGuiMCP::Button("Save settings")) {
             config.Save();
         }
         ImGuiMCP::SameLine();
-        if (ImGuiMCP::Button("Reload from INI")) {
+        if (ImGuiMCP::Button("Reload saved settings")) {
             config.Load();
             Personality::ReloadProfiles();
             presets = Config::ListPresets();
@@ -491,5 +492,7 @@ namespace CombatAI
             config.MarkHumanizerDirty();
             applyLogLevel();
         }
+        ImGuiMCP::SameLine();
+        ImGuiMCP::TextDisabled("SKSE/Plugins/EnhancedCombatBehavior_User.ini");
     }
 } // namespace CombatAI

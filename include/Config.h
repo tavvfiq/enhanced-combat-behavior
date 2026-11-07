@@ -346,11 +346,16 @@ namespace CombatAI
         Config(const Config &) = delete;
         Config &operator=(const Config &) = delete;
 
-        // Load configuration from INI file
-        bool Load(const std::string &a_filePath = "Data/SKSE/Plugins/EnhancedCombatBehavior.ini");
+        // The shipped INI holds the defaults; the user INI (not in the mod archive, so a mod manager puts it in its
+        // overwrite folder and a mod update leaves it alone) holds the menu's saves and is read over the shipped one
+        static constexpr const char *ShippedIniPath = "Data/SKSE/Plugins/EnhancedCombatBehavior.ini";
+        static constexpr const char *UserIniPath = "Data/SKSE/Plugins/EnhancedCombatBehavior_User.ini";
 
-        // Save current configuration back to the INI file (used by the runtime menu)
-        bool Save(const std::string &a_filePath = "Data/SKSE/Plugins/EnhancedCombatBehavior.ini");
+        // Load the shipped INI, then the user INI over it when there is one
+        bool Load();
+
+        // Save the current configuration to the user INI (used by the runtime menu), the shipped INI's comments kept
+        bool Save();
 
         // Humanizer settings are copied into the Humanizer at init, so changes made at
         // runtime must be re-applied on the game thread. The menu marks them dirty;
@@ -393,11 +398,14 @@ namespace CombatAI
         // (not General, Performance or the integrations) to the defaults, then reads the file's values like INI lines.
         // "Default" is built in (reset only). Marks the humanizer dirty; does not save the INI. False (nothing
         // changed) if the file is unusable.
+        // The mod ships its presets in PresetDirectory; the menu saves to UserPresetDirectory (not in the mod archive,
+        // so it lands in the mod manager's overwrite folder). A user preset wins over a shipped one of the same name.
         static constexpr const char *PresetDirectory = "Data/SKSE/Plugins/EnhancedCombatBehavior/Presets";
+        static constexpr const char *UserPresetDirectory = "Data/SKSE/Plugins/EnhancedCombatBehavior/UserPresets";
         bool ApplyPreset(const std::string &a_name);
-        // Preset names (file names without .json), sorted
+        // Preset names (file names without .json) from both folders, sorted, each once
         static std::vector<std::string> ListPresets();
-        // Writes the current tuning that differs from the defaults as PresetDirectory/<name>.json (overwrites)
+        // Writes the current tuning that differs from the defaults as UserPresetDirectory/<name>.json (overwrites)
         bool SavePreset(const std::string &a_name) const;
 
         // Check if plugin is enabled
