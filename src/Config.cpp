@@ -49,12 +49,12 @@ namespace CombatAI
                  m_decisionMatrix.enableJumpEvasion ? "on" : "OFF", m_decisionMatrix.evasionJumpChance,
                  m_decisionMatrix.jumpEvasionDistanceMin, m_decisionMatrix.jumpEvasionDistanceMax,
                  m_decisionMatrix.jumpHeight, m_decisionMatrix.jumpStaminaCost, m_humanizer.skillBase);
-        if (m_decisionMatrix.gunKeywords.empty()) {
+        if (GunKeywordList()->empty()) {
             LOG_INFO("Guns: off (no GunKeywords) - a pistol counts as its weapon type");
         } else {
             LOG_INFO("Guns: weapons with keyword(s) {} count as guns in either hand - their holder is a ranged fighter; "
                      "NPC gunmen keep their range, own shots {}",
-                     m_decisionMatrix.gunKeywords,
+                     m_modIntegrations.gunKeywords,
                      m_decisionMatrix.enableGunShots ? std::format("every {:.1f} s", m_decisionMatrix.gunShotInterval)
                                                      : std::string("off"));
         }
@@ -193,7 +193,6 @@ namespace CombatAI
         D("DecisionMatrix", "JumpEvasionDistanceMax", m_decisionMatrix.jumpEvasionDistanceMax);
         D("DecisionMatrix", "EvasionJumpChance", m_decisionMatrix.evasionJumpChance);
         D("DecisionMatrix", "JumpHeight", m_decisionMatrix.jumpHeight);
-        S("DecisionMatrix", "GunKeywords", m_decisionMatrix.gunKeywords);
         B("DecisionMatrix", "EnableGunShots", m_decisionMatrix.enableGunShots);
         D("DecisionMatrix", "GunShotInterval", m_decisionMatrix.gunShotInterval);
         D("DecisionMatrix", "JumpStaminaCost", m_decisionMatrix.jumpStaminaCost);
@@ -284,6 +283,7 @@ namespace CombatAI
         B("ModIntegrations", "EnableTKDodgeIntegration", m_modIntegrations.enableTKDodgeIntegration);
         B("ModIntegrations", "EnableSCARIntegration", m_modIntegrations.enableSCARIntegration);
         B("ModIntegrations", "EnableAttackWarpIntegration", m_modIntegrations.enableAttackWarpIntegration);
+        S("ModIntegrations", "GunKeywords", m_modIntegrations.gunKeywords);
         D("ModIntegrations", "SCARComboWindowSeconds", m_modIntegrations.scarComboWindowSeconds);
         D("ModIntegrations", "SCARStallSeconds", m_modIntegrations.scarStallSeconds);
         B("ModIntegrations", "EnableComboFollowUp", m_modIntegrations.enableComboFollowUp);
@@ -390,6 +390,42 @@ namespace CombatAI
         D("ProjectileAwareness", "HitMargin", m_projectileAwareness.hitMargin);
         D("ProjectileAwareness", "DodgePriority", m_projectileAwareness.dodgePriority);
         return written;
+    }
+
+    void Config::SetGunKeywords(const std::string &a_list)
+    {
+        auto list = std::make_shared<std::vector<std::string>>();
+        std::size_t start = 0;
+        while (start <= a_list.size()) {
+            const std::size_t comma = a_list.find(',', start);
+            const std::size_t end = comma == std::string::npos ? a_list.size() : comma;
+            std::size_t first = a_list.find_first_not_of(' ', start);
+            if (first != std::string::npos && first < end) {
+                const std::size_t last = a_list.find_last_not_of(' ', end - 1);
+                list->emplace_back(a_list.substr(first, last - first + 1));
+            }
+            if (comma == std::string::npos) {
+                break;
+            }
+            start = comma + 1;
+        }
+        m_modIntegrations.gunKeywords = a_list;
+        m_gunKeywordList.store(std::move(list));
+    }
+
+    void Config::QueueText(std::string *a_field, std::string a_value)
+    {
+        std::scoped_lock lock(m_textLock);
+        m_textQueue.emplace_back(a_field, std::move(a_value));
+    }
+
+    void Config::ApplyQueuedText()
+    {
+        std::scoped_lock lock(m_textLock);
+        for (auto &[field, value] : m_textQueue) {
+            *field = std::move(value);
+        }
+        m_textQueue.clear();
     }
 
     void Config::ReadAll(CSimpleIniA &a_ini)
@@ -702,7 +738,6 @@ namespace CombatAI
             a_ini.GetDoubleValue("DecisionMatrix", "EvasionJumpChance", m_decisionMatrix.evasionJumpChance));
         m_decisionMatrix.jumpHeight =
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "JumpHeight", m_decisionMatrix.jumpHeight));
-        m_decisionMatrix.gunKeywords = a_ini.GetValue("DecisionMatrix", "GunKeywords", m_decisionMatrix.gunKeywords.c_str());
         m_decisionMatrix.enableGunShots =
             a_ini.GetBoolValue("DecisionMatrix", "EnableGunShots", m_decisionMatrix.enableGunShots);
         m_decisionMatrix.gunShotInterval = std::clamp(
@@ -915,6 +950,9 @@ namespace CombatAI
             a_ini.GetBoolValue("ModIntegrations", "EnableSCARIntegration", m_modIntegrations.enableSCARIntegration);
         m_modIntegrations.enableAttackWarpIntegration = a_ini.GetBoolValue(
             "ModIntegrations", "EnableAttackWarpIntegration", m_modIntegrations.enableAttackWarpIntegration);
+        // 1.16.0-1.17.0 kept the list in [DecisionMatrix]: still read from there when [ModIntegrations] has none
+        SetGunKeywords(a_ini.GetValue("ModIntegrations", "GunKeywords",
+                                      a_ini.GetValue("DecisionMatrix", "GunKeywords", m_modIntegrations.gunKeywords.c_str())));
         m_modIntegrations.scarComboWindowSeconds = (std::clamp)(
             static_cast<float>(a_ini.GetDoubleValue("ModIntegrations", "SCARComboWindowSeconds",
                                                     m_modIntegrations.scarComboWindowSeconds)),

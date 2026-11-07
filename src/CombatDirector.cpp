@@ -925,6 +925,7 @@ namespace CombatAI
     void CombatDirector::Update(float a_deltaTime)
     {
         m_time.store(m_time.load(std::memory_order_relaxed) + a_deltaTime, std::memory_order_relaxed);
+        Config::GetInstance().ApplyQueuedText(); // the menu's text settings, here on the game thread
 
         // Update per-frame systems (must be called once per frame, not per actor)
         m_humanizer.Update(a_deltaTime);

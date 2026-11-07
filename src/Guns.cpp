@@ -11,31 +11,12 @@ namespace CombatAI::Guns
 {
     bool IsGun(RE::TESForm *a_item)
     {
-        const std::string &list = Config::GetInstance().GetDecisionMatrix().gunKeywords;
         auto *weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr;
-        if (list.empty() || !weapon) {
+        if (!weapon) {
             return false;
         }
-        // Comma-separated, spaces around entries ignored
-        std::size_t start = 0;
-        while (start < list.size()) {
-            const std::size_t comma = list.find(',', start);
-            std::string_view entry(list.data() + start, (comma == std::string::npos ? list.size() : comma) - start);
-            while (!entry.empty() && entry.front() == ' ') {
-                entry.remove_prefix(1);
-            }
-            while (!entry.empty() && entry.back() == ' ') {
-                entry.remove_suffix(1);
-            }
-            if (!entry.empty() && weapon->HasKeywordString(entry)) {
-                return true;
-            }
-            if (comma == std::string::npos) {
-                break;
-            }
-            start = comma + 1;
-        }
-        return false;
+        const auto list = Config::GetInstance().GunKeywordList();
+        return std::ranges::any_of(*list, [&](const std::string &a_keyword) { return weapon->HasKeywordString(a_keyword); });
     }
 
     Hands Of(RE::Actor *a_actor)

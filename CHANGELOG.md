@@ -1,5 +1,13 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.17.1 (2026-11-07)
+
+Untested in game.
+
+- **Gun settings on the menu** (Integrations): the gun keyword list (type it, then Apply; it shows how many are active), gunman shots on/off and the seconds between them.
+- **Every setting is on the menu now.** The ones that were INI-only: dodge animation events (forward, back, left, right, fallback) and the minimum stamina to dodge, jump evasion chance and distances, interrupt max distance, power and sprint attack stamina costs, dagger block (after a restart), and boss names. Text settings apply with their Apply button.
+- `GunKeywords` moves to `[ModIntegrations]`: in `[DecisionMatrix]` a preset load reset it to empty. An INI that still has it under `[DecisionMatrix]` keeps working.
+
 ## Enhanced Combat Behavior 1.17.0 (2026-11-07)
 
 Untested in game. Needs `GunKeywords` set (1.16.0).

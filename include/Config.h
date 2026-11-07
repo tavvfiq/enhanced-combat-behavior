@@ -2,6 +2,8 @@
 
 #include <SimpleIni.h>
 #include <atomic>
+#include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <utility>
@@ -94,8 +96,6 @@ namespace CombatAI
             float jumpEvasionDistanceMax = 1500.0f;
             float evasionJumpChance = 0.5f;
             float jumpHeight = 100.0f; // Jump apex height in game units
-            // Comma-separated keyword EditorIDs marking guns (OHCF pistols are one-handed axes, others staves); empty = off
-            std::string gunKeywords;
             bool enableGunShots = true;   // a gunman NPC also fires on the brain's timing (the moveset fires on its own)
             float gunShotInterval = 2.5f; // seconds between a gunman's shots (x0.8-1.2 by patience)
             float jumpStaminaCost = 20.0f; // Spent per jump; no cooldown, an NPC without this much stamina can't jump
@@ -209,6 +209,10 @@ namespace CombatAI
             bool enableTKDodgeIntegration = true;
             bool enableSCARIntegration = true;
             bool enableAttackWarpIntegration = true; // Attack Warp loaded: per-NPC tracking, no stretch while waiting
+            // Comma-separated keyword EditorIDs marking guns (OHCF pistols are one-handed axes, others staves); empty =
+            // off. Mod content, not tuning: here so a preset (which resets [DecisionMatrix]) keeps it. Set through
+            // SetGunKeywords, which republishes GunKeywordList for the game threads.
+            std::string gunKeywords;
             float scarComboWindowSeconds = 20.0f; // A SCAR_ComboStart this recent marks the moveset as SCAR-driven
             float scarStallSeconds = 3.0f;        // SCAR actor wanting to attack this long without one: we attack
             bool enableComboFollowUp = true;      // MCO/BFCO combo windows: start the next attack (off while SCAR.dll is loaded)
@@ -412,6 +416,16 @@ namespace CombatAI
         // Check if plugin is enabled
         bool IsEnabled() const { return m_general.enablePlugin; }
 
+        // Gun keywords, parsed (trimmed, empty entries dropped). Game threads read this list, never the string, so the
+        // menu can change it while they run.
+        std::shared_ptr<const std::vector<std::string>> GunKeywordList() const { return m_gunKeywordList.load(); }
+        void SetGunKeywords(const std::string &a_list);
+
+        // Text settings the menu changed (dodge events, boss names): queued, then applied on the game thread by
+        // CombatDirector::Update, so no reader sees a string while the menu replaces it
+        void QueueText(std::string *a_field, std::string a_value);
+        void ApplyQueuedText();
+
       private:
         Config() = default;
         ~Config() = default;
@@ -443,6 +457,10 @@ namespace CombatAI
         HumanizerSettings m_humanizer;
         DodgeSystemSettings m_dodgeSystem;
         DecisionMatrixSettings m_decisionMatrix;
+        std::mutex m_textLock;
+        std::vector<std::pair<std::string *, std::string>> m_textQueue;
+        std::atomic<std::shared_ptr<const std::vector<std::string>>> m_gunKeywordList{
+            std::make_shared<const std::vector<std::string>>()};
         ScoringWeights m_scoringWeights;
         PerformanceSettings m_performance;
         ModIntegrationSettings m_modIntegrations;

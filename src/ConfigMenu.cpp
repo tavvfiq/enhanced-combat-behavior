@@ -5,6 +5,9 @@
 #include "Personality.h"
 #include "pch.h"
 
+#include <array>
+#include <unordered_map>
+
 // The vendored SKSE Menu Framework header uses <codecvt> (deprecated in C++17)
 // and has a few enum/struct-tag quirks. Silence those third-party warnings locally.
 #pragma warning(push)
@@ -104,6 +107,31 @@ namespace CombatAI
                 ImGuiMCP::SliderFloat(label, v, lo, hi, fmt);
             }
         };
+        // Text settings: typed into a buffer, applied with the button on the game thread (Config::QueueText). The
+        // buffer reloads when the setting changes elsewhere (a preset, the INI).
+        auto textSetting = [&](const char *label, std::string *a_field) {
+            if (!shown(label)) {
+                return;
+            }
+            struct Edit
+            {
+                std::array<char, 512> buffer{};
+                std::string seen;
+                bool loaded = false;
+            };
+            static std::unordered_map<const std::string *, Edit> edits;
+            auto &edit = edits[a_field];
+            if (!edit.loaded || edit.seen != *a_field) {
+                strncpy_s(edit.buffer.data(), edit.buffer.size(), a_field->c_str(), _TRUNCATE);
+                edit.seen = *a_field;
+                edit.loaded = true;
+            }
+            ImGuiMCP::InputText(label, edit.buffer.data(), edit.buffer.size());
+            ImGuiMCP::SameLine();
+            if (ImGuiMCP::Button((std::string("Apply##") + label).c_str())) {
+                config.QueueText(a_field, edit.buffer.data());
+            }
+        };
         // spdlog's level is global and was fixed at plugin load, so toggling the
         // debug-log bool alone does nothing until we re-apply the level here.
         auto applyLogLevel = [&]() {
@@ -186,6 +214,25 @@ namespace CombatAI
                     check("SCAR integration (when SCAR.dll is loaded)", &config.m_modIntegrations.enableSCARIntegration);
                     check("Attack Warp integration (when AttackWarp.dll is loaded)",
                           &config.m_modIntegrations.enableAttackWarpIntegration);
+                    // Guns: the keyword list is edited in a buffer and applied with the button (game threads read the
+                    // parsed list, never the text being typed)
+                    if (shown("Gun keywords (comma-separated keyword EditorIDs)")) {
+                        static char gunBuffer[512] = {};
+                        static bool gunLoaded = false;
+                        if (!gunLoaded) {
+                            strncpy_s(gunBuffer, config.m_modIntegrations.gunKeywords.c_str(), _TRUNCATE);
+                            gunLoaded = true;
+                        }
+                        ImGuiMCP::InputText("Gun keywords (comma-separated keyword EditorIDs)", gunBuffer, sizeof(gunBuffer));
+                        ImGuiMCP::SameLine();
+                        if (ImGuiMCP::Button("Apply##GunKeywords")) {
+                            config.SetGunKeywords(gunBuffer);
+                        }
+                        ImGuiMCP::TextDisabled("%zu keyword(s) active: a weapon with one is a gun in either hand",
+                                               config.GunKeywordList()->size());
+                    }
+                    check("Gunman NPCs also fire on the brain's timing", &config.m_decisionMatrix.enableGunShots);
+                    liveFloat("Gunman: seconds between shots", &config.m_decisionMatrix.gunShotInterval, 0.5f, 10.0f, "%.1f");
                     liveFloat("SCAR combo window (s)", &config.m_modIntegrations.scarComboWindowSeconds, 1.0f, 120.0f);
                     liveFloat("SCAR stall fallback (s)", &config.m_modIntegrations.scarStallSeconds, 0.5f, 15.0f);
                 }
@@ -227,7 +274,9 @@ namespace CombatAI
                     liveFloat("Sprint attack max dist", &config.m_decisionMatrix.sprintAttackMaxDistance, 0.0f, 1200.0f, "%.0f");
                     liveFloat("Sprint attack launch dist (0 = 3x reach)", &config.m_decisionMatrix.sprintAttackLaunchDistance, 0.0f, 1000.0f, "%.0f");
                     check("Power attack stamina check", &config.m_decisionMatrix.enablePowerAttackStaminaCheck);
+                    liveFloat("Power attack stamina cost", &config.m_decisionMatrix.powerAttackStaminaCost, 0.0f, 100.0f, "%.0f");
                     check("Sprint attack stamina check", &config.m_decisionMatrix.enableSprintAttackStaminaCheck);
+                    liveFloat("Sprint attack stamina cost", &config.m_decisionMatrix.sprintAttackStaminaCost, 0.0f, 100.0f, "%.0f");
                 }
                 if (header("Advanced: vanilla attack shaping")) {
                     check("Enable vanilla attack shaping", &config.m_vanillaAttacks.enable);
@@ -285,6 +334,8 @@ namespace CombatAI
                     liveFloat("Timed block min distance", &config.m_timedBlock.timedBlockMinDistance, 0.0f, 300.0f, "%.0f");
                     liveFloat("Timed block max distance", &config.m_timedBlock.timedBlockMaxDistance, 0.0f, 400.0f, "%.0f");
                     liveFloat("Interrupt reach multiplier", &config.m_decisionMatrix.interruptReachMultiplier, 0.5f, 3.0f);
+                    liveFloat("Interrupt max distance", &config.m_decisionMatrix.interruptMaxDistance, 0.0f, 1000.0f, "%.0f");
+                    check("NPCs with a dagger can block and bash (after restart)", &config.m_decisionMatrix.allowDaggerBlock);
                 }
                 if (header("Advanced: dodges (TK Dodge)")) {
                     liveFloat("Forward dodge chance", &config.m_dodgeSystem.forwardDodgeChance, 0.0f, 1.0f);
@@ -293,12 +344,21 @@ namespace CombatAI
                     liveFloat("Forward dodge: max gap beyond reach", &config.m_dodgeSystem.forwardDodgeMaxGap, 0.0f, 1000.0f, "%.0f");
                     liveFloat("Forward dodge: counter window (s)", &config.m_dodgeSystem.forwardDodgeCounterWindowSeconds, 0.0f, 5.0f);
                     liveFloat("Dodge stamina cost", &config.m_dodgeSystem.dodgeStaminaCost, 0.0f, 100.0f, "%.0f");
+                    liveFloat("Min stamina to dodge (not charged)", &config.m_dodgeSystem.minDodgeStamina, 0.0f, 100.0f, "%.0f");
+                    textSetting("Dodge event forward", &config.m_dodgeSystem.eventForward);
+                    textSetting("Dodge event back", &config.m_dodgeSystem.eventBack);
+                    textSetting("Dodge event left", &config.m_dodgeSystem.eventLeft);
+                    textSetting("Dodge event right", &config.m_dodgeSystem.eventRight);
+                    textSetting("Dodge event fallback (when the graph rejects one)", &config.m_dodgeSystem.eventFallback);
                     liveFloat("I-frame duration (s)", &config.m_dodgeSystem.iFrameDuration, 0.0f, 1.0f);
                     check("Enable step dodge", &config.m_dodgeSystem.enableStepDodge);
                     check("Enable dodge attack-cancel", &config.m_dodgeSystem.enableDodgeAttackCancel);
                     check("Enable jump evasion", &config.m_decisionMatrix.enableJumpEvasion);
                     liveFloat("Jump height", &config.m_decisionMatrix.jumpHeight, 20.0f, 300.0f, "%.0f");
                     liveFloat("Jump stamina cost", &config.m_decisionMatrix.jumpStaminaCost, 0.0f, 100.0f, "%.0f");
+                    liveFloat("Jump chance (instead of a dodge)", &config.m_decisionMatrix.evasionJumpChance, 0.0f, 1.0f);
+                    liveFloat("Jump evasion min distance", &config.m_decisionMatrix.jumpEvasionDistanceMin, 0.0f, 2000.0f, "%.0f");
+                    liveFloat("Jump evasion max distance", &config.m_decisionMatrix.jumpEvasionDistanceMax, 0.0f, 3000.0f, "%.0f");
                     liveFloat("Evasion min distance", &config.m_decisionMatrix.evasionMinDistance, 0.0f, 600.0f, "%.0f");
                 }
                 if (header("Advanced: projectiles")) {
@@ -388,7 +448,8 @@ namespace CombatAI
                     config.MarkHumanizerDirty();
                 }
                 humanFloat("Skill at level 1", &config.m_humanizer.skillBase, 0.0f, 1.0f);
-                check("Enable boss detection (names in the INI: [Boss] BossNames)", &config.m_boss.enableBossDetection);
+                check("Enable boss detection", &config.m_boss.enableBossDetection);
+                textSetting("Boss names (comma-separated)", &config.m_boss.bossNames);
                 liveFloat("Boss skill bonus", &config.m_boss.skillBonus, 0.0f, 1.0f);
                 if (header("Advanced: personality")) {
                     liveFloat("Per-NPC spread (+-)", &config.m_decisionMatrix.personalityJitter, 0.0f, 0.5f);
