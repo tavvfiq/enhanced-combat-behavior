@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.18.3 (2026-11-07)
+
+Untested in game. Debug log only, no behavior change.
+
+- **Why an NPC is not attack-ready:** for the selected NPC, when its graph refuses attacks (`IsAttackReady` false), a `NotReady` line names what each hand holds (guns marked), its attack state, whether its weapon is drawn, and the graph's IsAttacking / IsBlocking / IsStaggering / IsRecoiling / IsEquipping / IsUnequipping / bInJumpState (`-` = the graph has no such variable). Logged when that changes, not every tick. Two runs of 1.18.2: a pistol + blade NPC was in reach with `IsAttackReady` false 114 of 144 and 378 of 421 times and never swung, vanilla included.
+
 ## Enhanced Combat Behavior 1.18.2 (2026-11-07)
 
 Untested in game. Your settings and presets survive a mod update.

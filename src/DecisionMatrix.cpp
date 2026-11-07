@@ -107,6 +107,37 @@ namespace CombatAI
         return !a_actor || !a_actor->GetGraphVariableBool("IsAttackReady", ready) || ready;
     }
 
+    // Debug (selected NPC): why its graph is not attack-ready - what each hand holds and the graph's state flags.
+    // Logged when that picture changes, not every tick (1.18.3: a pistol + blade NPC sat 378 of 421 in-reach ticks
+    // with IsAttackReady false and never swung, vanilla included).
+    static void LogNotAttackReady(RE::Actor *a_actor)
+    {
+        const auto handName = [&](bool a_left) -> std::string {
+            RE::TESForm *item = ActorUtils::SafeGetEquippedObject(a_actor, a_left);
+            if (!item) {
+                return "empty";
+            }
+            const char *name = item->GetName();
+            return std::format("{} 0x{:08X}{}", name && *name ? name : "?", item->GetFormID(), Guns::IsGun(item) ? " (gun)" : "");
+        };
+        const auto flag = [&](const char *a_variable) -> const char * {
+            bool value = false;
+            return !a_actor->GetGraphVariableBool(a_variable, value) ? "-" : value ? "1" : "0";
+        };
+        const auto *actorState = a_actor->AsActorState();
+        const std::string picture = std::format(
+            "right {}, left {}; attack state {}, weapon drawn {}; IsAttacking {} IsBlocking {} IsStaggering {} IsRecoiling {} "
+            "IsEquipping {} IsUnequipping {} bInJumpState {}",
+            handName(false), handName(true), actorState ? static_cast<int>(actorState->GetAttackState()) : -1,
+            actorState && actorState->IsWeaponDrawn() ? "yes" : "no", flag("IsAttacking"), flag("IsBlocking"),
+            flag("IsStaggering"), flag("IsRecoiling"), flag("IsEquipping"), flag("IsUnequipping"), flag("bInJumpState"));
+        static std::string last;
+        if (picture != last) {
+            last = picture;
+            LOG_DEBUG("NotReady 0x{:08X}: IsAttackReady false - {}", a_actor->GetFormID(), picture);
+        }
+    }
+
     // Why a bash can't start now (nullptr: it can)
     static const char *BashRefusal(RE::Actor *a_actor, const ActorStateData &a_state)
     {
@@ -2186,6 +2217,9 @@ namespace CombatAI
                 return skip("creature still swinging, s", Intents::SinceSwing(a_actor));
             }
             if (!AttackReady(a_actor)) {
+                if (config.IsDebugTarget(a_actor->GetFormID())) {
+                    LogNotAttackReady(a_actor);
+                }
                 return skip("graph not attack-ready (IsAttackReady false)");
             }
                 const float facing = forward.Dot(toTarget);
