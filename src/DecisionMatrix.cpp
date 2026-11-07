@@ -1049,8 +1049,7 @@ namespace CombatAI
         }
 
         // Check distance
-        if (a_state.target.distance < parryConfig.parryMinDistance ||
-            a_state.target.distance > parryConfig.parryMaxDistance) {
+        if (a_state.target.distance > parryConfig.parryMaxDistance) {
             return result; // Out of parry range
         }
 
@@ -1104,8 +1103,7 @@ namespace CombatAI
         const bool blockTree = BlockRules::CanRunBlockTree(a_actor);
 
         // Check distance
-        if (a_state.target.distance < timedBlockConfig.timedBlockMinDistance ||
-            a_state.target.distance > timedBlockConfig.timedBlockMaxDistance) {
+        if (a_state.target.distance > timedBlockConfig.timedBlockMaxDistance) {
             return result; // Out of timed block range
         }
 
@@ -1766,7 +1764,7 @@ namespace CombatAI
         DecisionResult result;
         const auto &config = Config::GetInstance();
         const auto &matrix = config.GetDecisionMatrix();
-        if (!matrix.enablePunish || !matrix.enableOffense || !a_state.target.isValid || !a_state.target.isPlayer ||
+        if (!matrix.enablePunish || !a_state.target.isValid || !a_state.target.isPlayer ||
             !a_state.target.isAttacking || std::strcmp(a_state.temporal.target.timingSource, "none") != 0) {
             return result;
         }
@@ -1869,9 +1867,6 @@ namespace CombatAI
         DecisionResult result;
 
         auto &config = Config::GetInstance();
-        if (!config.GetDecisionMatrix().enableOffense) {
-            return result;
-        }
 
         if (!a_state.target.isValid || !a_state.self.isIdle) {
             return result;
@@ -2033,13 +2028,7 @@ namespace CombatAI
                 shouldSprintAttack = false;
             }
 
-            // Stamina check
-            if (shouldSprintAttack && config.GetDecisionMatrix().enableSprintAttackStaminaCheck) {
-                float sprintAttackCost = config.GetDecisionMatrix().sprintAttackStaminaCost;
-                if (a_state.self.currentStamina < sprintAttackCost) {
-                    shouldSprintAttack = false; // Not enough stamina
-                }
-            }
+            // Stamina: PowerAttackMinStamina, applied to every power and sprint attack in CombatDirector::ExecuteDecision
 
             // Personality: a sprint attack is a commitment; one roll per 2 s, 40% (cautious) to 100% (reckless)
             if (shouldSprintAttack) {
@@ -2053,17 +2042,6 @@ namespace CombatAI
                 sprintAttackResult.action = ActionType::SprintAttack;
 
                 float basePriority = config.GetScoringWeights().sprintAttackBase;
-
-                // Stamina modifier
-                float staminaModifier = 0.0f;
-                if (config.GetDecisionMatrix().enableSprintAttackStaminaCheck) {
-                    float currentStamina = a_state.self.currentStamina;
-                    float sprintAttackCost = config.GetDecisionMatrix().sprintAttackStaminaCost;
-                    if (currentStamina < sprintAttackCost * 1.2f) {
-                        float staminaRatio = currentStamina / (sprintAttackCost * 1.2f);
-                        staminaModifier = -0.3f * (1.0f - staminaRatio);
-                    }
-                }
 
                 // Risk Assessment: Target Ready & Facing Us
                 bool targetIsReady =
@@ -2131,7 +2109,7 @@ namespace CombatAI
                     basePriority += 0.2f;
                 }
 
-                basePriority += sprintOpeningRisk + staminaModifier;
+                basePriority += sprintOpeningRisk;
 
                 sprintAttackResult.priority = basePriority;
                 sprintAttackResult.intensity = 0.9f;
@@ -2713,19 +2691,6 @@ namespace CombatAI
                 return result;
             }
 
-            // Power attacks require stamina - check actual stamina value against cost
-            // (only if stamina check is enabled)
-            if (config.GetDecisionMatrix().enablePowerAttackStaminaCheck) {
-                float powerAttackCost = config.GetDecisionMatrix().powerAttackStaminaCost;
-                if (a_state.self.currentStamina < powerAttackCost) {
-                    // Not enough stamina for power attack - use normal attack instead
-                    result.action = ActionType::Attack;
-                    result.priority = finalPriority;
-                    result.intensity = 0.6f; // Moderate intensity for normal attack
-                    return result;
-                }
-            }
-
             // Power attacks are better when we have good openings
             if (hasGoodOpening) {
                 powerAttackBonus += 0.3f; // was "= 0.3f", which wiped the guard counter's +2.0 and the weapon bonuses
@@ -2754,23 +2719,6 @@ namespace CombatAI
                 powerAttackBonus -= 0.3f; // Multiple enemies targeting us - power attack is very risky
                 if (a_state.combatContext.enemiesTargetingUs > 2) {
                     shouldPowerAttack = false; // Too many enemies targeting us - prefer normal attack
-                }
-            }
-
-            // Stamina consideration: reduce power attack priority if stamina is low
-            // (only if stamina check is enabled) Power attacks consume stamina, so we
-            // need to consider if we have enough left
-            float powerAttackStaminaModifier = 0.0f;
-            if (config.GetDecisionMatrix().enablePowerAttackStaminaCheck) {
-                float currentStamina = a_state.self.currentStamina;
-                float powerAttackCost = config.GetDecisionMatrix().powerAttackStaminaCost;
-
-                // Reduce priority if stamina is critically low relative to cost
-                if (currentStamina < powerAttackCost * 1.2f) {
-                    // Stamina is barely enough - reduce priority
-                    float staminaRatio = currentStamina / (powerAttackCost * 1.2f); // 0.0 to 1.0
-                    powerAttackStaminaModifier =
-                        -0.2f * (1.0f - staminaRatio); // Reduce by up to 20% when low stamina
                 }
             }
 
@@ -2815,7 +2763,7 @@ namespace CombatAI
 
                 // Only when it scores above the normal attack: a power attack was picked even with a net negative
                 // bonus (e.g. two-handed +0.2, two enemies on us -0.3), below what a normal attack would score
-                const float powerExtra = powerAttackBonus + powerAttackStaminaModifier;
+                const float powerExtra = powerAttackBonus;
                 if (powerExtra > 0.0f) {
                     result.priority = finalPriority + powerExtra;
                     result.intensity = 0.8f; // High intensity for committed power attack

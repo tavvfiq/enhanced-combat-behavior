@@ -1,5 +1,13 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.18.0 (2026-11-07)
+
+Untested in game. Settings cleanup: 38 fewer settings, same behavior at the defaults. Old keys left in your INI are ignored.
+
+- **Removed (redundant, test-only or no real choice):** `PowerAttackStaminaCost`, `SprintAttackStaminaCost`, `EnablePowerAttackStaminaCheck`, `EnableSprintAttackStaminaCheck` (a flat 20 / 25 stamina check under `PowerAttackMinStamina`, the 70% check every power and sprint attack already has); `EnableOffense` (off meant NPCs never attack); `UsePlayerClipTiming` and `ComboBranchChoice` (always on); `ComboBranchProbe` (a test); `FatigueFromExertion`, `FatigueOnsetSeconds`, `FatigueFullSeconds` (the old combat-time fatigue; fatigue comes from stamina spent); `ParryMinDistance`, `TimedBlockMinDistance` (0, no minimum).
+- **Fixed in the code at their defaults (internal values):** `SkillRerollSeconds` 1, `SkillActorValueMaxGap` 50, `FatigueExertionSeconds` 30, `ForwardDodgeCounterWindowSeconds` 1.5, `BackoffStepDistance` 150, `IntentHitConeMaxAngle` 60, `AdvanceRedirectMaxDistance` 150, `PunishChainWaitSeconds` 0.05, `PunishPriority` 3, `CreatureSwingSeconds` 3, `TacticalRetreatMinCaution` 0.3, `TargetDangerStrengthWeight` 0.4, `FlankingMaxReach` 2.5, `ShotHoldMaxSeconds` 3, `OffenseReachSafetyMargin` 20, `SCARComboWindowSeconds` 20, `SCARStallSeconds` 3, `EwmaAlpha` 0.5, `MomentumDecaySeconds` 5, projectile `HitMargin` 40 and `DodgePriority` 2.2, `LosEyeHeight` 96, `DodgeLedgeProbeDistance` 180, `DodgeMaxDrop` 200, `RetaliateWindowSeconds` 2, `CleanupInterval` 5.
+- Kept on purpose: the switches for the engine hooks (`BrainBackoffFallback`, `BrainAdvanceDistance`, `IntentHitConeOverride`, `AdvanceNavmeshRedirect`, `FlankingStyleBrainMovement`, `AllowDaggerBlock`), to turn one off if it conflicts with another mod.
+
 ## Enhanced Combat Behavior 1.17.1 (2026-11-07)
 
 Untested in game.

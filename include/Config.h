@@ -42,16 +42,13 @@ namespace CombatAI
             float skillPerLevel = 0.008f;     // Added per level above 1
             float skillMin = 0.2f;
             float skillMax = 0.95f;
-            float skillRerollSeconds = 1.0f;  // Openings that aren't one swing re-roll this often
+            static constexpr float skillRerollSeconds = 1.0f;  // Openings that aren't one swing re-roll this often
             float skillActorValueWeight = 0.4f;  // skill per 100 points of actor-value gap to the target (0 = level only)
-            float skillActorValueMaxGap = 50.0f; // the gap counts up to this many points either way
+            static constexpr float skillActorValueMaxGap = 50.0f; // the gap counts up to this many points either way
 
             // Fatigue: long fights and low stamina make the actor sloppier
             bool enableFatigue = true;
-            bool fatigueFromExertion = true;       // fatigue = stamina spent lately (off: the combat-time ramp below)
-            float fatigueExertionSeconds = 30.0f;  // spending a full stamina bar within about this long = full fatigue
-            float fatigueOnsetSeconds = 45.0f;     // Combat time before fatigue starts building
-            float fatigueFullSeconds = 180.0f;     // Combat time at full fatigue
+            static constexpr float fatigueExertionSeconds = 30.0f;  // spending a full stamina bar within about this long = full fatigue
             float fatigueStaminaThreshold = 0.25f; // Below this stamina fraction, fatigue rises to full at 0
             float fatigueSkillPenalty = 0.5f;      // Failure chance x(1 + this) at full fatigue
             // Panic: low health makes everything except retreating sloppier
@@ -69,7 +66,7 @@ namespace CombatAI
             // Forward dodge only closes the last stretch: up to this far beyond attack reach
             float forwardDodgeMaxGap = 200.0f;
             // Counter: dodge in when the target is recovering from a swing we evaded this recently
-            float forwardDodgeCounterWindowSeconds = 1.5f;
+            static constexpr float forwardDodgeCounterWindowSeconds = 1.5f;
             float forwardDodgeChance = 0.25f;          // per opening, x personality risk (0.25..1.75), x2 for a counter
             float forwardDodgeCooldownSeconds = 8.0f;  // min time between forward dodges
             float forwardDodgeMinStamina = 0.5f;       // stamina fraction needed
@@ -101,30 +98,30 @@ namespace CombatAI
             float jumpStaminaCost = 20.0f; // Spent per jump; no cooldown, an NPC without this much stamina can't jump
             float staminaThreshold = 0.2f;
             bool brainBackoffFallback = true;    // Our Backoff/Fallback start where the brain asks (false: vanilla start rules)
-            float backoffStepDistance = 150.0f;  // How far our Backoff steps back from where the NPC stands
+            static constexpr float backoffStepDistance = 150.0f;  // How far our Backoff steps back from where the NPC stands
             bool backoffAfterSwing = true;       // Step out during its own swing's follow-through when the target isn't open
             bool brainAdvanceDistance = true;    // Our Advance closes to the brain's attack range (false: vanilla's range)
             float backoffOnSwingChance = 0.35f;   // Chance to back off from each of the target's normal swings
             float backoffAfterSwingChance = 0.4f; // Chance to step out after each of its own swings
             float tradeBlowsChance = 0.3f;        // Chance to attack into each of the target's normal swings
             bool enablePunish = true;             // attack while the player recovers from a swing (its clip's recovery)
-            float punishChainWaitSeconds = 0.05f; // wait this long past the combo window opening (reckless: none)
-            float punishPriority = 3.0f;          // decision priority of a punish (a normal attack scores ~2.3)
+            static constexpr float punishChainWaitSeconds = 0.05f; // wait this long past the combo window opening (reckless: none)
+            static constexpr float punishPriority = 3.0f;          // decision priority of a punish (a normal attack scores ~2.3)
             bool intentHitConeOverride = true;    // our attacks pass vanilla's hit cone when in reach and roughly in front
-            float intentHitConeMaxAngle = 60.0f;  // ...within this many degrees of the NPC's facing
+            static constexpr float intentHitConeMaxAngle = 60.0f;  // ...within this many degrees of the NPC's facing
             bool advanceNavmeshRedirect = true;       // after a failed Advance, a target off the navmesh: go to its closest navmesh point
-            float advanceRedirectMaxDistance = 150.0f; // ...only when that point is this close to the target (2D)
+            static constexpr float advanceRedirectMaxDistance = 150.0f; // ...only when that point is this close to the target (2D)
             bool flankingStyleBrainMovement = true;    // flanking combat styles use the brain's close movement, not vanilla's
             bool enablePersonality = true;          // Confidence / Aggression / combat style scale risky rolls
             bool includeHumanoidCreatures = true;   // draugr, falmer, skeletons with a weapon get the brain (no dodges)
-            float creatureSwingSeconds = 3.0f;      // such a creature starts no new attack this soon after a swing start
+            static constexpr float creatureSwingSeconds = 3.0f;      // such a creature starts no new attack this soon after a swing start
             float personalityJitter = 0.15f;        // fixed per-NPC spread added to risk / caution / patience
-            float tacticalRetreatMinCaution = 0.3f; // retreat from a crowd (not low health) only this careful or more
+            static constexpr float tacticalRetreatMinCaution = 0.3f; // retreat from a crowd (not low health) only this careful or more
             bool enableTargetDanger = true;           // fear giants, beasts, bosses and much stronger targets (TargetDanger.h)
             float targetDangerInfluence = 0.5f;       // how far danger lowers risk / raises caution (0 = rating only)
-            float targetDangerStrengthWeight = 0.4f;  // danger from a target far above the NPC's level or max health
-            float flankingMaxReach = 2.5f;          // flank only within this x the attack range
-            float shotHoldMaxSeconds = 3.0f;        // longest an archer / caster holds fire for an ally in the way
+            static constexpr float targetDangerStrengthWeight = 0.4f;  // danger from a target far above the NPC's level or max health
+            static constexpr float flankingMaxReach = 2.5f;          // flank only within this x the attack range
+            static constexpr float shotHoldMaxSeconds = 3.0f;        // longest an archer / caster holds fire for an ally in the way
             float closeDodgeChance = 0.3f;        // Chance to dodge each melee swing aimed at it from within reach
             float defendOnSwingChance = 0.5f;     // Chance to parry / timed block each swing aimed at it (in window)
             bool enableCounter = true;            // Power attack in the window after blocking a hit (guard counter)
@@ -133,7 +130,6 @@ namespace CombatAI
             bool enableShoutTiming = true;        // Stagger shouts for an open target, Disarm for an armed one; none at a hidden player or while waiting a turn
             bool allowDaggerBlock = true;         // Let daggers block and bash (patches vanilla; applies at game start)
             bool enableRangedPositioning = true;  // Archers and mages keep their distance from melee attackers
-            bool usePlayerClipTiming = true;      // Parry/timed block timed from the player's attack animation (off: learned median)
             float rangedKeepAwayDistance = 450.0f; // Fall back when a melee attacker is closer than this
             float rangedMaxDistance = 2000.0f;     // Close in when the target is farther than this (or out of sight)
             bool staminaAffectsRetreat = false;  // Off: retreat/backoff depend on health only (light attacks cost no stamina)
@@ -151,17 +147,12 @@ namespace CombatAI
             float poisonParalysisCooldownSeconds = 30.0f; // between paralysis poisons (none on a target already down)
             float safeDrinkDistance = 350.0f;     // drink once this far from the target
             float safeDrinkMaxWaitSeconds = 3.0f; // or after backing off this long
-            bool enableOffense = true;
             float offenseReachMultiplier = 1.0f;
-            float offenseReachSafetyMargin = 20.0f;
+            static constexpr float offenseReachSafetyMargin = 20.0f;
             bool enableSprintAttack = true; // Master toggle for NPC sprint (gap-closer) attacks
             float sprintAttackLaunchDistance = 0.0f; // Launch only while sprinting and this close; 0 = 3 x weapon reach
             float sprintAttackMinDistance = 300.0f;
             float sprintAttackMaxDistance = 800.0f;
-            float powerAttackStaminaCost = 20.0f;  // Stamina cost for power attacks
-            float sprintAttackStaminaCost = 25.0f; // Stamina cost for sprint attacks (higher due to sprinting + attack)
-            bool enablePowerAttackStaminaCheck = true;  // If true, check stamina before allowing power attacks
-            bool enableSprintAttackStaminaCheck = true; // If true, check stamina before allowing sprint attacks
             // Note: Normal attacks always allowed regardless of stamina (even if stamina is 0)
             // Stamina checks compare actual stamina value against stamina cost (not percentage thresholds)
         };
@@ -194,7 +185,7 @@ namespace CombatAI
 
         struct PerformanceSettings
         {
-            float cleanupInterval = 5.0f;
+            static constexpr float cleanupInterval = 5.0f;
 
             // Adaptive Processing Interval (LOD) settings
             float processingIntervalMid = 0.2f; // Slower updates for mid-range (1000-3000 units)
@@ -213,14 +204,12 @@ namespace CombatAI
             // off. Mod content, not tuning: here so a preset (which resets [DecisionMatrix]) keeps it. Set through
             // SetGunKeywords, which republishes GunKeywordList for the game threads.
             std::string gunKeywords;
-            float scarComboWindowSeconds = 20.0f; // A SCAR_ComboStart this recent marks the moveset as SCAR-driven
-            float scarStallSeconds = 3.0f;        // SCAR actor wanting to attack this long without one: we attack
+            static constexpr float scarComboWindowSeconds = 20.0f; // A SCAR_ComboStart this recent marks the moveset as SCAR-driven
+            static constexpr float scarStallSeconds = 3.0f;        // SCAR actor wanting to attack this long without one: we attack
             bool enableComboFollowUp = true;      // MCO/BFCO combo windows: start the next attack (off while SCAR.dll is loaded)
             float comboFollowUpChance = 0.7f;     // per window: chance of a normal follow-up
             float comboPowerChance = 0.3f;        // per power window: chance of a power follow-up (needs power stamina)
             float comboReachMult = 1.3f;          // a follow-up starts up to this x the attack range (combo steps lunge)
-            bool comboBranchProbe = false;        // test: the selected NPC's follow-ups force another slot (debug log)
-            bool comboBranchChoice = true;        // the follow-up's attack is picked by reach at the blow and punish
         };
 
         struct ParrySettings
@@ -228,7 +217,6 @@ namespace CombatAI
             bool enableParry = true;         // Enable parry mechanism (timed bash)
             float parryWindowStart = 0.05f;  // Start bash this many seconds before attack hits (minimum)
             float parryWindowEnd = 0.25f;    // Latest time to start bash before attack hits (maximum)
-            float parryMinDistance = 0.0f;   // Minimum distance for parry (run 38: you hit from 42-47 units)
             float parryMaxDistance = 200.0f; // Maximum distance for parry
         };
 
@@ -237,7 +225,6 @@ namespace CombatAI
             bool enableTimedBlock = true;          // Enable timed block mechanism
             float timedBlockWindowStart = 0.05f;   // Start block this many seconds before attack hits (minimum)
             float timedBlockWindowEnd = 0.33f;     // End of timing window (matches mod's 0.33s window)
-            float timedBlockMinDistance = 0.0f;    // Minimum distance for timed block (run 38: hits from 42-47 units)
             float timedBlockMaxDistance = 200.0f;  // Maximum distance for timed block
         };
 
@@ -269,8 +256,8 @@ namespace CombatAI
             float chipThreshold = 0.03f;        // <= this = full defensive
             float offensiveBonusMax = 0.4f;     // Max attack-priority bonus at full aggression
             float defensivePenaltyMax = 0.3f;   // Max attack-priority penalty at full chip (anti-turtle cap)
-            float momentumDecaySeconds = 5.0f;  // Momentum fades to 0 over this long with no hits
-            float ewmaAlpha = 0.5f;             // Smoothing of per-hit damage fraction (0-1)
+            static constexpr float momentumDecaySeconds = 5.0f;  // Momentum fades to 0 over this long with no hits
+            static constexpr float ewmaAlpha = 0.5f;             // Smoothing of per-hit damage fraction (0-1)
             bool enableDamageRace = true;       // Weigh hits-to-kill against hits-to-die
             float raceRetreatHits = 2.0f;       // Losing and this many of the target's hits from death: retreat
             float raceRetreatMaxHealth = 0.75f; // ...but never above this health fraction
@@ -281,10 +268,10 @@ namespace CombatAI
         struct EnvSensorSettings
         {
             bool enableLosGate = true;              // Suppress attacks at a target behind a wall/railing
-            float losEyeHeight = 96.0f;             // Torso offset (game units) for line-of-sight rays
+            static constexpr float losEyeHeight = 96.0f;             // Torso offset (game units) for line-of-sight rays
             bool enableCliffSafeDodge = true;       // Never dodge off a ledge/cliff
-            float dodgeLedgeProbeDistance = 180.0f; // How far ahead a dodge is assumed to land (game units)
-            float dodgeMaxDrop = 200.0f;            // Drop beyond this below the landing spot = treat as cliff
+            static constexpr float dodgeLedgeProbeDistance = 180.0f; // How far ahead a dodge is assumed to land (game units)
+            static constexpr float dodgeMaxDrop = 200.0f;            // Drop beyond this below the landing spot = treat as cliff
         };
 
         // Target switching: turn on whoever just hit us, or finish off a nearly dead enemy.
@@ -292,7 +279,7 @@ namespace CombatAI
         {
             bool enableTargetSwitching = true;
             float switchCooldownSeconds = 5.0f;   // Min time between switch rolls per actor
-            float retaliateWindowSeconds = 2.0f;  // A hit counts this long after it lands
+            static constexpr float retaliateWindowSeconds = 2.0f;  // A hit counts this long after it lands
             float retaliateChance = 0.5f;         // Chance to turn on the attacker
             float retaliateMaxDistance = 600.0f;  // Ignore attackers farther than this (archers/mages)
             float finisherHealthThreshold = 0.25f; // Enemy health fraction that counts as "nearly dead"
@@ -336,8 +323,8 @@ namespace CombatAI
             float reactMinSeconds = 0.2f;  // Closer than this to impact: too late to react
             float reactMaxSeconds = 0.9f;  // Farther than this: not yet
             float dodgeChance = 0.6f;      // Rolled once per projectile
-            float hitMargin = 40.0f;       // Extra radius counted as "on course"
-            float dodgePriority = 2.2f;    // Beats melee evasion (~1.5-2.2) and offense
+            static constexpr float hitMargin = 40.0f;       // Extra radius counted as "on course"
+            static constexpr float dodgePriority = 2.2f;    // Beats melee evasion (~1.5-2.2) and offense
         };
 
         // Shapes the attacks the vanilla melee AI picks (per-attack chance multipliers).

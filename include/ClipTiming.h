@@ -49,9 +49,6 @@ namespace CombatAI::ClipTiming
     int FastestAttack(RE::FormID a_actor, float a_distance, float a_closing, float a_reach, float a_targetRadius,
                       float &a_startup);
 
-    // Combo branch probe (main thread). A light (a_power false) or power attack slot of a_actor's seen clips
-    // ("...AttackN.hkx" / "...PowerAttackN.hkx", not sprint or special) other than a_not, 0 if none
-    int OtherKnownSlot(RE::FormID a_actor, bool a_power, int a_not);
     // The next attack clip a_actor starts is checked against that slot and logged (within 2 s)
     void ExpectOwnClip(RE::FormID a_actor, bool a_power, int a_slot);
 

@@ -209,26 +209,6 @@ namespace CombatAI::ComboFollowUp
                         ClipTiming::ExpectOwnClip(me->GetFormID(), a_power, a_slot); // logs whether it played
                     }
                 }
-                // Combo branch probe (moveset proposal step 5): the MCO/BFCO clips set the next slot with
-                // PIE.@SGVI|MCO_nextattack|N (power: MCO_nextpowerattack) before the window opens; write another slot
-                // this NPC has played before and see whether the graph plays it
-                if (Config::GetInstance().GetModIntegrations().comboBranchProbe &&
-                    Config::GetInstance().IsDebugTarget(me->GetFormID())) {
-                    const char *variable = a_power ? "MCO_nextpowerattack" : "MCO_nextattack";
-                    std::int32_t was = -1, now = -1;
-                    const bool exists = me->GetGraphVariableInt(variable, was);
-                    const int slot = exists ? ClipTiming::OtherKnownSlot(me->GetFormID(), a_power, was) : 0;
-                    bool set = false;
-                    if (slot > 0) {
-                        set = me->SetGraphVariableInt(variable, slot);
-                        me->GetGraphVariableInt(variable, now);
-                        ClipTiming::ExpectOwnClip(me->GetFormID(), a_power, slot);
-                    }
-                    LOG_DEBUG("Combo branch 0x{:08X}: {} {} -> {}", me->GetFormID(), variable,
-                              exists ? std::format("was {}", was) : std::string("not in the graph"),
-                              slot > 0 ? std::format("wrote {} ({}), reads {}", slot, set ? "set" : "refused", now)
-                                       : std::string("no other known slot, left as is"));
-                }
                 const bool ok = anim->Execute();
                 anim->~CombatAnimation();
                 RE::free(anim);
@@ -309,7 +289,7 @@ namespace CombatAI::ComboFollowUp
         }
         bool lightReaches = withinRange, powerReaches = withinRange;
         std::string reachLog; // debug: distance, the target's speed, each kind's verdict
-        if (!skip && settings.comboBranchChoice) {
+        if (!skip) {
             const float closing = Closing(target, a_state);
             const float reach = (a_state.weaponReach > 0.0f ? a_state.weaponReach : 150.0f) + a_state.target.boundRadius;
             // Per kind: the seen attack that comes closest (its reach at the blow less the distance then; >= 0 reaches)
@@ -386,9 +366,9 @@ namespace CombatAI::ComboFollowUp
                          : "no follow-up (roll)");
         }
         if (go) {
-            // Which attack (the probe, a test, forces its own slot in Perform instead)
+            // Which attack
             int slot = 0;
-            if (settings.comboBranchChoice && !(settings.comboBranchProbe && debug)) {
+            {
                 std::string why;
                 slot = ChooseSlot(a_actor, target, a_state, power, why);
                 if (debug) {

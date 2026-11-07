@@ -353,9 +353,7 @@ namespace CombatAI
                 ClipTiming::Sample(target, median, debugEnabled, state.temporal.target.swingCount);
                 auto eta = ClipTiming::Eta::kOff;
                 float earliest = 0.0f, latest = 0.0f;
-                if (config.GetDecisionMatrix().usePlayerClipTiming) {
-                    eta = ClipTiming::Predict(target, state.temporal.target.attackStartTime, earliest, latest);
-                }
+                eta = ClipTiming::Predict(target, state.temporal.target.attackStartTime, earliest, latest);
                 if (debugEnabled && eta == ClipTiming::Eta::kPast) {
                     ClipTiming::LogPunishWindow(a_actor, target, state.target.distance, state.weaponReach,
                                                 state.target.boundRadius, state.temporal.target.swingCount);

@@ -153,14 +153,8 @@ namespace CombatAI
         D("Humanizer", "SkillPerLevel", m_humanizer.skillPerLevel);
         D("Humanizer", "SkillMin", m_humanizer.skillMin);
         D("Humanizer", "SkillMax", m_humanizer.skillMax);
-        D("Humanizer", "SkillRerollSeconds", m_humanizer.skillRerollSeconds);
         D("Humanizer", "SkillActorValueWeight", m_humanizer.skillActorValueWeight);
-        D("Humanizer", "SkillActorValueMaxGap", m_humanizer.skillActorValueMaxGap);
         B("Humanizer", "EnableFatigue", m_humanizer.enableFatigue);
-        B("Humanizer", "FatigueFromExertion", m_humanizer.fatigueFromExertion);
-        D("Humanizer", "FatigueExertionSeconds", m_humanizer.fatigueExertionSeconds);
-        D("Humanizer", "FatigueOnsetSeconds", m_humanizer.fatigueOnsetSeconds);
-        D("Humanizer", "FatigueFullSeconds", m_humanizer.fatigueFullSeconds);
         D("Humanizer", "FatigueStaminaThreshold", m_humanizer.fatigueStaminaThreshold);
         D("Humanizer", "FatigueSkillPenalty", m_humanizer.fatigueSkillPenalty);
         B("Humanizer", "EnablePanic", m_humanizer.enablePanic);
@@ -173,7 +167,6 @@ namespace CombatAI
         B("DodgeSystem", "EnableStepDodge", m_dodgeSystem.enableStepDodge);
         B("DodgeSystem", "EnableDodgeAttackCancel", m_dodgeSystem.enableDodgeAttackCancel);
         D("DodgeSystem", "ForwardDodgeMaxGap", m_dodgeSystem.forwardDodgeMaxGap);
-        D("DodgeSystem", "ForwardDodgeCounterWindowSeconds", m_dodgeSystem.forwardDodgeCounterWindowSeconds);
         D("DodgeSystem", "ForwardDodgeChance", m_dodgeSystem.forwardDodgeChance);
         D("DodgeSystem", "ForwardDodgeCooldownSeconds", m_dodgeSystem.forwardDodgeCooldownSeconds);
         D("DodgeSystem", "ForwardDodgeMinStamina", m_dodgeSystem.forwardDodgeMinStamina);
@@ -199,39 +192,28 @@ namespace CombatAI
         D("DecisionMatrix", "StaminaThreshold", m_decisionMatrix.staminaThreshold);
         B("DecisionMatrix", "StaminaAffectsRetreat", m_decisionMatrix.staminaAffectsRetreat);
         B("DecisionMatrix", "BrainBackoffFallback", m_decisionMatrix.brainBackoffFallback);
-        D("DecisionMatrix", "BackoffStepDistance", m_decisionMatrix.backoffStepDistance);
         B("DecisionMatrix", "BackoffAfterSwing", m_decisionMatrix.backoffAfterSwing);
         B("DecisionMatrix", "BrainAdvanceDistance", m_decisionMatrix.brainAdvanceDistance);
         D("DecisionMatrix", "BackoffOnSwingChance", m_decisionMatrix.backoffOnSwingChance);
         D("DecisionMatrix", "BackoffAfterSwingChance", m_decisionMatrix.backoffAfterSwingChance);
         D("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance);
         B("DecisionMatrix", "EnablePunish", m_decisionMatrix.enablePunish);
-        D("DecisionMatrix", "PunishChainWaitSeconds", m_decisionMatrix.punishChainWaitSeconds);
-        D("DecisionMatrix", "PunishPriority", m_decisionMatrix.punishPriority);
         B("DecisionMatrix", "IntentHitConeOverride", m_decisionMatrix.intentHitConeOverride);
-        D("DecisionMatrix", "IntentHitConeMaxAngle", m_decisionMatrix.intentHitConeMaxAngle);
         B("DecisionMatrix", "AdvanceNavmeshRedirect", m_decisionMatrix.advanceNavmeshRedirect);
         B("DecisionMatrix", "FlankingStyleBrainMovement", m_decisionMatrix.flankingStyleBrainMovement);
-        D("DecisionMatrix", "AdvanceRedirectMaxDistance", m_decisionMatrix.advanceRedirectMaxDistance);
         B("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
         B("DecisionMatrix", "EnableCounter", m_decisionMatrix.enableCounter);
         B("DecisionMatrix", "EnableShoutTiming", m_decisionMatrix.enableShoutTiming);
         B("DecisionMatrix", "EnableSelfShouts", m_decisionMatrix.enableSelfShouts);
         B("DecisionMatrix", "SelfShoutSlowTime", m_decisionMatrix.selfShoutSlowTime);
         B("DecisionMatrix", "IncludeHumanoidCreatures", m_decisionMatrix.includeHumanoidCreatures);
-        D("DecisionMatrix", "CreatureSwingSeconds", m_decisionMatrix.creatureSwingSeconds);
         D("DecisionMatrix", "PersonalityJitter", m_decisionMatrix.personalityJitter);
-        D("DecisionMatrix", "TacticalRetreatMinCaution", m_decisionMatrix.tacticalRetreatMinCaution);
         B("DecisionMatrix", "EnableTargetDanger", m_decisionMatrix.enableTargetDanger);
         D("DecisionMatrix", "TargetDangerInfluence", m_decisionMatrix.targetDangerInfluence);
-        D("DecisionMatrix", "TargetDangerStrengthWeight", m_decisionMatrix.targetDangerStrengthWeight);
-        D("DecisionMatrix", "FlankingMaxReach", m_decisionMatrix.flankingMaxReach);
-        D("DecisionMatrix", "ShotHoldMaxSeconds", m_decisionMatrix.shotHoldMaxSeconds);
         D("DecisionMatrix", "CloseDodgeChance", m_decisionMatrix.closeDodgeChance);
         D("DecisionMatrix", "DefendOnSwingChance", m_decisionMatrix.defendOnSwingChance);
         B("DecisionMatrix", "AllowDaggerBlock", m_decisionMatrix.allowDaggerBlock);
         B("DecisionMatrix", "EnableRangedPositioning", m_decisionMatrix.enableRangedPositioning);
-        B("DecisionMatrix", "UsePlayerClipTiming", m_decisionMatrix.usePlayerClipTiming);
         D("DecisionMatrix", "RangedKeepAwayDistance", m_decisionMatrix.rangedKeepAwayDistance);
         D("DecisionMatrix", "RangedMaxDistance", m_decisionMatrix.rangedMaxDistance);
         D("DecisionMatrix", "PowerAttackMinStamina", m_decisionMatrix.powerAttackMinStamina);
@@ -248,17 +230,11 @@ namespace CombatAI
         D("DecisionMatrix", "PoisonParalysisCooldownSeconds", m_decisionMatrix.poisonParalysisCooldownSeconds);
         D("DecisionMatrix", "SafeDrinkDistance", m_decisionMatrix.safeDrinkDistance);
         D("DecisionMatrix", "SafeDrinkMaxWaitSeconds", m_decisionMatrix.safeDrinkMaxWaitSeconds);
-        B("DecisionMatrix", "EnableOffense", m_decisionMatrix.enableOffense);
         D("DecisionMatrix", "OffenseReachMultiplier", m_decisionMatrix.offenseReachMultiplier);
-        D("DecisionMatrix", "OffenseReachSafetyMargin", m_decisionMatrix.offenseReachSafetyMargin);
         B("DecisionMatrix", "EnableSprintAttack", m_decisionMatrix.enableSprintAttack);
         D("DecisionMatrix", "SprintAttackLaunchDistance", m_decisionMatrix.sprintAttackLaunchDistance);
         D("DecisionMatrix", "SprintAttackMinDistance", m_decisionMatrix.sprintAttackMinDistance);
         D("DecisionMatrix", "SprintAttackMaxDistance", m_decisionMatrix.sprintAttackMaxDistance);
-        D("DecisionMatrix", "PowerAttackStaminaCost", m_decisionMatrix.powerAttackStaminaCost);
-        D("DecisionMatrix", "SprintAttackStaminaCost", m_decisionMatrix.sprintAttackStaminaCost);
-        B("DecisionMatrix", "EnablePowerAttackStaminaCheck", m_decisionMatrix.enablePowerAttackStaminaCheck);
-        B("DecisionMatrix", "EnableSprintAttackStaminaCheck", m_decisionMatrix.enableSprintAttackStaminaCheck);
 
         // Scoring weights
         const auto &w = m_scoringWeights;
@@ -284,17 +260,12 @@ namespace CombatAI
         B("ModIntegrations", "EnableSCARIntegration", m_modIntegrations.enableSCARIntegration);
         B("ModIntegrations", "EnableAttackWarpIntegration", m_modIntegrations.enableAttackWarpIntegration);
         S("ModIntegrations", "GunKeywords", m_modIntegrations.gunKeywords);
-        D("ModIntegrations", "SCARComboWindowSeconds", m_modIntegrations.scarComboWindowSeconds);
-        D("ModIntegrations", "SCARStallSeconds", m_modIntegrations.scarStallSeconds);
         B("ModIntegrations", "EnableComboFollowUp", m_modIntegrations.enableComboFollowUp);
         D("ModIntegrations", "ComboFollowUpChance", m_modIntegrations.comboFollowUpChance);
         D("ModIntegrations", "ComboPowerChance", m_modIntegrations.comboPowerChance);
         D("ModIntegrations", "ComboReachMult", m_modIntegrations.comboReachMult);
-        B("ModIntegrations", "ComboBranchProbe", m_modIntegrations.comboBranchProbe);
-        B("ModIntegrations", "ComboBranchChoice", m_modIntegrations.comboBranchChoice);
 
         // Performance
-        D("Performance", "CleanupInterval", m_performance.cleanupInterval);
         D("Performance", "DistanceNear", m_performance.distanceNear);
         D("Performance", "DistanceMid", m_performance.distanceMid);
         D("Performance", "ProcessingIntervalMid", m_performance.processingIntervalMid);
@@ -304,14 +275,12 @@ namespace CombatAI
         B("Parry", "EnableParry", m_parry.enableParry);
         D("Parry", "ParryWindowStart", m_parry.parryWindowStart);
         D("Parry", "ParryWindowEnd", m_parry.parryWindowEnd);
-        D("Parry", "ParryMinDistance", m_parry.parryMinDistance);
         D("Parry", "ParryMaxDistance", m_parry.parryMaxDistance);
 
         // Timed block
         B("TimedBlock", "EnableTimedBlock", m_timedBlock.enableTimedBlock);
         D("TimedBlock", "TimedBlockWindowStart", m_timedBlock.timedBlockWindowStart);
         D("TimedBlock", "TimedBlockWindowEnd", m_timedBlock.timedBlockWindowEnd);
-        D("TimedBlock", "TimedBlockMinDistance", m_timedBlock.timedBlockMinDistance);
         D("TimedBlock", "TimedBlockMaxDistance", m_timedBlock.timedBlockMaxDistance);
 
         // Combat pacing (Wait Your Turn)
@@ -337,22 +306,16 @@ namespace CombatAI
         D("DamageMomentum", "ChipThreshold", m_damageMomentum.chipThreshold);
         D("DamageMomentum", "OffensiveBonusMax", m_damageMomentum.offensiveBonusMax);
         D("DamageMomentum", "DefensivePenaltyMax", m_damageMomentum.defensivePenaltyMax);
-        D("DamageMomentum", "MomentumDecaySeconds", m_damageMomentum.momentumDecaySeconds);
-        D("DamageMomentum", "EwmaAlpha", m_damageMomentum.ewmaAlpha);
         B("DamageMomentum", "EnableDamageRace", m_damageMomentum.enableDamageRace);
         D("DamageMomentum", "RaceRetreatHits", m_damageMomentum.raceRetreatHits);
         D("DamageMomentum", "RaceRetreatMaxHealth", m_damageMomentum.raceRetreatMaxHealth);
         D("DamageMomentum", "RacePressBonus", m_damageMomentum.racePressBonus);
 
         B("EnvSensor", "EnableLosGate", m_envSensor.enableLosGate);
-        D("EnvSensor", "LosEyeHeight", m_envSensor.losEyeHeight);
         B("EnvSensor", "EnableCliffSafeDodge", m_envSensor.enableCliffSafeDodge);
-        D("EnvSensor", "DodgeLedgeProbeDistance", m_envSensor.dodgeLedgeProbeDistance);
-        D("EnvSensor", "DodgeMaxDrop", m_envSensor.dodgeMaxDrop);
 
         B("TargetSwitching", "EnableTargetSwitching", m_targetSwitching.enableTargetSwitching);
         D("TargetSwitching", "SwitchCooldownSeconds", m_targetSwitching.switchCooldownSeconds);
-        D("TargetSwitching", "RetaliateWindowSeconds", m_targetSwitching.retaliateWindowSeconds);
         D("TargetSwitching", "RetaliateChance", m_targetSwitching.retaliateChance);
         D("TargetSwitching", "RetaliateMaxDistance", m_targetSwitching.retaliateMaxDistance);
         D("TargetSwitching", "FinisherHealthThreshold", m_targetSwitching.finisherHealthThreshold);
@@ -387,8 +350,6 @@ namespace CombatAI
         D("ProjectileAwareness", "ReactMinSeconds", m_projectileAwareness.reactMinSeconds);
         D("ProjectileAwareness", "ReactMaxSeconds", m_projectileAwareness.reactMaxSeconds);
         D("ProjectileAwareness", "DodgeChance", m_projectileAwareness.dodgeChance);
-        D("ProjectileAwareness", "HitMargin", m_projectileAwareness.hitMargin);
-        D("ProjectileAwareness", "DodgePriority", m_projectileAwareness.dodgePriority);
         return written;
     }
 
@@ -632,12 +593,7 @@ namespace CombatAI
         H("SkillPerLevel", m_humanizer.skillPerLevel, 0.0f, 0.1f);
         H("SkillMin", m_humanizer.skillMin, 0.0f, 1.0f);
         H("SkillMax", m_humanizer.skillMax, 0.0f, 1.0f);
-        H("SkillRerollSeconds", m_humanizer.skillRerollSeconds, 0.1f, 10.0f);
         H("SkillActorValueWeight", m_humanizer.skillActorValueWeight, 0.0f, 2.0f);
-        H("SkillActorValueMaxGap", m_humanizer.skillActorValueMaxGap, 0.0f, 200.0f);
-        m_humanizer.fatigueFromExertion =
-            a_ini.GetBoolValue("Humanizer", "FatigueFromExertion", m_humanizer.fatigueFromExertion);
-        H("FatigueExertionSeconds", m_humanizer.fatigueExertionSeconds, 1.0f, 300.0f);
         m_humanizer.skillMax = (std::max)(m_humanizer.skillMax, m_humanizer.skillMin);
 
 
@@ -650,10 +606,6 @@ namespace CombatAI
 
 
         m_humanizer.enableFatigue = a_ini.GetBoolValue("Humanizer", "EnableFatigue", m_humanizer.enableFatigue);
-        m_humanizer.fatigueOnsetSeconds = static_cast<float>(
-            a_ini.GetDoubleValue("Humanizer", "FatigueOnsetSeconds", m_humanizer.fatigueOnsetSeconds));
-        m_humanizer.fatigueFullSeconds = static_cast<float>(
-            a_ini.GetDoubleValue("Humanizer", "FatigueFullSeconds", m_humanizer.fatigueFullSeconds));
         m_humanizer.fatigueStaminaThreshold = static_cast<float>(
             a_ini.GetDoubleValue("Humanizer", "FatigueStaminaThreshold", m_humanizer.fatigueStaminaThreshold));
         m_humanizer.fatigueSkillPenalty = static_cast<float>(
@@ -664,8 +616,6 @@ namespace CombatAI
         m_humanizer.panicSkillPenalty = static_cast<float>(
             a_ini.GetDoubleValue("Humanizer", "PanicSkillPenalty", m_humanizer.panicSkillPenalty));
 
-        m_humanizer.fatigueOnsetSeconds = (std::max)(0.0f, m_humanizer.fatigueOnsetSeconds);
-        m_humanizer.fatigueFullSeconds = (std::max)(m_humanizer.fatigueOnsetSeconds + 1.0f, m_humanizer.fatigueFullSeconds);
         m_humanizer.fatigueStaminaThreshold = ClampValue(m_humanizer.fatigueStaminaThreshold, 0.0f, 1.0f);
         m_humanizer.fatigueSkillPenalty = ClampValue(m_humanizer.fatigueSkillPenalty, 0.0f, 3.0f);
         m_humanizer.panicHealthThreshold = ClampValue(m_humanizer.panicHealthThreshold, 0.0f, 1.0f);
@@ -687,10 +637,6 @@ namespace CombatAI
             static_cast<float>(
                 a_ini.GetDoubleValue("DodgeSystem", "ForwardDodgeMaxGap", m_dodgeSystem.forwardDodgeMaxGap)),
             0.0f, 1000.0f);
-        m_dodgeSystem.forwardDodgeCounterWindowSeconds = (std::clamp)(
-            static_cast<float>(a_ini.GetDoubleValue("DodgeSystem", "ForwardDodgeCounterWindowSeconds",
-                                                    m_dodgeSystem.forwardDodgeCounterWindowSeconds)),
-            0.0f, 5.0f);
         m_dodgeSystem.forwardDodgeChance = (std::clamp)(
             static_cast<float>(a_ini.GetDoubleValue("DodgeSystem", "ForwardDodgeChance", m_dodgeSystem.forwardDodgeChance)), 0.0f, 1.0f);
         m_dodgeSystem.forwardDodgeCooldownSeconds = (std::clamp)(
@@ -780,15 +726,10 @@ namespace CombatAI
         const auto dmFloat = [&](const char *a_key, float &a_value, float a_min, float a_max) {
             a_value = std::clamp(static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", a_key, a_value)), a_min, a_max);
         };
-        dmFloat("CreatureSwingSeconds", m_decisionMatrix.creatureSwingSeconds, 0.0f, 10.0f);
         dmFloat("PersonalityJitter", m_decisionMatrix.personalityJitter, 0.0f, 0.5f);
-        dmFloat("TacticalRetreatMinCaution", m_decisionMatrix.tacticalRetreatMinCaution, 0.0f, 1.0f);
         m_decisionMatrix.enableTargetDanger =
             a_ini.GetBoolValue("DecisionMatrix", "EnableTargetDanger", m_decisionMatrix.enableTargetDanger);
         dmFloat("TargetDangerInfluence", m_decisionMatrix.targetDangerInfluence, 0.0f, 1.0f);
-        dmFloat("TargetDangerStrengthWeight", m_decisionMatrix.targetDangerStrengthWeight, 0.0f, 1.0f);
-        dmFloat("FlankingMaxReach", m_decisionMatrix.flankingMaxReach, 1.0f, 10.0f);
-        dmFloat("ShotHoldMaxSeconds", m_decisionMatrix.shotHoldMaxSeconds, 0.0f, 30.0f);
         m_decisionMatrix.enableNPCPotions = a_ini.GetBoolValue("DecisionMatrix", "EnableNPCPotions", m_decisionMatrix.enableNPCPotions);
         dmFloat("PotionHealthThreshold", m_decisionMatrix.potionHealthThreshold, 0.0f, 1.0f);
         dmFloat("PotionMagickaThreshold", m_decisionMatrix.potionMagickaThreshold, 0.0f, 1.0f);
@@ -800,10 +741,6 @@ namespace CombatAI
         dmFloat("PoisonParalysisCooldownSeconds", m_decisionMatrix.poisonParalysisCooldownSeconds, 0.0f, 300.0f);
         dmFloat("SafeDrinkDistance", m_decisionMatrix.safeDrinkDistance, 0.0f, 2000.0f);
         dmFloat("SafeDrinkMaxWaitSeconds", m_decisionMatrix.safeDrinkMaxWaitSeconds, 0.0f, 30.0f);
-        dmFloat("PunishChainWaitSeconds", m_decisionMatrix.punishChainWaitSeconds, 0.0f, 1.0f);
-        dmFloat("PunishPriority", m_decisionMatrix.punishPriority, 0.0f, 10.0f);
-        dmFloat("IntentHitConeMaxAngle", m_decisionMatrix.intentHitConeMaxAngle, 0.0f, 180.0f);
-        dmFloat("AdvanceRedirectMaxDistance", m_decisionMatrix.advanceRedirectMaxDistance, 0.0f, 1000.0f);
         m_decisionMatrix.tradeBlowsChance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance)),
             0.0f, 1.0f);
@@ -814,8 +751,6 @@ namespace CombatAI
             a_ini.GetBoolValue("DecisionMatrix", "AllowDaggerBlock", m_decisionMatrix.allowDaggerBlock);
         m_decisionMatrix.enableRangedPositioning =
             a_ini.GetBoolValue("DecisionMatrix", "EnableRangedPositioning", m_decisionMatrix.enableRangedPositioning);
-        m_decisionMatrix.usePlayerClipTiming =
-            a_ini.GetBoolValue("DecisionMatrix", "UsePlayerClipTiming", m_decisionMatrix.usePlayerClipTiming);
         m_decisionMatrix.rangedKeepAwayDistance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "RangedKeepAwayDistance", m_decisionMatrix.rangedKeepAwayDistance)),
             100.0f, 2000.0f);
@@ -825,9 +760,6 @@ namespace CombatAI
         m_decisionMatrix.defendOnSwingChance = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "DefendOnSwingChance", m_decisionMatrix.defendOnSwingChance)),
             0.0f, 1.0f);
-        m_decisionMatrix.backoffStepDistance = std::clamp(
-            static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "BackoffStepDistance", m_decisionMatrix.backoffStepDistance)),
-            50.0f, 400.0f);
         m_decisionMatrix.powerAttackMinStamina = std::clamp(
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "PowerAttackMinStamina", m_decisionMatrix.powerAttackMinStamina)),
             0.0f, 1.0f);
@@ -835,14 +767,8 @@ namespace CombatAI
             a_ini.GetDoubleValue("DecisionMatrix", "HealthThreshold", m_decisionMatrix.healthThreshold));
         m_decisionMatrix.enableSurvivalRetreat =
             a_ini.GetBoolValue("DecisionMatrix", "EnableSurvivalRetreat", m_decisionMatrix.enableSurvivalRetreat);
-        m_decisionMatrix.enableOffense =
-            a_ini.GetBoolValue("DecisionMatrix", "EnableOffense", m_decisionMatrix.enableOffense);
         m_decisionMatrix.offenseReachMultiplier = static_cast<float>(
             a_ini.GetDoubleValue("DecisionMatrix", "OffenseReachMultiplier", m_decisionMatrix.offenseReachMultiplier));
-        m_decisionMatrix.offenseReachSafetyMargin = std::clamp(
-            static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "OffenseReachSafetyMargin",
-                                                    m_decisionMatrix.offenseReachSafetyMargin)),
-            0.0f, 250.0f);
         m_decisionMatrix.enableSprintAttack =
             a_ini.GetBoolValue("DecisionMatrix", "EnableSprintAttack", m_decisionMatrix.enableSprintAttack);
         m_decisionMatrix.sprintAttackLaunchDistance = (std::clamp)(
@@ -853,14 +779,6 @@ namespace CombatAI
             "DecisionMatrix", "SprintAttackMinDistance", m_decisionMatrix.sprintAttackMinDistance));
         m_decisionMatrix.sprintAttackMaxDistance = static_cast<float>(a_ini.GetDoubleValue(
             "DecisionMatrix", "SprintAttackMaxDistance", m_decisionMatrix.sprintAttackMaxDistance));
-        m_decisionMatrix.powerAttackStaminaCost = static_cast<float>(
-            a_ini.GetDoubleValue("DecisionMatrix", "PowerAttackStaminaCost", m_decisionMatrix.powerAttackStaminaCost));
-        m_decisionMatrix.sprintAttackStaminaCost = static_cast<float>(a_ini.GetDoubleValue(
-            "DecisionMatrix", "SprintAttackStaminaCost", m_decisionMatrix.sprintAttackStaminaCost));
-        m_decisionMatrix.enablePowerAttackStaminaCheck = a_ini.GetBoolValue(
-            "DecisionMatrix", "EnablePowerAttackStaminaCheck", m_decisionMatrix.enablePowerAttackStaminaCheck);
-        m_decisionMatrix.enableSprintAttackStaminaCheck = a_ini.GetBoolValue(
-            "DecisionMatrix", "EnableSprintAttackStaminaCheck", m_decisionMatrix.enableSprintAttackStaminaCheck);
 
         // Clamp values
         m_decisionMatrix.interruptMaxDistance = (std::max)(0.0f, m_decisionMatrix.interruptMaxDistance);
@@ -874,8 +792,6 @@ namespace CombatAI
         m_decisionMatrix.offenseReachMultiplier = ClampValue(m_decisionMatrix.offenseReachMultiplier, 0.1f, 5.0f);
         m_decisionMatrix.sprintAttackMinDistance = (std::max)(0.0f, m_decisionMatrix.sprintAttackMinDistance);
         m_decisionMatrix.sprintAttackMaxDistance = (std::max)(0.0f, m_decisionMatrix.sprintAttackMaxDistance);
-        m_decisionMatrix.powerAttackStaminaCost = (std::max)(0.0f, m_decisionMatrix.powerAttackStaminaCost);
-        m_decisionMatrix.sprintAttackStaminaCost = (std::max)(0.0f, m_decisionMatrix.sprintAttackStaminaCost);
     }
 
     void Config::ReadScoringWeightsSettings(CSimpleIniA &a_ini)
@@ -921,8 +837,6 @@ namespace CombatAI
 
     void Config::ReadPerformanceSettings(CSimpleIniA &a_ini)
     {
-        m_performance.cleanupInterval =
-            static_cast<float>(a_ini.GetDoubleValue("Performance", "CleanupInterval", m_performance.cleanupInterval));
         m_performance.processingIntervalMid = static_cast<float>(
             a_ini.GetDoubleValue("Performance", "ProcessingIntervalMid", m_performance.processingIntervalMid));
         m_performance.processingIntervalFar = static_cast<float>(
@@ -933,7 +847,6 @@ namespace CombatAI
             static_cast<float>(a_ini.GetDoubleValue("Performance", "DistanceMid", m_performance.distanceMid));
 
         // Clamp values
-        m_performance.cleanupInterval = (std::max)(0.1f, m_performance.cleanupInterval);
         m_performance.processingIntervalMid = (std::max)(0.01f, m_performance.processingIntervalMid);
         m_performance.processingIntervalFar = (std::max)(0.01f, m_performance.processingIntervalFar);
         m_performance.distanceNear = (std::max)(0.0f, m_performance.distanceNear);
@@ -953,20 +866,8 @@ namespace CombatAI
         // 1.16.0-1.17.0 kept the list in [DecisionMatrix]: still read from there when [ModIntegrations] has none
         SetGunKeywords(a_ini.GetValue("ModIntegrations", "GunKeywords",
                                       a_ini.GetValue("DecisionMatrix", "GunKeywords", m_modIntegrations.gunKeywords.c_str())));
-        m_modIntegrations.scarComboWindowSeconds = (std::clamp)(
-            static_cast<float>(a_ini.GetDoubleValue("ModIntegrations", "SCARComboWindowSeconds",
-                                                    m_modIntegrations.scarComboWindowSeconds)),
-            1.0f, 300.0f);
-        m_modIntegrations.scarStallSeconds = (std::clamp)(
-            static_cast<float>(
-                a_ini.GetDoubleValue("ModIntegrations", "SCARStallSeconds", m_modIntegrations.scarStallSeconds)),
-            0.5f, 30.0f);
         m_modIntegrations.enableComboFollowUp =
             a_ini.GetBoolValue("ModIntegrations", "EnableComboFollowUp", m_modIntegrations.enableComboFollowUp);
-        m_modIntegrations.comboBranchProbe =
-            a_ini.GetBoolValue("ModIntegrations", "ComboBranchProbe", m_modIntegrations.comboBranchProbe);
-        m_modIntegrations.comboBranchChoice =
-            a_ini.GetBoolValue("ModIntegrations", "ComboBranchChoice", m_modIntegrations.comboBranchChoice);
         m_modIntegrations.comboFollowUpChance = (std::clamp)(
             static_cast<float>(a_ini.GetDoubleValue("ModIntegrations", "ComboFollowUpChance", m_modIntegrations.comboFollowUpChance)),
             0.0f, 1.0f);
@@ -985,16 +886,13 @@ namespace CombatAI
             static_cast<float>(a_ini.GetDoubleValue("Parry", "ParryWindowStart", m_parry.parryWindowStart));
         m_parry.parryWindowEnd =
             static_cast<float>(a_ini.GetDoubleValue("Parry", "ParryWindowEnd", m_parry.parryWindowEnd));
-        m_parry.parryMinDistance =
-            static_cast<float>(a_ini.GetDoubleValue("Parry", "ParryMinDistance", m_parry.parryMinDistance));
         m_parry.parryMaxDistance =
             static_cast<float>(a_ini.GetDoubleValue("Parry", "ParryMaxDistance", m_parry.parryMaxDistance));
 
         // Clamp values
         m_parry.parryWindowStart = (std::max)(0.0f, m_parry.parryWindowStart);
         m_parry.parryWindowEnd = (std::max)(m_parry.parryWindowStart, m_parry.parryWindowEnd);
-        m_parry.parryMinDistance = (std::max)(0.0f, m_parry.parryMinDistance);
-        m_parry.parryMaxDistance = (std::max)(m_parry.parryMinDistance, m_parry.parryMaxDistance);
+        m_parry.parryMaxDistance = (std::max)(0.0f, m_parry.parryMaxDistance);
     }
 
     void Config::ReadTimedBlockSettings(CSimpleIniA &a_ini)
@@ -1005,8 +903,6 @@ namespace CombatAI
             a_ini.GetDoubleValue("TimedBlock", "TimedBlockWindowStart", m_timedBlock.timedBlockWindowStart));
         m_timedBlock.timedBlockWindowEnd = static_cast<float>(
             a_ini.GetDoubleValue("TimedBlock", "TimedBlockWindowEnd", m_timedBlock.timedBlockWindowEnd));
-        m_timedBlock.timedBlockMinDistance = static_cast<float>(
-            a_ini.GetDoubleValue("TimedBlock", "TimedBlockMinDistance", m_timedBlock.timedBlockMinDistance));
         m_timedBlock.timedBlockMaxDistance = static_cast<float>(
             a_ini.GetDoubleValue("TimedBlock", "TimedBlockMaxDistance", m_timedBlock.timedBlockMaxDistance));
 
@@ -1014,9 +910,7 @@ namespace CombatAI
         m_timedBlock.timedBlockWindowStart = (std::max)(0.0f, m_timedBlock.timedBlockWindowStart);
         m_timedBlock.timedBlockWindowEnd =
             (std::max)(m_timedBlock.timedBlockWindowStart, m_timedBlock.timedBlockWindowEnd);
-        m_timedBlock.timedBlockMinDistance = (std::max)(0.0f, m_timedBlock.timedBlockMinDistance);
-        m_timedBlock.timedBlockMaxDistance =
-            (std::max)(m_timedBlock.timedBlockMinDistance, m_timedBlock.timedBlockMaxDistance);
+        m_timedBlock.timedBlockMaxDistance = (std::max)(0.0f, m_timedBlock.timedBlockMaxDistance);
     }
 
     void Config::ReadCombatPacingSettings(CSimpleIniA &a_ini)
@@ -1071,18 +965,12 @@ namespace CombatAI
             a_ini.GetDoubleValue("DamageMomentum", "OffensiveBonusMax", m_damageMomentum.offensiveBonusMax));
         m_damageMomentum.defensivePenaltyMax = static_cast<float>(
             a_ini.GetDoubleValue("DamageMomentum", "DefensivePenaltyMax", m_damageMomentum.defensivePenaltyMax));
-        m_damageMomentum.momentumDecaySeconds = static_cast<float>(
-            a_ini.GetDoubleValue("DamageMomentum", "MomentumDecaySeconds", m_damageMomentum.momentumDecaySeconds));
-        m_damageMomentum.ewmaAlpha =
-            static_cast<float>(a_ini.GetDoubleValue("DamageMomentum", "EwmaAlpha", m_damageMomentum.ewmaAlpha));
 
         // Clamp
         m_damageMomentum.chipThreshold = (std::max)(0.0f, m_damageMomentum.chipThreshold);
         m_damageMomentum.bigHitThreshold = (std::max)(m_damageMomentum.chipThreshold + 0.001f, m_damageMomentum.bigHitThreshold);
         m_damageMomentum.offensiveBonusMax = ClampValue(m_damageMomentum.offensiveBonusMax, 0.0f, 2.0f);
         m_damageMomentum.defensivePenaltyMax = ClampValue(m_damageMomentum.defensivePenaltyMax, 0.0f, 2.0f);
-        m_damageMomentum.momentumDecaySeconds = (std::max)(0.5f, m_damageMomentum.momentumDecaySeconds);
-        m_damageMomentum.ewmaAlpha = ClampValue(m_damageMomentum.ewmaAlpha, 0.05f, 1.0f);
         m_damageMomentum.enableDamageRace =
             a_ini.GetBoolValue("DamageMomentum", "EnableDamageRace", m_damageMomentum.enableDamageRace);
         m_damageMomentum.raceRetreatHits = ClampValue(
@@ -1099,19 +987,8 @@ namespace CombatAI
     void Config::ReadEnvSensorSettings(CSimpleIniA &a_ini)
     {
         m_envSensor.enableLosGate = a_ini.GetBoolValue("EnvSensor", "EnableLosGate", m_envSensor.enableLosGate);
-        m_envSensor.losEyeHeight =
-            static_cast<float>(a_ini.GetDoubleValue("EnvSensor", "LosEyeHeight", m_envSensor.losEyeHeight));
         m_envSensor.enableCliffSafeDodge =
             a_ini.GetBoolValue("EnvSensor", "EnableCliffSafeDodge", m_envSensor.enableCliffSafeDodge);
-        m_envSensor.dodgeLedgeProbeDistance = static_cast<float>(
-            a_ini.GetDoubleValue("EnvSensor", "DodgeLedgeProbeDistance", m_envSensor.dodgeLedgeProbeDistance));
-        m_envSensor.dodgeMaxDrop =
-            static_cast<float>(a_ini.GetDoubleValue("EnvSensor", "DodgeMaxDrop", m_envSensor.dodgeMaxDrop));
-
-        // Clamp
-        m_envSensor.losEyeHeight = ClampValue(m_envSensor.losEyeHeight, 0.0f, 300.0f);
-        m_envSensor.dodgeLedgeProbeDistance = (std::max)(0.0f, m_envSensor.dodgeLedgeProbeDistance);
-        m_envSensor.dodgeMaxDrop = (std::max)(0.0f, m_envSensor.dodgeMaxDrop);
     }
 
     void Config::ReadTargetSwitchingSettings(CSimpleIniA &a_ini)
@@ -1122,7 +999,6 @@ namespace CombatAI
         };
         t.enableTargetSwitching = a_ini.GetBoolValue("TargetSwitching", "EnableTargetSwitching", t.enableTargetSwitching);
         t.switchCooldownSeconds = (std::max)(0.5f, readFloat("SwitchCooldownSeconds", t.switchCooldownSeconds));
-        t.retaliateWindowSeconds = (std::max)(0.1f, readFloat("RetaliateWindowSeconds", t.retaliateWindowSeconds));
         t.retaliateChance = ClampValue(readFloat("RetaliateChance", t.retaliateChance), 0.0f, 1.0f);
         t.retaliateMaxDistance = (std::max)(0.0f, readFloat("RetaliateMaxDistance", t.retaliateMaxDistance));
         t.finisherHealthThreshold =
@@ -1176,8 +1052,6 @@ namespace CombatAI
         F("ReactMinSeconds", s.reactMinSeconds, 0.0f, 2.0f);
         F("ReactMaxSeconds", s.reactMaxSeconds, 0.05f, 3.0f);
         F("DodgeChance", s.dodgeChance, 0.0f, 1.0f);
-        F("HitMargin", s.hitMargin, 0.0f, 200.0f);
-        F("DodgePriority", s.dodgePriority, 0.0f, 5.0f);
         s.reactMaxSeconds = (std::max)(s.reactMaxSeconds, s.reactMinSeconds);
     }
 

@@ -238,19 +238,14 @@ namespace CombatAI
         });
     }
 
-    std::pair<float, float> Humanizer::CalculateStress(RE::FormID a_formID, ActionType a_action, float a_combatTime,
+    std::pair<float, float> Humanizer::CalculateStress(RE::FormID a_formID, ActionType a_action, [[maybe_unused]] float a_combatTime,
                                                        const SelfState &a_self, bool a_panics) const
     {
         float fatigue = 0.0f;
         if (m_config.enableFatigue) {
-            if (m_config.fatigueFromExertion) {
-                // Stamina spent lately (a full bar within ~FatigueExertionSeconds = full fatigue), not the fight's
-                // length: a 3-minute boss fight no longer makes the boss sloppy from the clock alone
-                fatigue = m_exertion.Find(a_formID).value_or(Exertion{}).fraction;
-            } else {
-                const float span = (std::max)(1.0f, m_config.fatigueFullSeconds - m_config.fatigueOnsetSeconds);
-                fatigue = (std::clamp)((a_combatTime - m_config.fatigueOnsetSeconds) / span, 0.0f, 1.0f);
-            }
+            // Stamina spent lately (a full bar within ~fatigueExertionSeconds = full fatigue), not the fight's length: a
+            // 3-minute boss fight doesn't make the boss sloppy from the clock alone (the combat-time ramp was removed)
+            fatigue = m_exertion.Find(a_formID).value_or(Exertion{}).fraction;
             if (m_config.fatigueStaminaThreshold > 0.0f && a_self.staminaPercent < m_config.fatigueStaminaThreshold) {
                 fatigue = (std::max)(fatigue, 1.0f - a_self.staminaPercent / m_config.fatigueStaminaThreshold);
             }

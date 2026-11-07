@@ -757,22 +757,6 @@ namespace CombatAI::ClipTiming
         }
     }
 
-    int OtherKnownSlot(RE::FormID a_actor, bool a_power, int a_not)
-    {
-        const auto own = g_ownAttacks.find(a_actor);
-        int best = 0;
-        if (own != g_ownAttacks.end()) {
-            for (const auto &entry : own->second) {
-                bool power = false;
-                const int slot = SlotOf(entry.first, power);
-                if (slot > 0 && power == a_power && slot != a_not && (!best || slot < best)) {
-                    best = slot;
-                }
-            }
-        }
-        return best;
-    }
-
     void ExpectOwnClip(RE::FormID a_actor, bool a_power, int a_slot)
     {
         g_expected[a_actor] = {a_power, a_slot, Clock::now()};
