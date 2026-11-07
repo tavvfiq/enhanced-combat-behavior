@@ -87,6 +87,12 @@ namespace CombatAI
         bool isTwoHanded = false;                 // True if target has two-handed weapon
         bool isRanged = false;                    // True if target has ranged weapon (bow/crossbow)
         bool isMelee = false;                     // True if target has melee weapon
+        // Guns (1.16.0): a weapon with one of [DecisionMatrix] GunKeywords, in either hand. A gun alone, or a gun
+        // beyond melee range with a melee weapon in the other hand, makes the target ranged (isRanged, not isMelee)
+        // and its wind-up a shot being aimed (isDrawingBow)
+        bool gunRight = false;
+        bool gunLeft = false;
+        bool hasGun = false;
     };
 
     // Threat level classification
@@ -238,6 +244,7 @@ namespace CombatAI
         float timeUntilEarliestHit = 999.0f;  // Earliest weapon contact (the clip's hit window opening, ClipTiming);
                                               // = timeUntilAttackHits without a clip
         std::uint32_t swingCount = 0;         // Counts the target's swings: the key for once-per-swing rolls
+        float gunAimedDuration = 0.0f;        // How long the target, a gunman, has held its drawn gun on this NPC
     };
 
     struct TemporalState
@@ -286,6 +293,17 @@ namespace CombatAI
     {
         // Calculate distance between two positions
         inline float CalculateDistance(const RE::NiPoint3 &a, const RE::NiPoint3 &b) { return a.GetDistance(b); }
+
+        // True when a shooter a_distance away, whose facing has dot a_dot with the direction to us, would put the
+        // arrow within a_radius of our centre. A plain cone (dot > 0.9) let every NPC within ~25 degrees jump.
+        constexpr bool IsAimedAt(float a_distance, float a_dot, float a_radius)
+        {
+            return a_dot > 0.0f && a_distance * a_distance * (1.0f - a_dot * a_dot) < a_radius * a_radius;
+        }
+        static_assert(IsAimedAt(800.0f, 0.999f, 100.0f));  // ~36 units off the line
+        static_assert(!IsAimedAt(800.0f, 0.95f, 100.0f));  // ~250 units off: the NPC next to the one aimed at
+        static_assert(!IsAimedAt(800.0f, -0.999f, 100.0f)); // aiming away
+        constexpr float kAimSlack = 75.0f; // third-person camera offset and aim wobble, on top of our body radius
 
         // Effective melee reach in game units. target.distance is center-to-center,
         // so pad the (multiplier-scaled) weapon reach with the target's physical body

@@ -94,6 +94,8 @@ namespace CombatAI
             float jumpEvasionDistanceMax = 1500.0f;
             float evasionJumpChance = 0.5f;
             float jumpHeight = 100.0f; // Jump apex height in game units
+            // Comma-separated keyword EditorIDs marking guns (OHCF pistols are one-handed axes, others staves); empty = off
+            std::string gunKeywords;
             float jumpStaminaCost = 20.0f; // Spent per jump; no cooldown, an NPC without this much stamina can't jump
             float staminaThreshold = 0.2f;
             bool brainBackoffFallback = true;    // Our Backoff/Fallback start where the brain asks (false: vanilla start rules)

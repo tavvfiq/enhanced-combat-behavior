@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.16.0 (2026-11-07)
+
+Untested in game.
+
+- **Guns, from any mod.** Pistol mods make their guns one-handed axes (One-Handed Crossbow Framework) or staves, so NPCs read them as melee weapons. New `GunKeywords` in `[DecisionMatrix]`: a comma-separated list of keyword EditorIDs (KID keywords work); empty by default. A weapon with one of them, in either hand, is a gun. Its holder, you or an ally, counts as a ranged fighter: alone, with a spell or with a second gun in the other hand always, with a melee weapon in the other hand only beyond 300 units (closer in it is a sword fight). NPCs then dodge its shots like an archer's (the shot's wind-up is the aim), and dodge once when a drawn gun is held on them for 0.3 s, and treat the gunman as an archer otherwise (close in on it, interrupt it). NPCs holding guns themselves are not changed yet.
+- Debug log (selected NPC): when its target holds a gun and how it counts, the gun's attack states (to check that a left-hand shot shows one), and a gun held on it, with whether your crosshair or your body line was on it.
+
 ## Enhanced Combat Behavior 1.15.2 (2026-11-07)
 
 Untested in game.

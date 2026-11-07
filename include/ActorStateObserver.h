@@ -206,6 +206,8 @@ namespace CombatAI
             bool wasDrawing = false;
             bool wasIdle = false;
             RE::ATTACK_STATE_ENUM previousAttackState = RE::ATTACK_STATE_ENUM::kNone;
+            float gunAimedDuration = 0.0f; // the target, a gunman, has held its drawn gun on this actor
+            int gunKind = 0; // last seen: 0 no gun, 1 gun but melee up close, 2 gunman (debug log on change)
         };
 
         // Helper: Estimate attack duration based on weapon and attack type

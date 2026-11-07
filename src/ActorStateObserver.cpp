@@ -42,6 +42,39 @@ namespace CombatAI
     {
         return a_state >= RE::ATTACK_STATE_ENUM::kBowDraw && a_state <= RE::ATTACK_STATE_ENUM::kBowReleasing;
     }
+
+    // A weapon carrying one of [DecisionMatrix] GunKeywords (comma-separated keyword EditorIDs). Keywords keep their
+    // EditorIDs in memory, KID's included, so the list works for any mod's guns whatever weapon type they use.
+    static bool IsGun(RE::TESForm *a_item)
+    {
+        const std::string &list = Config::GetInstance().GetDecisionMatrix().gunKeywords;
+        auto *weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr;
+        if (list.empty() || !weapon) {
+            return false;
+        }
+        std::size_t start = 0;
+        while (start < list.size()) {
+            const std::size_t comma = list.find(',', start);
+            std::string_view entry(list.data() + start, (comma == std::string::npos ? list.size() : comma) - start);
+            while (!entry.empty() && entry.front() == ' ') {
+                entry.remove_prefix(1);
+            }
+            while (!entry.empty() && entry.back() == ' ') {
+                entry.remove_suffix(1);
+            }
+            if (!entry.empty() && weapon->HasKeywordString(entry)) {
+                return true;
+            }
+            if (comma == std::string::npos) {
+                break;
+            }
+            start = comma + 1;
+        }
+        return false;
+    }
+
+    // A gun with a melee weapon in the other hand counts as a gun from this far: closer in it is a sword fight
+    constexpr float kGunCloseRange = 300.0f;
     ActorStateData ActorStateObserver::GatherState(RE::Actor *a_actor, float a_deltaTime)
     {
         ActorStateData data;
@@ -357,6 +390,25 @@ namespace CombatAI
         state.isRanged = (state.weaponType == WeaponType::Bow || state.weaponType == WeaponType::Crossbow);
         state.isMelee = (state.isOneHanded || state.isTwoHanded || state.weaponType == WeaponType::Unarmed ||
                          state.weaponType == WeaponType::Staff);
+
+        // Guns (1.16.0): a GunKeywords weapon in either hand. Alone (or two of them, or with a spell or staff in the
+        // other hand) its holder is a ranged fighter; with a melee weapon in the other hand only beyond
+        // kGunCloseRange. A gun has no bow draw, so its wind-up (any attack state) is the shot being aimed.
+        RE::TESForm *leftHand = ActorUtils::SafeGetEquippedObject(a_target, true);
+        state.gunRight = IsGun(state.equippedRightHand);
+        state.gunLeft = IsGun(leftHand);
+        state.hasGun = state.gunRight || state.gunLeft;
+        if (state.hasGun) {
+            RE::TESForm *other = state.gunRight ? (state.gunLeft ? nullptr : leftHand) : state.equippedRightHand;
+            auto *otherWeapon = other ? other->As<RE::TESObjectWEAP>() : nullptr;
+            const bool meleeOther =
+                otherWeapon && !otherWeapon->IsBow() && !otherWeapon->IsCrossbow() && !otherWeapon->IsStaff();
+            if (!meleeOther || state.distance > kGunCloseRange) {
+                state.isRanged = true;
+                state.isMelee = false;
+                state.isDrawingBow = ActorUtils::SafeGetAttackState(a_target) != RE::ATTACK_STATE_ENUM::kNone;
+            }
+        }
 
         return state;
     }
@@ -1331,6 +1383,47 @@ namespace CombatAI
                         }
                     }
 
+                    // A gunman's drawn gun held on this actor (1.16.0): a gun has no draw to see, so holding it on
+                    // someone is the aim. The player's crosshair actor counts too (its body heading misses the
+                    // crosshair by the camera offset).
+                    {
+                        const auto &t = a_state.target;
+                        const bool gunman = t.hasGun && t.isRanged;
+                        const int kind = !t.hasGun ? 0 : gunman ? 2 : 1;
+                        bool crosshairOnUs = false;
+                        if (gunman && t.isPlayer) {
+                            if (auto *player = RE::PlayerCharacter::GetSingleton()) {
+                                crosshairOnUs = player->GetInfoRuntimeData().autoAimActor.get().get() == a_actor;
+                            }
+                        }
+                        const bool bodyLine = StateHelpers::IsAimedAt(t.distance, t.orientationDot,
+                                                                      a_state.self.boundRadius + StateHelpers::kAimSlack);
+                        const auto *targetState = a_target->AsActorState();
+                        const bool pointed = gunman && targetState && targetState->IsWeaponDrawn() && (crosshairOnUs || bodyLine);
+                        const float before = targetTemporal.gunAimedDuration;
+                        targetTemporal.gunAimedDuration = pointed ? before + a_deltaTime : 0.0f;
+                        if (Config::GetInstance().IsDebugTarget(formID)) {
+                            if (t.hasGun && kind != targetTemporal.gunKind) {
+                                LOG_DEBUG("Gun 0x{:08X}: target 0x{:08X} holds a gun ({}) at {:.0f} - {}",
+                                          static_cast<std::uint32_t>(formID), static_cast<std::uint32_t>(targetFormID),
+                                          t.gunRight && t.gunLeft ? "both hands" : t.gunRight ? "right hand" : "left hand",
+                                          t.distance, gunman ? "a ranged fighter" : "melee up close (melee weapon in the other hand)");
+                            }
+                            if (gunman && targetAttackState != targetTemporal.previousAttackState) {
+                                LOG_DEBUG("Gun 0x{:08X}: target's attack state {} -> {} (shot wind-up {})",
+                                          static_cast<std::uint32_t>(formID),
+                                          static_cast<std::uint32_t>(targetTemporal.previousAttackState),
+                                          static_cast<std::uint32_t>(targetAttackState),
+                                          targetAttackState != RE::ATTACK_STATE_ENUM::kNone ? "on" : "off");
+                            }
+                            if (before < 0.3f && targetTemporal.gunAimedDuration >= 0.3f) {
+                                LOG_DEBUG("Gun 0x{:08X}: gun held on us 0.3 s at {:.0f} (crosshair on us {}, body line {})",
+                                          static_cast<std::uint32_t>(formID), t.distance, crosshairOnUs, bodyLine);
+                            }
+                        }
+                        targetTemporal.gunKind = kind;
+                    }
+
                     // Update previous states
                     targetTemporal.wasBlocking = targetIsBlocking;
                     targetTemporal.wasAttacking = targetIsAttacking;
@@ -1345,6 +1438,7 @@ namespace CombatAI
                     temporal.target.recentBlockCommitments = targetTemporal.recentBlockCommitments;
                     temporal.target.castingDuration = targetTemporal.castingDuration;
                     temporal.target.drawingDuration = targetTemporal.drawingDuration;
+                    temporal.target.gunAimedDuration = targetTemporal.gunAimedDuration;
                     temporal.target.attackingDuration = targetTemporal.attackingDuration;
                     temporal.target.idleDuration = targetTemporal.idleDuration;
                     temporal.target.timeSinceLastPowerAttack = targetTemporal.timeSinceLastPowerAttack;

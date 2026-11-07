@@ -49,6 +49,12 @@ namespace CombatAI
                  m_decisionMatrix.enableJumpEvasion ? "on" : "OFF", m_decisionMatrix.evasionJumpChance,
                  m_decisionMatrix.jumpEvasionDistanceMin, m_decisionMatrix.jumpEvasionDistanceMax,
                  m_decisionMatrix.jumpHeight, m_decisionMatrix.jumpStaminaCost, m_humanizer.skillBase);
+        if (m_decisionMatrix.gunKeywords.empty()) {
+            LOG_INFO("Guns: off (no GunKeywords) - a pistol counts as its weapon type");
+        } else {
+            LOG_INFO("Guns: weapons with keyword(s) {} count as guns in either hand - their holder is a ranged fighter",
+                     m_decisionMatrix.gunKeywords);
+        }
         LOG_INFO("Stamina: retreat/backoff {}; power attacks, sprint attacks and power bashes need {:.0f}% stamina",
                  m_decisionMatrix.staminaAffectsRetreat ? "also on low stamina" : "on health only",
                  m_decisionMatrix.powerAttackMinStamina * 100.0f);
@@ -184,6 +190,7 @@ namespace CombatAI
         D("DecisionMatrix", "JumpEvasionDistanceMax", m_decisionMatrix.jumpEvasionDistanceMax);
         D("DecisionMatrix", "EvasionJumpChance", m_decisionMatrix.evasionJumpChance);
         D("DecisionMatrix", "JumpHeight", m_decisionMatrix.jumpHeight);
+        S("DecisionMatrix", "GunKeywords", m_decisionMatrix.gunKeywords);
         D("DecisionMatrix", "JumpStaminaCost", m_decisionMatrix.jumpStaminaCost);
         D("DecisionMatrix", "StaminaThreshold", m_decisionMatrix.staminaThreshold);
         B("DecisionMatrix", "StaminaAffectsRetreat", m_decisionMatrix.staminaAffectsRetreat);
@@ -690,6 +697,7 @@ namespace CombatAI
             a_ini.GetDoubleValue("DecisionMatrix", "EvasionJumpChance", m_decisionMatrix.evasionJumpChance));
         m_decisionMatrix.jumpHeight =
             static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "JumpHeight", m_decisionMatrix.jumpHeight));
+        m_decisionMatrix.gunKeywords = a_ini.GetValue("DecisionMatrix", "GunKeywords", m_decisionMatrix.gunKeywords.c_str());
         m_decisionMatrix.jumpStaminaCost = (std::max)(
             0.0f, static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", "JumpStaminaCost", m_decisionMatrix.jumpStaminaCost)));
         m_decisionMatrix.staminaThreshold = static_cast<float>(

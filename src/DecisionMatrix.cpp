@@ -28,16 +28,8 @@ namespace CombatAI
 
     // Effective melee reach in game units. Delegates to the shared StateHelpers
     // formula so the decision matrix and the observer's range categories agree.
-    // True when a shooter a_distance away, whose facing has dot a_dot with the direction to us, would put the
-    // arrow within a_radius of our centre. A plain cone (dot > 0.9) let every NPC within ~25 degrees jump.
-    constexpr bool IsAimedAt(float a_distance, float a_dot, float a_radius)
-    {
-        return a_dot > 0.0f && a_distance * a_distance * (1.0f - a_dot * a_dot) < a_radius * a_radius;
-    }
-    static_assert(IsAimedAt(800.0f, 0.999f, 100.0f));  // ~36 units off the line
-    static_assert(!IsAimedAt(800.0f, 0.95f, 100.0f));  // ~250 units off: the NPC next to the one aimed at
-    static_assert(!IsAimedAt(800.0f, -0.999f, 100.0f)); // aiming away
-    constexpr float kAimSlack = 75.0f; // third-person camera offset and aim wobble, on top of our body radius
+    using StateHelpers::IsAimedAt;
+    using StateHelpers::kAimSlack;
 
     // The tangent around the target that heads toward its back: a flanking style waiting its turn circles this way
     static RE::NiPoint3 BehindDirection(const ActorStateData &a_state)
@@ -64,6 +56,16 @@ namespace CombatAI
             }
         }
         return IsAimedAt(a_state.target.distance, a_state.target.orientationDot, a_state.self.boundRadius + kAimSlack);
+    }
+
+    // A gunman has held its drawn gun on this NPC for kGunAimMin s (1.16.0): a gun has no draw to see, so the shot is
+    // coming. One window per continuous aim, so a gun kept on an NPC costs it one dodge, not one every cooldown.
+    constexpr float kGunAimMin = 0.3f;
+    constexpr float kGunAimWindow = 0.5f;
+    static bool GunAimedAtUs(const ActorStateData &a_state)
+    {
+        const float aimed = a_state.temporal.target.gunAimedDuration;
+        return aimed >= kGunAimMin && aimed < kGunAimMin + kGunAimWindow;
     }
 
     // Bash reach (GMST fCombatBashReach, read once; SCAR uses it for bash actions)
@@ -1179,11 +1181,11 @@ namespace CombatAI
 
         // --- Jump Evasion Logic ---
         if (config.GetDecisionMatrix().enableJumpEvasion) {
-            // Check if target is using a ranged weapon (bow or crossbow)
+            // Check if target is using a ranged weapon (bow, crossbow or a GunKeywords gun)
             // Use weapon type from state instead of checking equipped weapon directly
             // Only while it is drawing (a bow draw reads as attacking) and aimed at this NPC, not its neighbour;
             // only with the stamina the jump costs.
-            const bool drawing = a_state.target.isAttacking || a_state.target.isDrawingBow;
+            const bool drawing = a_state.target.isAttacking || a_state.target.isDrawingBow || GunAimedAtUs(a_state);
             if (a_state.target.isRanged && drawing &&
                 a_state.self.currentStamina >= config.GetDecisionMatrix().jumpStaminaCost) {
                 // Check distance
@@ -1252,7 +1254,8 @@ namespace CombatAI
         bool closeDodge = false;
         const bool reachesBand =
             a_state.target.isRanged || a_state.target.isPowerAttacking || a_state.target.isSprinting;
-        if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && TargetAimedAtUs(a_actor, a_state)) {
+        if ((a_state.target.isAttacking || a_state.target.isPowerAttacking || GunAimedAtUs(a_state)) &&
+            TargetAimedAtUs(a_actor, a_state)) {
             bool conditionsMet = false;
             const float minEvasionDist = config.GetDecisionMatrix().evasionMinDistance;
 
