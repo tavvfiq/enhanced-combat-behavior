@@ -65,8 +65,8 @@ namespace CombatAI
                          : std::string("off"));
         }
         if (m_humanizer.enableSkillRolls) {
-            LOG_INFO("Skill: parry and timed block {}; reach judgment {}",
-                     m_humanizer.skillAsTiming ? "start early or late by the skill's timing error" : "pass or fail a roll",
+            LOG_INFO("Skill: parry, timed block {}; reach judgment {}",
+                     m_humanizer.skillAsTiming ? "and close dodges start early or late by the skill's timing error" : "and close dodges pass or fail a roll",
                      m_humanizer.reachJudgmentError > 0.0f
                          ? std::format("off by up to {:.0f}% (one sigma at skill 0.75)", m_humanizer.reachJudgmentError * 100.0f)
                          : std::string("off"));

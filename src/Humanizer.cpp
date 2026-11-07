@@ -238,19 +238,17 @@ namespace CombatAI
         }
         const std::uint64_t key =
             (static_cast<std::uint64_t>(a_state.target.targetFormID) << 32) | a_state.temporal.target.swingCount;
+        // One error per swing for all its defenses; each scales it by its own skill (dodge and parry differ)
+        const float skill = ExplainSkill(a_actor, a_action, a_combatTime, a_state).chance;
         const auto stored = m_skillRolls.Find(a_formID);
         float z = 0.0f;
-        float skill = 1.0f;
         if (stored && stored->timingKey == key) {
             z = stored->timingZ;
-            skill = stored->timingSkill;
         } else {
-            skill = ExplainSkill(a_actor, a_action, a_combatTime, a_state).chance;
             z = std::clamp(std::normal_distribution<float>(0.0f, 1.0f)(g_gen), -3.0f, 3.0f);
             m_skillRolls.ModifyOrCreate(a_formID, [&](SkillState &a_rolls) {
                 a_rolls.timingKey = key;
                 a_rolls.timingZ = z;
-                a_rolls.timingSkill = skill;
             });
             if (Config::GetInstance().IsDebugTarget(a_formID)) {
                 const float sigma = TimingSigma(skill, a_window);

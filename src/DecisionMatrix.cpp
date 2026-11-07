@@ -1465,6 +1465,7 @@ namespace CombatAI
         // player's swings at someone else, and the old "target is blocking" trigger dodged a guard.
         bool shouldDodge = false;
         bool closeDodge = false;
+        bool timedDodge = false; // skill as timing: its timing error is its mistake, no skill roll
         const bool reachesBand =
             a_state.target.isRanged || a_state.target.isPowerAttacking || a_state.target.isSprinting;
         if ((a_state.target.isAttacking || a_state.target.isPowerAttacking || GunAimedAtUs(a_state)) &&
@@ -1506,10 +1507,24 @@ namespace CombatAI
                     conditionsMet = false;
                 }
             }
+            // Skill as timing (1.20.0): a won close dodge waits for its moment - the blow inside its i-frames
+            // (0..IFrameDuration before it), shifted by this swing's timing error - and skips the skill roll (the error
+            // is its mistake). With no predicted blow it dodges at once and rolls, as before.
+            bool waiting = false;
+            if (closeDodge && conditionsMet && CombatDirector::GetInstance().GetHumanizer().TimingMode() &&
+                a_state.temporal.target.timeUntilAttackHits < 999.0f) {
+                waiting = !InDefendMoment(a_actor, a_state, ActionType::Dodge, 0.0f, config.GetDodgeSystem().iFrameDuration);
+                timedDodge = !waiting;
+                conditionsMet = !waiting;
+            }
             if (closeSwing && config.IsDebugTarget(a_actor->GetFormID())) {
-                LOG_DEBUG("Evasion 0x{:08X}: close swing at {:.0f} (reach {:.0f}) -> {}", a_actor->GetFormID(),
-                          a_state.target.distance, swingReach,
-                          !closeDodge ? "no dodge (roll)" : conditionsMet ? "dodge" : "no dodge (stamina)");
+                LOG_DEBUG("Evasion 0x{:08X}: close swing at {:.0f} (reach {:.0f}, hit in {:.2f}s) -> {}", a_actor->GetFormID(),
+                          a_state.target.distance, swingReach, a_state.temporal.target.timeUntilAttackHits,
+                          !closeDodge ? "no dodge (roll)"
+                          : waiting   ? "dodge, waiting for its moment"
+                          : timedDodge ? "dodge (timed)"
+                          : conditionsMet ? "dodge"
+                                          : "no dodge (stamina)");
             }
             closeDodge = closeDodge && conditionsMet;
 
@@ -1592,6 +1607,7 @@ namespace CombatAI
             if (closeDodge) {
                 result.priority = kWonCloseDodgePriority;
             }
+            result.reflex = timedDodge;
 
             // Dodge intensity based on urgency (closer = more urgent)
             float distance = a_state.target.distance;

@@ -62,7 +62,7 @@ namespace CombatAI
             return ExplainSkill(a_actor, a_action, a_combatTime, a_state).chance;
         }
 
-        // Skill as timing (SkillAsTiming, 1.19.0): a parry or timed block passes its roll and instead starts this many
+        // Skill as timing (SkillAsTiming, 1.19.0; close dodges 1.20.0): a parry or timed block passes its roll and instead starts this many
         // seconds off the learned moment (+ early, - late), a_window wide. One draw per target swing, as N(0, 1) scaled
         // by the sigma that keeps |offset| < a_window / 2 with the skill chance. 0 when the mode or skill rolls are off.
         float TimingOffset(RE::Actor *a_actor, RE::FormID a_formID, ActionType a_action, const ActorStateData &a_state,
@@ -123,8 +123,7 @@ namespace CombatAI
             std::uint64_t backoffKey = 0;
             bool backoffPassed = false;
             std::uint64_t timingKey = 0; // the target swing the timing error was drawn for
-            float timingZ = 0.0f;        // that error in sigmas
-            float timingSkill = 1.0f;    // the skill at the draw
+            float timingZ = 0.0f;        // that error in sigmas (each defense scales it by its own skill and window)
             std::uint64_t reachKey = 0;  // the offense window the reach factor was drawn for
             float reachFactor = 1.0f;
         };

@@ -421,7 +421,7 @@ namespace CombatAI
                     config.MarkHumanizerDirty();
                 }
                 humanFloat("Skill at level 1", &config.m_humanizer.skillBase, 0.0f, 1.0f);
-                if (check("Skill as timing (parries and timed blocks come early or late)", &config.m_humanizer.skillAsTiming)) {
+                if (check("Skill as timing (parries, timed blocks and close dodges come early or late)", &config.m_humanizer.skillAsTiming)) {
                     config.MarkHumanizerDirty();
                 }
                 humanFloat("Reach judgment error (0 = off)", &config.m_humanizer.reachJudgmentError, 0.0f, 0.3f);

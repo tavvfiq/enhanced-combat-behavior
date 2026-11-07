@@ -1,5 +1,15 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.20.0 (2026-11-07)
+
+Untested in game.
+
+- **Close dodges use skill as timing too.** A won close dodge (`CloseDodgeChance`: a melee swing aimed at the NPC from within reach) used to fire the moment the swing was seen, often well before the blow (the last run's one measured dodge started 0.74 s ahead), and a failed skill roll meant no dodge. Now it waits for its moment: your blow inside its i-frames (`IFrameDuration`, 0.3 s, before the hit), shifted by the swing's timing error, and it no longer rolls. On time, the blow passes through the i-frames. Early, it rolls away too soon and a tracking or late swing still catches it. Late, the blow lands first. Skill 0.75 gives a spread of about 0.13 s.
+- This changes when a skilled NPC dodges: about 0.3 s before your blow, not at your wind-up. Watch whether close dodges avoid more or fewer hits; `SkillAsTiming = false` restores the old dodge (and the old parry and timed block).
+- Unchanged: swings with no predicted hit time (no clip, no learned timing) dodge at once and roll as before. Band dodges (shots, power and sprint attacks from 250+ units), jumps and projectile sidesteps also keep their rolls.
+- One timing error per swing is shared by its parry, timed block and dodge; each scales it by its own skill (dodge rolls on the best of One-Handed / Two-Handed / Block, parry on Block).
+- Debug: `Evasion 0x..: close swing at D (reach R, hit in Xs) -> dodge, waiting for its moment | dodge (timed) | dodge | no dodge (roll|stamina)`; `Roll 0x..: Dodge timing ...` when the swing's error is drawn by its dodge.
+
 ## Enhanced Combat Behavior 1.19.0 (2026-11-07)
 
 Untested in game. Three new behaviors, each with its own switch (INI and menu).
