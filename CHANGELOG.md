@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.18.5 (2026-11-07)
+
+Untested in game.
+
+- The 1.18.4 swing probe is gone (it answered its question): the pistol + blade NPC's graph took attack events and started nothing. Cause: a pistol in the right hand puts the graph in the staff stance, where no melee attack starts; the NPC combat AI kept putting it there. Fixed in the gun framework (Somnium Gun Framework 0.7.6: the AI picks blade right, pistol left while a blade is carried). The `NotReady` debug line stays.
+
 ## Enhanced Combat Behavior 1.18.4 (2026-11-07)
 
 Untested in game. Debug probe for the selected NPC only.

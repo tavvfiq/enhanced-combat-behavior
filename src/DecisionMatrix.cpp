@@ -139,40 +139,6 @@ namespace CombatAI
         }
     }
 
-    // Probe (selected NPC, 1.18.4): with the graph idle, drawn and not attack-ready, send an attack event straight to
-    // it every 3 s - right hand, then left hand, in turn - and log whether the graph takes it. Taken: the graph can
-    // swing and only the flag is stuck. Refused both ways: the graph itself is locked out of attacks.
-    static void ProbeSwingWhileNotReady(RE::Actor *a_actor)
-    {
-        const auto *actorState = a_actor->AsActorState();
-        if (!actorState || !actorState->IsWeaponDrawn() || actorState->GetAttackState() != RE::ATTACK_STATE_ENUM::kNone) {
-            return;
-        }
-        static auto next = std::chrono::steady_clock::time_point{};
-        static bool leftHand = false;
-        const auto now = std::chrono::steady_clock::now();
-        if (now < next) {
-            return;
-        }
-        next = now + std::chrono::seconds(3);
-        const char *event = leftHand ? "attackStartLeftHand" : "attackStart";
-        leftHand = !leftHand;
-        // On the game's task queue, as the other graph events sent from the brain are
-        SKSE::GetTaskInterface()->AddTask([handle = a_actor->GetHandle(), event]() {
-            auto actor = handle.get();
-            if (!actor) {
-                return;
-            }
-            const bool taken = ActorUtils::SafeNotifyAnimationGraph(actor.get(), event);
-            bool ready = false;
-            const bool hasReady = actor->GetGraphVariableBool("IsAttackReady", ready);
-            const auto *state = actor->AsActorState();
-            LOG_DEBUG("NotReady 0x{:08X}: probe {} -> {} (attack state now {}, IsAttackReady {})", actor->GetFormID(), event,
-                      taken ? "taken" : "refused", state ? static_cast<int>(state->GetAttackState()) : -1,
-                      !hasReady ? "-" : ready ? "1" : "0");
-        });
-    }
-
     // Why a bash can't start now (nullptr: it can)
     static const char *BashRefusal(RE::Actor *a_actor, const ActorStateData &a_state)
     {
@@ -2254,7 +2220,6 @@ namespace CombatAI
             if (!AttackReady(a_actor)) {
                 if (config.IsDebugTarget(a_actor->GetFormID())) {
                     LogNotAttackReady(a_actor);
-                    ProbeSwingWhileNotReady(a_actor);
                 }
                 return skip("graph not attack-ready (IsAttackReady false)");
             }
