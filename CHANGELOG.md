@@ -1,5 +1,13 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.20.1 (2026-11-10)
+
+Untested in game.
+
+- **NPCs drink Enderal potions.** Every Enderal Health and Mana potion carries an Increase Arcane Fever effect, flagged harmful, so the potion scan rejected all of them. Enderal's restores also heal over time (Peak Value Modifier without Recover over 6-12 s), which the scan did not count as a restore. Both are now accepted: a harmful Script effect on no actor value is treated as a side effect (Arcane Fever's script only acts when the player drinks), and restores are ranked by magnitude x duration. Fortify potions (Peak Value Modifier with Recover) are still not restores.
+- **Weapon buff potions match Enderal's.** Fighter, Berserker and Marksman potions fortify One-Handed/Two-Handed/Marksman Power Modifier, not the skill. The skill buff now takes the skill or its power modifier (Destruction: Destruction Power Modifier).
+- Debug lines unchanged: `Potion 0x..: drinks <name> (...)`.
+
 ## Enhanced Combat Behavior 1.20.0 (2026-11-07)
 
 Untested in game.

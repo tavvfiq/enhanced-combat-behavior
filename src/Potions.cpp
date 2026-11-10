@@ -42,8 +42,19 @@ namespace CombatAI::Potions
         ThreadSafeMap<RE::FormID, State> g_state;
         bool g_otherMod = false; // NPCs Use Potions is loaded
 
-        // How much of an actor value a potion restores: its largest Restore magnitude for it. 0 for a potion with any
-        // harmful effect, and for Fortify (Peak Value Modifier) and regeneration (rate AVs), which don't restore now.
+        // A harmful effect that makes a drink unsafe. A detrimental Script effect on no actor value is a side effect,
+        // not harm: Enderal's Increase Arcane Fever (on every Health/Mana potion) only acts when the player drinks.
+        // shortcut: a harmful AV-less script effect in another mod's potion is let through; check the effect's script then.
+        bool Harmful(const RE::EffectSetting *a_base)
+        {
+            return a_base->IsDetrimental() && !(a_base->GetArchetype() == RE::EffectSetting::Archetype::kScript &&
+                                                 a_base->data.primaryAV == RE::ActorValue::kNone);
+        }
+
+        // How much of an actor value a potion restores: its largest Restore amount for it (magnitude x duration, so a
+        // heal over time compares with an instant one). Restore = Value Modifier, or Peak Value Modifier without
+        // Recover (Enderal's heal over time). 0 for a potion with any harmful effect, for Fortify (Peak Value
+        // Modifier with Recover) and for regeneration (rate AVs), which don't restore now.
         float Restores(const RE::MagicItem *a_magic, RE::ActorValue a_av)
         {
             if (!a_magic) {
@@ -55,12 +66,13 @@ namespace CombatAI::Potions
                 if (!base) {
                     continue;
                 }
-                if (base->IsDetrimental()) {
+                if (Harmful(base)) {
                     return 0.0f;
                 }
-                if (base->GetArchetype() == RE::EffectSetting::Archetype::kValueModifier && base->data.primaryAV == a_av &&
-                    base->data.flags.none(RE::EffectSetting::EffectSettingData::Flag::kRecover)) {
-                    best = (std::max)(best, effect->GetMagnitude());
+                const auto arch = base->GetArchetype();
+                if ((arch == RE::EffectSetting::Archetype::kValueModifier || arch == RE::EffectSetting::Archetype::kPeakValueModifier) &&
+                    base->data.primaryAV == a_av && base->data.flags.none(RE::EffectSetting::EffectSettingData::Flag::kRecover)) {
+                    best = (std::max)(best, effect->GetMagnitude() * static_cast<float>((std::max)(effect->GetDuration(), 1u)));
                 }
             }
             return best;
@@ -128,7 +140,7 @@ namespace CombatAI::Potions
                 if (!base) {
                     continue;
                 }
-                if (base->IsDetrimental()) {
+                if (Harmful(base)) {
                     return 0.0f;
                 }
                 const auto arch = base->GetArchetype();
@@ -150,6 +162,23 @@ namespace CombatAI::Potions
                                                          : RE::ActorValue::kNone;
         }
 
+        // The skill's damage modifier: Enderal's Fighter/Berserker/Marksman potions fortify these, not the skill
+        RE::ActorValue PowerModifier(RE::ActorValue a_skill)
+        {
+            switch (a_skill) {
+            case RE::ActorValue::kOneHanded:
+                return RE::ActorValue::kOneHandedPowerModifier;
+            case RE::ActorValue::kTwoHanded:
+                return RE::ActorValue::kTwoHandedPowerModifier;
+            case RE::ActorValue::kArchery:
+                return RE::ActorValue::kMarksmanPowerModifier;
+            case RE::ActorValue::kDestruction:
+                return RE::ActorValue::kDestructionPowerModifier;
+            default:
+                return RE::ActorValue::kNone;
+            }
+        }
+
         std::array<RE::AlchemyItem *, kBuffCount> BuffPotions(RE::Actor *a_actor, RE::ActorValue a_skill)
         {
             std::array<RE::AlchemyItem *, kBuffCount> best{};
@@ -165,7 +194,11 @@ namespace CombatAI::Potions
                     if (av == RE::ActorValue::kNone) {
                         continue;
                     }
-                    if (const float v = Fortifies(potion, av); v > amount[b]) {
+                    float v = Fortifies(potion, av);
+                    if (const auto power = b == kSkillBuff ? PowerModifier(av) : RE::ActorValue::kNone; power != RE::ActorValue::kNone) {
+                        v = (std::max)(v, Fortifies(potion, power));
+                    }
+                    if (v > amount[b]) {
                         amount[b] = v;
                         best[b] = potion;
                     }
