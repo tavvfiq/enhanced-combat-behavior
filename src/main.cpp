@@ -15,8 +15,10 @@ extern "C" __declspec(dllexport) void *__cdecl RequestPluginAPI(ECA_API::Interfa
     auto api = CombatAI::APIManager::GetSingleton();
     switch (a_interfaceVersion) {
     case ECA_API::InterfaceVersion::V1:
-        // APIManager implements IVCombatAI1
+        // IVCombatAI2 extends IVCombatAI1 (single inheritance, V1 slots first): one object serves both
         return static_cast<ECA_API::IVCombatAI1 *>(api);
+    case ECA_API::InterfaceVersion::V2:
+        return static_cast<ECA_API::IVCombatAI2 *>(api);
     }
     return nullptr;
 }

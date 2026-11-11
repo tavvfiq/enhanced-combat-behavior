@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.21.0 (2026-11-11)
+
+Untested in game. For other plugins only; gameplay unchanged.
+
+- **API V2** (`include/CombatAIAPI.h`). `RequestPluginAPI(InterfaceVersion::V2)` returns `IVCombatAI2`, which keeps the V1 calls and adds `RegisterDecisionCallbackV2` / `RemoveDecisionCallbackV2`. The V2 callback gets `DecisionDataV2`: the V1 fields plus `holdDistance` (circling ring), `reflex` (no skill roll: projectile sidestep or a close dodge timed by skill as timing) and `paced` (a pacing wait, not the brain's choice). V1 is unchanged; plugins built against it keep working.
+- Listeners are now called outside the API's lock, so a callback may register or remove callbacks without hanging the game. The V1 header's callback comment named the first parameter a FormID; it is the actor.
+
 ## Enhanced Combat Behavior 1.20.1 (2026-11-10)
 
 Untested in game.
