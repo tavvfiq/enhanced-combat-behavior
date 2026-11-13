@@ -1,5 +1,12 @@
 # Changelog
 
+## Enhanced Combat Behavior 1.21.1 (2026-11-13)
+
+Untested in game.
+
+- **Short-range shots hold in range.** Archers and crossbowmen held at 80% of `RangedMaxDistance` (1600 units) whatever they fired. A projectile that dies sooner now caps the band: close in beyond 85% of the equipped ammo's projectile range, hold at 80% of that, fall back from melee no farther out than 100 units inside the hold. Arsenal's blunderbusses (crossbow type, pellet projectile range 800) now hold at ~544 and close in beyond ~680 instead of firing from 1600, where every pellet vanished. Bows, rifles (range 100000) and gunmen (GunKeywords) are unchanged.
+- Debug: the `Ranged 0x..: ... -> close in to N` line adds `(shot range R)` when the cap applies.
+
 ## Enhanced Combat Behavior 1.21.0 (2026-11-11)
 
 Untested in game. For other plugins only; gameplay unchanged.

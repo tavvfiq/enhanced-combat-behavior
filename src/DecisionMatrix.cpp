@@ -469,9 +469,18 @@ namespace CombatAI
         // A gunman (1.17.0) keeps the band its personality sets (Guns::RangeOf); archers and mages the INI's
         const bool gunman = a_state.self.isGunman;
         const auto band = gunman ? Guns::RangeOf(a_actor) : Guns::Band{};
-        const float keepAway = gunman ? band.backOff : dm.rangedKeepAwayDistance;
-        const float maxDistance = gunman ? band.max : dm.rangedMaxDistance;
-        const float farHold = gunman ? band.ideal : dm.rangedMaxDistance * 0.8f;
+        // Shot range (1.21.1): a projectile that dies short of RangedMaxDistance caps the band (Arsenal's blunderbuss
+        // pellets fly 800 units; the archer band held them at 1600, so every shot vanished halfway)
+        float shotRange = 0.0f;
+        if (!gunman && a_actor) {
+            if (const auto *ammo = a_actor->GetCurrentAmmo(); ammo && ammo->data.projectile) {
+                shotRange = ammo->data.projectile->data.range;
+            }
+        }
+        const bool shortShot = shotRange > 0.0f && shotRange < dm.rangedMaxDistance;
+        const float maxDistance = gunman ? band.max : shortShot ? shotRange * 0.85f : dm.rangedMaxDistance;
+        const float farHold = gunman ? band.ideal : maxDistance * 0.8f;
+        const float keepAway = gunman ? band.backOff : (std::min)(dm.rangedKeepAwayDistance, farHold - 100.0f);
         RE::NiPoint3 away = a_state.self.position - a_state.target.position;
         away.z = 0.0f;
         away.Unitize();
@@ -523,8 +532,9 @@ namespace CombatAI
             result.direction = -away;
             result.intensity = 0.8f;
             if (debug) {
-                LOG_DEBUG("Ranged 0x{:08X}: target at {:.0f}{} -> close in to {:.0f}", a_actor->GetFormID(), dist,
-                          noSight ? " out of sight" : "", result.holdDistance);
+                LOG_DEBUG("Ranged 0x{:08X}: target at {:.0f}{} -> close in to {:.0f}{}", a_actor->GetFormID(), dist,
+                          noSight ? " out of sight" : "", result.holdDistance,
+                          shortShot ? std::format(" (shot range {:.0f})", shotRange) : std::string{});
             }
         }
         // An ally between us and the target: step sideways to clear the line of fire
