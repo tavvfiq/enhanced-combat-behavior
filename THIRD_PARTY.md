@@ -32,9 +32,8 @@ This mod is a fork of EnhancedCombatAI ("Enhanced Combat AI", `CombatAI-NG.dll`)
 
 ## SCAR - Skyrim Combos AI Revolution (MIT, max-su-2019)
 
-`src/SCARData.cpp` reads `SCAR_ActionData` annotations with SCAR 2.0.1's format and range rules, and
-the combo follow-up starts attacks the way SCAR's attack-data path does (CombatAnimation with the
-attack event). Source: https://github.com/max-su-2019/SCAR (commit e62b63a). MIT License,
+The combo follow-up starts attacks the way SCAR's attack-data path does (CombatAnimation with the
+attack event). The `SCAR_ActionData` reader (`src/SCARData.cpp`) was removed in 1.23.0. Source: https://github.com/max-su-2019/SCAR (commit e62b63a). MIT License,
 Copyright (c) max-su-2019; the permission notice above applies.
 
 ## Combat Pathing Revolution (MIT, max-su-2019)

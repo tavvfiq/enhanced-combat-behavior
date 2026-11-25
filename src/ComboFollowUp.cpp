@@ -5,7 +5,6 @@
 #include "Config.h"
 #include "Intents.h"
 #include "Logger.h"
-#include "SCARIntegration.h"
 #include "ThreadSafeMap.h"
 
 #include <random>
@@ -114,7 +113,7 @@ namespace CombatAI::ComboFollowUp
             return std::uniform_real_distribution<float>(0.0f, 1.0f)(gen) < a_chance;
         }
 
-        // Start the next attack on the main thread the way vanilla's Attack node and SCAR's attack-data path do: a
+        // Start the next attack on the main thread the way vanilla's Attack node does: a
         // CombatAnimation carrying the attack event. Run 51 (BFCO): every chained combo followed an "attackStart"
         // inside the window; the bare attack action (it played BFCOAttackstart_0) never chained on its own.
         // The target's speed toward the NPC (+) or away (-), units/s
@@ -222,10 +221,6 @@ namespace CombatAI::ComboFollowUp
 
     void Install()
     {
-        if (SCARIntegration::GetInstance().IsAvailable()) {
-            LOG_INFO("Combo follow-up: off (SCAR.dll is loaded and runs combos)");
-            return;
-        }
         REL::Relocation<std::uintptr_t> sink{RE::Character::VTABLE[2]};
         AnimEvent::func = sink.write_vfunc(0x1, AnimEvent::thunk);
         g_installed = true;

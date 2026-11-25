@@ -72,6 +72,10 @@ namespace CombatAI
                                          DecisionResult a_decision);
         void ExecuteDecision(RE::Actor *a_actor, RE::FormID a_formID, const DecisionResult &a_decision,
                              const ActorStateData &a_state);
+        // An NPC the brain sends in that has stood still too long steps out with a dodge (its path never starts
+        // there). True when it stepped this tick.
+        bool TryUnstick(RE::Actor *a_actor, RE::FormID a_formID, const ActorStateData &a_state, ActionType a_action,
+                        bool a_debug);
 
         // Evict all per-actor bookkeeping (timers, spawn time, processed flag, observer
         // caches) for a FormID. Called when an actor leaves combat / dies / is torn down
@@ -119,6 +123,21 @@ namespace CombatAI
             float since = 0.0f;
         };
         ThreadSafeMap<RE::FormID, AttackStateSince> m_drawStart;
+        // A dodge that found no clear direction: where it stood, and until when Dodge isn't picked again there
+        struct DodgeBoxed
+        {
+            RE::NiPoint3 at{};
+            float until = 0.0f;
+        };
+        ThreadSafeMap<RE::FormID, DodgeBoxed> m_dodgeBoxed;
+        // Where an NPC stopped moving, since when, and the earliest next unstick step (TryUnstick)
+        struct Stuck
+        {
+            RE::NiPoint3 at{};
+            float since = 0.0f;
+            float nextTry = 0.0f;
+        };
+        ThreadSafeMap<RE::FormID, Stuck> m_stuck;
         std::atomic<float> m_time{0.0f}; // Seconds since load, advanced in Update()
 
         // Processing throttle (don't process every frame)

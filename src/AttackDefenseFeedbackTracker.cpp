@@ -1,4 +1,5 @@
 #include "AttackDefenseFeedbackTracker.h"
+#include "ActorStateData.h"
 #include "ActorUtils.h"
 #include "Config.h"
 #include "Logger.h"
@@ -16,6 +17,25 @@
 
 namespace CombatAI
 {
+    namespace
+    {
+        // 90th percentile of the samples (nearest rank at or below)
+        float Percentile90(std::vector<float> a_samples)
+        {
+            std::ranges::sort(a_samples);
+            return a_samples[static_cast<size_t>(0.9f * static_cast<float>(a_samples.size() - 1))];
+        }
+
+        bool PercentileSelfTest()
+        {
+            const bool ok = Percentile90({11, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}) == 10.0f && Percentile90({5, 1, 3, 2}) == 3.0f;
+            if (!ok) {
+                LOG_ERROR("Learned reach: percentile self-test failed, unarmed reach learning is off");
+            }
+            return ok;
+        }
+    }
+
     void AttackDefenseFeedbackTracker::RecordAttackAttempt(RE::Actor *a_attacker, RE::Actor *a_target,
                                                            bool a_isPowerAttack, float a_weaponReach,
                                                            bool a_reachFromPrecision, float a_targetDistance,
@@ -218,7 +238,42 @@ namespace CombatAI
         });
     }
 
-    void AttackDefenseFeedbackTracker::OnAttackBlocked(RE::Actor *a_attacker, RE::Actor *a_target)
+    void AttackDefenseFeedbackTracker::LearnReach(RE::Actor *a_attacker, const AttackAttempt &a_attempt)
+    {
+        RE::TESRace *race = a_attacker->GetRace();
+        const float scale = a_attacker->GetScale();
+        if (!race || scale <= 0.0f || a_attempt.targetDistance <= 0.0f ||
+            !Config::GetInstance().GetDecisionMatrix().learnUnarmedReach ||
+            !StateHelpers::UsesUnarmedReach(a_attacker)) {
+            return;
+        }
+        // The blow landed from where the attack started: that start distance, past the target's body, is in reach
+        const float sample = (std::max)(a_attempt.targetDistance - a_attempt.targetRadius, 0.0f) / scale;
+        size_t count = 0;
+        m_unarmedReach.ModifyOrCreate(race->GetFormID(), [&](std::vector<float> &samples) {
+            samples.push_back(sample);
+            if (samples.size() > REACH_SAMPLES) {
+                samples.erase(samples.begin());
+            }
+            count = samples.size();
+        });
+        if (Config::GetInstance().IsDebugTarget(a_attacker->GetFormID())) {
+            LOG_DEBUG("Reach 0x{:08X}: unarmed contact from {:.0f} past the target's body (race {} 0x{:08X}, {} contacts) "
+                      "-> learned reach {:.0f}",
+                      a_attacker->GetFormID(), sample * scale, race->GetFormEditorID() ? race->GetFormEditorID() : "", race->GetFormID(), count,
+                      LearnedUnarmedReach(a_attacker));
+        }
+    }
+
+    float AttackDefenseFeedbackTracker::LearnedUnarmedReach(RE::Actor *a_actor) const
+    {
+        static const bool ok = PercentileSelfTest();
+        RE::TESRace *race = a_actor && ok ? a_actor->GetRace() : nullptr;
+        const auto samples = race ? m_unarmedReach.Find(race->GetFormID()) : std::nullopt;
+        return samples && samples->size() >= REACH_MIN_SAMPLES ? Percentile90(*samples) * a_actor->GetScale() : 0.0f;
+    }
+
+    void AttackDefenseFeedbackTracker::OnAttackBlocked(RE::Actor *a_attacker, RE::Actor *a_target, bool a_melee)
     {
         if (!a_attacker || !a_target) {
             return;
@@ -234,6 +289,9 @@ namespace CombatAI
                 if (attemptIt->targetFormID == targetFormID && !attemptIt->matchedParry &&
                     !attemptIt->matchedTimedBlock && !attemptIt->matchedHit) {
                     attemptIt->matchedHit = true; // processed: the miss timeout skips it
+                    if (a_melee) {
+                        LearnReach(a_attacker, *attemptIt);
+                    }
                     break;
                 }
             }
@@ -273,7 +331,7 @@ namespace CombatAI
         return race ? race->average : 0.0f;
     }
 
-    void AttackDefenseFeedbackTracker::OnAttackHit(RE::Actor *a_attacker, RE::Actor *a_target)
+    void AttackDefenseFeedbackTracker::OnAttackHit(RE::Actor *a_attacker, RE::Actor *a_target, bool a_melee)
     {
         if (!a_attacker || !a_target) {
             return;
@@ -344,6 +402,9 @@ namespace CombatAI
                     // Found unmatched attempt for this target
                     attemptIt->matchedHit = true;
                     foundMatch = true;
+                    if (a_melee) {
+                        LearnReach(a_attacker, *attemptIt);
+                    }
 
                     // Update feedback for the attacker
                     m_feedbackData.WithWriteLock([&](auto &feedbackMap) {

@@ -98,6 +98,50 @@ namespace CombatAI::Trees
             LOG_INFO("Tree: Ranged attack chance redirected (the brain times archers' shots)");
         }
 
+        // Vanilla's Movement selector (SE 48431 / AE 49436) puts Hide above CloseMovement; its ValueNode calls
+        // CombatState::CheckShouldHide (SE 45661 / AE 46958, matched on its inventory ranges +0x1A8/+0x1BC/+0x1C0 and the
+        // fCombatHideCheckViewConeDistance GMSTs). It stores the function with `lea rax` at SE +0x255, AE +0x688 (1.6.1170
+        // and 1.7.104; disassembled 2026-11-15). A melee-only NPC hides when its target is marked unreachable (or was
+        // recently), or a ranged attacker aims at it: a marauder stood 38 s 1000 units from its werewolf while the brain
+        // asked it to advance, no tree read of ours in between (1.22.0 run 16). While the brain sends it in, it doesn't hide.
+        constexpr REL::RelocationID kMovementTree{48431, 49436};
+        constexpr std::size_t kHideLeaSE = 0x255;
+        constexpr std::size_t kHideLeaAE = 0x688;
+        using HideFn = bool (*)(RE::CombatState *);
+        HideFn g_vanillaShouldHide = nullptr;
+
+        bool ShouldHide(RE::CombatState *a_state)
+        {
+            if (!g_vanillaShouldHide(a_state)) {
+                return false;
+            }
+            auto *actor = RE::CombatBehaviorController::GetCurrentAttacker();
+            if (!actor || !Config::GetInstance().GetDecisionMatrix().noHideWhileAdvancing || !Intents::BrainDriven(actor) ||
+                !Intents::WantsMove(actor, Intents::Move::Advance)) {
+                return true;
+            }
+            if (Config::GetInstance().IsDebugTarget(actor->GetFormID())) {
+                thread_local std::chrono::steady_clock::time_point lastLogged{};
+                if (const auto now = std::chrono::steady_clock::now(); now - lastLogged > std::chrono::seconds(2)) {
+                    lastLogged = now;
+                    LOG_DEBUG("Hide 0x{:08X}: vanilla would hide; the brain is advancing, so it doesn't", actor->GetFormID());
+                }
+            }
+            return false;
+        }
+
+        void InstallNoHide(SKSE::Trampoline &a_trampoline)
+        {
+            const auto lea = kMovementTree.address() + (REL::Module::IsAE() ? kHideLeaAE : kHideLeaSE);
+            g_vanillaShouldHide = reinterpret_cast<HideFn>(
+                RedirectChanceLea(a_trampoline, lea, REL::RelocationID(45661, 46958).address(), reinterpret_cast<std::uintptr_t>(&ShouldHide)));
+            if (!g_vanillaShouldHide) {
+                LOG_ERROR("Tree: Movement tree hide site does not match - melee NPCs hide as in vanilla");
+                return;
+            }
+            LOG_INFO("Tree: Hide check redirected (melee NPCs the brain sends in don't hide)");
+        }
+
         // The vanilla Magic builder is kept; its SetRoot call is hooked to add the DualBlock branch (SE 48065+0x4AC,
         // AE 49112+0x7AC in 1.6.1170 and 1.7.104, RE 2026-10-25).
         constexpr REL::RelocationID kMagicTree{48065, 49112};
@@ -184,7 +228,7 @@ namespace CombatAI::Trees
 
         float VanillaBlockAttack(RE::Actor *a_me, RE::Actor *)
         {
-            return NoGuard(a_me) ? 0.0f : Rescaled(Vanilla1(kBlockAttackChance, a_me));
+            return NoGuard(a_me) || Intents::NoVanillaBlock(a_me) ? 0.0f : Rescaled(Vanilla1(kBlockAttackChance, a_me));
         }
 
         float VanillaOffensiveBash(RE::Actor *a_me, RE::Actor *a_target)
@@ -194,7 +238,7 @@ namespace CombatAI::Trees
 
         float VanillaBlock(RE::Actor *a_me, RE::Actor *)
         {
-            return NoGuard(a_me) ? 0.0f : Rescaled(Vanilla1(kBlockChance, a_me));
+            return NoGuard(a_me) || Intents::NoVanillaBlock(a_me) ? 0.0f : Rescaled(Vanilla1(kBlockChance, a_me));
         }
 
         // Post-block counter bash: one roll when a block ends, as in vanilla, so no rescale. A bash
@@ -850,12 +894,57 @@ namespace CombatAI::Trees
         // accept band [inner, outer] + range (+0x38F). While our branch's node starts, both are set to the
         // brain's stop distance: with vanilla's outer (256-512 + range) a bandit at 129 units counted as
         // already there and the node ended next tick (run 18: 41 times, moved 0).
+        // A brain-driven beast's attack range (Intents::NoteAttackRange); 0 for anyone else
+        float BeastRange(RE::Actor *a_actor)
+        {
+            return a_actor && Config::GetInstance().GetDecisionMatrix().includeBeastCreatures &&
+                           ActorUtils::IsBeastCreature(a_actor) && Intents::BrainDriven(a_actor)
+                       ? Intents::AttackRange(a_actor)
+                       : 0.0f;
+        }
+        // Where a beast's vanilla Advance stops: a little inside that range, as our Advance does
+        float BeastStop(RE::Actor *a_actor) { return 0.9f * BeastRange(a_actor); }
+
+        // Vanilla CloseMovement's CheckOutOfRange (SE 46696, AE 47891) reads out of range when the predicted distance
+        // passes CombatInventory+0x19C + the inner radius set_two_radiuses gives (SE 46696+0x140 / AE 47891+0x12F,
+        // then +0x158 / +0x147 reads +0x19C; disassembled 2026-11-14). A beast's +0x19C is its race's vanilla reach, so it
+        // circled 165-200 out while its blows reach ~100-150 and ECB refused every swing (1.22.0 run 11): with the inner
+        // radius set to brain range - +0x19C the beast counts as out of range until inside the brain's range, and
+        // vanilla's own Advance walks it in.
+        struct BeastOutOfRange
+        {
+            static void thunk(RE::Actor *a_self, RE::Actor *a_target, float *a_inner, float *a_outer)
+            {
+                func(a_self, a_target, a_inner, a_outer);
+                const float range = BeastRange(a_self);
+                const auto *inventory = RE::CombatBehaviorController::GetCurrentCombatInventory();
+                if (range > 0.0f && a_inner && inventory) {
+                    *a_inner = range - *reinterpret_cast<const float *>(reinterpret_cast<std::uintptr_t>(inventory) + 0x19C);
+                }
+            }
+            static inline REL::Relocation<decltype(thunk)> func;
+        };
+        constexpr REL::RelocationID kCheckOutOfRange{46696, 47891};
+        constexpr std::size_t kCheckOutOfRangeRadiiSE = 0x140;
+        constexpr std::size_t kCheckOutOfRangeRadiiAE = 0x12F; // 1.6.1170 and 1.7.104
+
+        void InstallBeastOutOfRange(SKSE::Trampoline &a_trampoline)
+        {
+            const auto site = kCheckOutOfRange.address() + (REL::Module::IsAE() ? kCheckOutOfRangeRadiiAE : kCheckOutOfRangeRadiiSE);
+            if (!CallsTarget(site, REL::RelocationID(49716, 50643).address())) {
+                LOG_ERROR("Tree: CloseMovement range check site does not match - beasts keep vanilla's range");
+                return;
+            }
+            BeastOutOfRange::func = a_trampoline.write_call<5>(site, BeastOutOfRange::thunk);
+            LOG_INFO("Tree: CloseMovement range check hooked (beasts count as in range only inside the brain's range)");
+        }
+
         struct AdvanceRing // set_two_radiuses 49716/50643 (self, target, &inner, &outer)
         {
             static void thunk(RE::Actor *a_self, RE::Actor *a_target, float *a_inner, float *a_outer)
             {
                 func(a_self, a_target, a_inner, a_outer);
-                const float stop = t_ourStart && a_self ? Intents::AdvanceDistance(a_self) : 0.0f;
+                const float stop = t_ourStart && a_self ? Intents::AdvanceDistance(a_self) : BeastStop(a_self);
                 if (stop > 0.0f && a_inner) {
                     *a_inner = stop - CurrentWeaponRange();
                     if (a_outer) {
@@ -872,9 +961,8 @@ namespace CombatAI::Trees
         {
             static bool thunk(void *a_location, float a_tolerance)
             {
-                if (t_ourStart) {
-                    auto *actor = RE::CombatBehaviorController::GetCurrentAttacker();
-                    const float stop = actor ? Intents::AdvanceDistance(actor) : 0.0f;
+                if (auto *actor = RE::CombatBehaviorController::GetCurrentAttacker(); t_ourStart || BeastStop(actor) > 0.0f) {
+                    const float stop = !actor ? 0.0f : t_ourStart ? Intents::AdvanceDistance(actor) : BeastStop(actor);
                     const float distance = actor ? TargetDistance(actor) : -1.0f;
                     if (stop > 0.0f && distance > stop) {
                         return false;
@@ -1701,6 +1789,7 @@ namespace CombatAI::Trees
             InstallBackoffAudit(trampoline);
             if (Config::GetInstance().GetDecisionMatrix().brainAdvanceDistance) {
                 InstallAdvanceRing(trampoline);
+                InstallBeastOutOfRange(trampoline);
             }
             if (Config::GetInstance().GetDecisionMatrix().brainBackoffFallback) {
                 InstallOwnStarts(trampoline);
@@ -1712,6 +1801,7 @@ namespace CombatAI::Trees
         }
 
         InstallRangedShotChance(trampoline);
+        InstallNoHide(trampoline);
         InstallShoutPotionProbe(trampoline);
 
         const auto rangedSite =

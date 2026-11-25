@@ -207,11 +207,11 @@ namespace CombatAI
                 }
                 check("Debug log: per-tick dumps (full state, vanilla attack rolls; bulky)", &config.m_general.verboseTicks);
                 check("Include humanoid creatures (draugr, falmer, skeletons)", &config.m_decisionMatrix.includeHumanoidCreatures);
+                check("Include beast creatures (werewolves, trolls, spriggans)", &config.m_decisionMatrix.includeBeastCreatures);
                 if (header("Integrations")) {
                     note("Precision and TK Dodge are detected on game load (restart to re-detect).");
                     check("Precision integration", &config.m_modIntegrations.enablePrecisionIntegration);
                     check("TK Dodge integration (dodges)", &config.m_modIntegrations.enableTKDodgeIntegration);
-                    check("SCAR integration (when SCAR.dll is loaded)", &config.m_modIntegrations.enableSCARIntegration);
                     check("Attack Warp integration (when AttackWarp.dll is loaded)",
                           &config.m_modIntegrations.enableAttackWarpIntegration);
                     // Guns: the keyword list is edited in a buffer and applied with the button (game threads read the
@@ -256,7 +256,7 @@ namespace CombatAI
                 check("NPCs poison their weapons", &config.m_decisionMatrix.enableNPCPoisons);
                 liveFloat("Poison cooldown (s)", &config.m_decisionMatrix.poisonCooldownSeconds, 0.0f, 120.0f, "%.0f");
                 liveFloat("Paralysis poison cooldown (s)", &config.m_decisionMatrix.poisonParalysisCooldownSeconds, 0.0f, 300.0f, "%.0f");
-                check("Enable combo follow-up (MCO / BFCO, without SCAR)", &config.m_modIntegrations.enableComboFollowUp);
+                check("Enable combo follow-up (MCO / BFCO)", &config.m_modIntegrations.enableComboFollowUp);
                 liveFloat("Combo follow-up chance", &config.m_modIntegrations.comboFollowUpChance, 0.0f, 1.0f);
                 liveFloat("Combo power follow-up chance", &config.m_modIntegrations.comboPowerChance, 0.0f, 1.0f);
                 liveFloat("Trade blows with a swing (chance)", &config.m_decisionMatrix.tradeBlowsChance, 0.0f, 1.0f);
@@ -300,8 +300,14 @@ namespace CombatAI
                 check("Timed block", &config.m_timedBlock.enableTimedBlock);
                 sameLine();
                 check("Counter after a blocked hit", &config.m_decisionMatrix.enableCounter);
+                check("Counter in Simple Elden Counter NG's window (when installed)",
+                      &config.m_decisionMatrix.useEldenCounterNGWindow);
                 check("Punish the player's swing recovery", &config.m_decisionMatrix.enablePunish);
                 check("Brain attacks skip vanilla's hit cone when in reach", &config.m_decisionMatrix.intentHitConeOverride);
+                check("Learn fist fighters' and beasts' reach from landed blows", &config.m_decisionMatrix.learnUnarmedReach);
+                check("Melee NPCs don't hide while the brain sends them in", &config.m_decisionMatrix.noHideWhileAdvancing);
+                check("No held block against melee targets (timed blocks only)", &config.m_decisionMatrix.noVanillaBlockVsMelee);
+                liveFloat("Held block (vs ranged) needs stamina", &config.m_decisionMatrix.vanillaBlockMinStamina, 0.0f, 1.0f);
                 liveFloat("Parry / timed block a swing (chance)", &config.m_decisionMatrix.defendOnSwingChance, 0.0f, 1.0f);
                 liveFloat("Dodge a close swing (chance)", &config.m_decisionMatrix.closeDodgeChance, 0.0f, 1.0f);
                 liveFloat("Back off from a swing (chance)", &config.m_decisionMatrix.backoffOnSwingChance, 0.0f, 1.0f);
@@ -310,6 +316,7 @@ namespace CombatAI
                 sameLine();
                 check("NPCs back off, then drink potions", &config.m_decisionMatrix.enableNPCPotions);
                 check("NPCs drink Fortify / Resist potions (at range)", &config.m_decisionMatrix.enableBuffPotions);
+                check("Poisoned NPCs drink antidotes (Cure Poison)", &config.m_decisionMatrix.enableAntidotes);
                 if (header("Advanced: parry and timed block windows")) {
                     liveFloat("Parry window start (s)", &config.m_parry.parryWindowStart, 0.0f, 0.5f, "%.3f");
                     liveFloat("Parry window end (s)", &config.m_parry.parryWindowEnd, 0.0f, 0.5f, "%.3f");

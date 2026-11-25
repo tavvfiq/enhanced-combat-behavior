@@ -422,5 +422,25 @@ namespace CombatAI
         const auto *weapon = object ? object->As<RE::TESObjectWEAP>() : nullptr;
         return weapon && weapon->GetWeaponType() != RE::WEAPON_TYPE::kHandToHandMelee;
     }
+
+    // A beast that fights a duel with its limbs: werewolves and werebears, trolls, spriggans. Picked by the race's
+    // BodyPartData (as Precision does), so mod races built on these keep it: Skyrim.esm WerewolfBeastBodyPartData
+    // 0xCDD85 (werebears share it), TrollBodyPartData 0x92C93, SprigganBodyPartData 0xA0420 (FormIDs read from the
+    // race records with houseCARL). Wolves, bears, mudcrabs and other animals stay vanilla.
+    inline bool IsBeastCreature(RE::Actor *a_actor)
+    {
+        if (!a_actor || !SafeHasKeywordString(a_actor, "ActorTypeCreature")) {
+            return false;
+        }
+        const auto *race = a_actor->GetRace();
+        const RE::FormID bodyParts = race && race->bodyPartData ? race->bodyPartData->GetFormID() : 0;
+        return bodyParts == 0x000CDD85 || bodyParts == 0x00092C93 || bodyParts == 0x000A0420;
+    }
+
+    // Either creature kind the brain takes: no dodge animations, and a graph that refuses a new attack mid-swing
+    inline bool IsBrainCreature(RE::Actor *a_actor)
+    {
+        return IsHumanoidCreature(a_actor) || IsBeastCreature(a_actor);
+    }
 } // namespace ActorUtils
 } // namespace CombatAI

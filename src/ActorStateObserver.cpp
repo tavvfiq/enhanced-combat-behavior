@@ -20,13 +20,12 @@
 #include "ActorUtils.h"
 #include "AttackDefenseFeedbackTracker.h"
 #include "Config.h"
+#include "LimbReach.h"
 #include "EnvSensor.h"
 #include "Guns.h"
 #include "GuardCounterFeedbackTracker.h"
 #include "ParryFeedbackTracker.h"
 #include "PrecisionIntegration.h"
-#include "SCARData.h"
-#include "SCARIntegration.h"
 #include "TimedBlockFeedbackTracker.h"
 
 namespace CombatAI
@@ -60,13 +59,32 @@ namespace CombatAI
 
         // Get weapon reach
         data.weaponReach = GetWeaponReach(a_actor, &data.weaponReachFromPrecision);
-        data.baseWeaponReach = data.weaponReach;
-        // SCAR moveset: the brain closes to where SCAR will actually start an attack, not the weapon's reach. SCAR's
-        // limit is MaxDistance + reach + target radius; offense uses reach * mult + target radius - margin.
-        if (SCARIntegration::GetInstance().IsAvailable() && Config::GetInstance().GetModIntegrations().enableSCARIntegration) {
-            if (const float scar = SCARData::AttackReach(a_actor, data.weaponReach); scar > 0.0f) {
+        // Unarmed (fist fighters, beast creatures): no weapon record says how far a fist or claw lands, so once the
+        // race has landed enough blows, close to where they landed from (same conversion as the body-contact reach below)
+        if (Config::GetInstance().GetDecisionMatrix().learnUnarmedReach && StateHelpers::UsesUnarmedReach(a_actor)) {
+            if (const float learned = AttackDefenseFeedbackTracker::GetInstance().LearnedUnarmedReach(a_actor);
+                learned > 0.0f) {
                 const auto &dm = Config::GetInstance().GetDecisionMatrix();
-                data.weaponReach = (scar + dm.offenseReachSafetyMargin) / (std::max)(dm.offenseReachMultiplier, 0.1f);
+                data.weaponReach = (learned + dm.offenseReachSafetyMargin) / (std::max)(dm.offenseReachMultiplier, 0.1f);
+                data.weaponReachLearned = true;
+            }
+            // Beasts with Precision: the longest of their attacks as measured on their skeleton (LimbReach), so the
+            // range is known once each attack has been played, wherever it was allowed to start from. It replaces the
+            // contact-learned reach: a target walking into a blow taught that one 143-148 (1.22.0 run 3, every miss
+            // from there), while the hands reached at most 112.
+            if (LimbReach::Active(a_actor)) {
+                const auto &dm = Config::GetInstance().GetDecisionMatrix();
+                const float longest = LimbReach::LongestReach(a_actor);
+                // Until one attack is measured: the race's unarmed reach, the range vanilla itself attacks from. The
+                // capsule guess was shorter, so every swing was refused and none got measured: a werewolf stood at
+                // 154-158 until the player hit it (1.22.0 run 10)
+                const RE::TESRace *race = a_actor->GetRace();
+                const float pastBody = longest > 0.0f ? LimbReach::ContactDistance(longest, 0.0f)
+                                                      : race ? race->data.unarmedReach * a_actor->GetScale() : 0.0f;
+                if (pastBody > 0.0f) {
+                    data.weaponReach = (pastBody + dm.offenseReachSafetyMargin) / (std::max)(dm.offenseReachMultiplier, 0.1f);
+                    data.weaponReachLearned = longest > 0.0f;
+                }
             }
         }
 
@@ -168,14 +186,28 @@ namespace CombatAI
         // Blocking state - use safe wrapper
         state.isBlocking = ActorUtils::SafeIsBlocking(a_actor);
 
-        // Guard counter: our window after a blocked hit (no mod needed), or EldenCounter's graph variable
+        // Guard counter: our window after a blocked hit (no mod needed), or EldenCounter's graph variable.
+        // With Simple Elden Counter NG the window is its own: OAR swaps the attack for its counter while the blocker
+        // has the mod's Third Person Trigger effect (0xAC9, put on when a blow meets the block; OAR also counts it
+        // inactive, as HasMagicEffect does)
+        static RE::EffectSetting *const eldenCounterNGTrigger = [] {
+            auto *const dataHandler = RE::TESDataHandler::GetSingleton();
+            auto *const effect =
+                dataHandler ? dataHandler->LookupForm<RE::EffectSetting>(0xAC9, "Simple Elden Counter NG.esp") : nullptr;
+            LOG_INFO("Simple Elden Counter NG {}", effect ? "found: counters attack while its window effect is on"
+                                                          : "not found: counters use ECB's 0.2-1.0 s window");
+            return effect;
+        }();
         bool guardCounterActive = false;
         ActorUtils::SafeGetGraphVariableBool(a_actor, "Val_GuardCounter", guardCounterActive);
         const auto blockedAt = m_counterUntil.Find(a_actor->GetFormID());
         const auto sinceBlock = blockedAt ? std::chrono::steady_clock::now() - *blockedAt : std::chrono::hours(1);
-        state.isGuardCounterActive = Config::GetInstance().GetDecisionMatrix().enableCounter &&
-                                     (guardCounterActive || (sinceBlock >= std::chrono::milliseconds(200) &&
-                                                             sinceBlock <= std::chrono::milliseconds(1000)));
+        const bool pastBlockHit = sinceBlock >= std::chrono::milliseconds(200); // run 43: refused during the block-hit reaction
+        const auto &decisionMatrix = Config::GetInstance().GetDecisionMatrix();
+        const bool inWindow = eldenCounterNGTrigger && decisionMatrix.useEldenCounterNGWindow
+                                  ? pastBlockHit && a_actor->AsMagicTarget()->HasMagicEffect(eldenCounterNGTrigger)
+                                  : pastBlockHit && sinceBlock <= std::chrono::milliseconds(1000);
+        state.isGuardCounterActive = decisionMatrix.enableCounter && (guardCounterActive || inWindow);
 
         // Movement state - sprinting/walking - use safe wrappers
         state.isSprinting = ActorUtils::SafeIsSprinting(a_actor);

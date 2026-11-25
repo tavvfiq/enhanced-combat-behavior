@@ -287,7 +287,7 @@ namespace CombatAI
         float deltaTime = 0.0f;
         float weaponReach = 150.0f; // Weapon reach (from Precision or fallback)
         bool weaponReachFromPrecision = false;
-        float baseWeaponReach = 150.0f; // weaponReach before a SCAR clip replaced it (SCAR's own range check uses this)
+        bool weaponReachLearned = false; // unarmed: weaponReach comes from where its race's blows landed
     };
 
     // Helper functions
@@ -434,6 +434,13 @@ namespace CombatAI
 
             // No weapon equipped - unarmed
             return WeaponType::Unarmed;
+        }
+
+        // Fights with fists or limbs, so its reach is learned from landed blows: an unarmed NPC, or a beast creature
+        // (a spriggan reads as Spell from the spell in its hand, but its blows are its claws)
+        inline bool UsesUnarmedReach(RE::Actor *a_actor)
+        {
+            return ActorUtils::IsBeastCreature(a_actor) || GetActorWeaponType(a_actor) == WeaponType::Unarmed;
         }
     } // namespace StateHelpers
 } // namespace CombatAI

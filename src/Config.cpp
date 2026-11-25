@@ -216,14 +216,20 @@ namespace CombatAI
         D("DecisionMatrix", "TradeBlowsChance", m_decisionMatrix.tradeBlowsChance);
         B("DecisionMatrix", "EnablePunish", m_decisionMatrix.enablePunish);
         B("DecisionMatrix", "IntentHitConeOverride", m_decisionMatrix.intentHitConeOverride);
+        B("DecisionMatrix", "LearnUnarmedReach", m_decisionMatrix.learnUnarmedReach);
+        B("DecisionMatrix", "NoHideWhileAdvancing", m_decisionMatrix.noHideWhileAdvancing);
+        B("DecisionMatrix", "NoVanillaBlockVsMelee", m_decisionMatrix.noVanillaBlockVsMelee);
+        D("DecisionMatrix", "VanillaBlockMinStamina", m_decisionMatrix.vanillaBlockMinStamina);
         B("DecisionMatrix", "AdvanceNavmeshRedirect", m_decisionMatrix.advanceNavmeshRedirect);
         B("DecisionMatrix", "FlankingStyleBrainMovement", m_decisionMatrix.flankingStyleBrainMovement);
         B("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
         B("DecisionMatrix", "EnableCounter", m_decisionMatrix.enableCounter);
+        B("DecisionMatrix", "UseEldenCounterNGWindow", m_decisionMatrix.useEldenCounterNGWindow);
         B("DecisionMatrix", "EnableShoutTiming", m_decisionMatrix.enableShoutTiming);
         B("DecisionMatrix", "EnableSelfShouts", m_decisionMatrix.enableSelfShouts);
         B("DecisionMatrix", "SelfShoutSlowTime", m_decisionMatrix.selfShoutSlowTime);
         B("DecisionMatrix", "IncludeHumanoidCreatures", m_decisionMatrix.includeHumanoidCreatures);
+        B("DecisionMatrix", "IncludeBeastCreatures", m_decisionMatrix.includeBeastCreatures);
         D("DecisionMatrix", "PersonalityJitter", m_decisionMatrix.personalityJitter);
         B("DecisionMatrix", "EnableTargetDanger", m_decisionMatrix.enableTargetDanger);
         D("DecisionMatrix", "TargetDangerInfluence", m_decisionMatrix.targetDangerInfluence);
@@ -242,6 +248,7 @@ namespace CombatAI
         D("DecisionMatrix", "PotionStaminaThreshold", m_decisionMatrix.potionStaminaThreshold);
         D("DecisionMatrix", "PotionCooldownSeconds", m_decisionMatrix.potionCooldownSeconds);
         B("DecisionMatrix", "EnableBuffPotions", m_decisionMatrix.enableBuffPotions);
+        B("DecisionMatrix", "EnableAntidotes", m_decisionMatrix.enableAntidotes);
         B("DecisionMatrix", "EnableNPCPoisons", m_decisionMatrix.enableNPCPoisons);
         D("DecisionMatrix", "PoisonCooldownSeconds", m_decisionMatrix.poisonCooldownSeconds);
         D("DecisionMatrix", "PoisonParalysisCooldownSeconds", m_decisionMatrix.poisonParalysisCooldownSeconds);
@@ -274,7 +281,6 @@ namespace CombatAI
         // Mod integrations
         B("ModIntegrations", "EnablePrecisionIntegration", m_modIntegrations.enablePrecisionIntegration);
         B("ModIntegrations", "EnableTKDodgeIntegration", m_modIntegrations.enableTKDodgeIntegration);
-        B("ModIntegrations", "EnableSCARIntegration", m_modIntegrations.enableSCARIntegration);
         B("ModIntegrations", "EnableAttackWarpIntegration", m_modIntegrations.enableAttackWarpIntegration);
         S("ModIntegrations", "GunKeywords", m_modIntegrations.gunKeywords);
         B("ModIntegrations", "EnableComboFollowUp", m_modIntegrations.enableComboFollowUp);
@@ -743,9 +749,17 @@ namespace CombatAI
         m_decisionMatrix.enablePersonality =
             a_ini.GetBoolValue("DecisionMatrix", "EnablePersonality", m_decisionMatrix.enablePersonality);
         m_decisionMatrix.enableCounter = a_ini.GetBoolValue("DecisionMatrix", "EnableCounter", m_decisionMatrix.enableCounter);
+        m_decisionMatrix.useEldenCounterNGWindow =
+            a_ini.GetBoolValue("DecisionMatrix", "UseEldenCounterNGWindow", m_decisionMatrix.useEldenCounterNGWindow);
         m_decisionMatrix.enablePunish = a_ini.GetBoolValue("DecisionMatrix", "EnablePunish", m_decisionMatrix.enablePunish);
         m_decisionMatrix.intentHitConeOverride =
             a_ini.GetBoolValue("DecisionMatrix", "IntentHitConeOverride", m_decisionMatrix.intentHitConeOverride);
+        m_decisionMatrix.learnUnarmedReach =
+            a_ini.GetBoolValue("DecisionMatrix", "LearnUnarmedReach", m_decisionMatrix.learnUnarmedReach);
+        m_decisionMatrix.noHideWhileAdvancing =
+            a_ini.GetBoolValue("DecisionMatrix", "NoHideWhileAdvancing", m_decisionMatrix.noHideWhileAdvancing);
+        m_decisionMatrix.noVanillaBlockVsMelee =
+            a_ini.GetBoolValue("DecisionMatrix", "NoVanillaBlockVsMelee", m_decisionMatrix.noVanillaBlockVsMelee);
         m_decisionMatrix.advanceNavmeshRedirect =
             a_ini.GetBoolValue("DecisionMatrix", "AdvanceNavmeshRedirect", m_decisionMatrix.advanceNavmeshRedirect);
         m_decisionMatrix.flankingStyleBrainMovement =
@@ -756,6 +770,8 @@ namespace CombatAI
         m_decisionMatrix.selfShoutSlowTime = a_ini.GetBoolValue("DecisionMatrix", "SelfShoutSlowTime", m_decisionMatrix.selfShoutSlowTime);
         m_decisionMatrix.includeHumanoidCreatures =
             a_ini.GetBoolValue("DecisionMatrix", "IncludeHumanoidCreatures", m_decisionMatrix.includeHumanoidCreatures);
+        m_decisionMatrix.includeBeastCreatures =
+            a_ini.GetBoolValue("DecisionMatrix", "IncludeBeastCreatures", m_decisionMatrix.includeBeastCreatures);
         const auto dmFloat = [&](const char *a_key, float &a_value, float a_min, float a_max) {
             a_value = std::clamp(static_cast<float>(a_ini.GetDoubleValue("DecisionMatrix", a_key, a_value)), a_min, a_max);
         };
@@ -769,6 +785,8 @@ namespace CombatAI
         dmFloat("PotionStaminaThreshold", m_decisionMatrix.potionStaminaThreshold, 0.0f, 1.0f);
         dmFloat("PotionCooldownSeconds", m_decisionMatrix.potionCooldownSeconds, 0.0f, 60.0f);
         m_decisionMatrix.enableBuffPotions = a_ini.GetBoolValue("DecisionMatrix", "EnableBuffPotions", m_decisionMatrix.enableBuffPotions);
+        m_decisionMatrix.enableAntidotes = a_ini.GetBoolValue("DecisionMatrix", "EnableAntidotes", m_decisionMatrix.enableAntidotes);
+        dmFloat("VanillaBlockMinStamina", m_decisionMatrix.vanillaBlockMinStamina, 0.0f, 1.0f);
         m_decisionMatrix.enableNPCPoisons = a_ini.GetBoolValue("DecisionMatrix", "EnableNPCPoisons", m_decisionMatrix.enableNPCPoisons);
         dmFloat("PoisonCooldownSeconds", m_decisionMatrix.poisonCooldownSeconds, 0.0f, 120.0f);
         dmFloat("PoisonParalysisCooldownSeconds", m_decisionMatrix.poisonParalysisCooldownSeconds, 0.0f, 300.0f);
@@ -892,8 +910,6 @@ namespace CombatAI
             "ModIntegrations", "EnablePrecisionIntegration", m_modIntegrations.enablePrecisionIntegration);
         m_modIntegrations.enableTKDodgeIntegration = a_ini.GetBoolValue("ModIntegrations", "EnableTKDodgeIntegration",
                                                                         m_modIntegrations.enableTKDodgeIntegration);
-        m_modIntegrations.enableSCARIntegration =
-            a_ini.GetBoolValue("ModIntegrations", "EnableSCARIntegration", m_modIntegrations.enableSCARIntegration);
         m_modIntegrations.enableAttackWarpIntegration = a_ini.GetBoolValue(
             "ModIntegrations", "EnableAttackWarpIntegration", m_modIntegrations.enableAttackWarpIntegration);
         // 1.16.0-1.17.0 kept the list in [DecisionMatrix]: still read from there when [ModIntegrations] has none

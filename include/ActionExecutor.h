@@ -29,6 +29,10 @@ namespace CombatAI
         // Drop a pending Fallback/Backoff so a swing in progress isn't dragged backward
         void SuspendRetreat(RE::Actor *a_actor);
 
+        // A TK Dodge step off a spot where the NPC's path never starts: toward the target, either side, then back,
+        // the first that is clear. False if every way is blocked or it can't dodge now.
+        bool UnstickStep(RE::Actor *a_actor, const ActorStateData &a_state);
+
         // Sprint-attack launch distance: the INI value, or 3 x weapon reach when it is 0
         static float SprintAttackLaunchDistance(const ActorStateData &a_state);
 

@@ -31,8 +31,14 @@ namespace CombatAI
         // Handle Simple Timed Block mod callback event (called when attacker's attack is timed blocked)
         void OnAttackTimedBlocked(RE::Actor *a_attacker);
 
-        // Handle successful hit (called when attacker's attack hits the target)
-        void OnAttackHit(RE::Actor *a_attacker, RE::Actor *a_target);
+        // Handle successful hit (called when attacker's attack hits the target). a_melee: no projectile or spell
+        // carried it, so its attempt's start distance counts toward the attacker's learned unarmed reach.
+        void OnAttackHit(RE::Actor *a_attacker, RE::Actor *a_target, bool a_melee = true);
+
+        // Unarmed reach learned from where this actor's race landed its blows: the 90th percentile of the
+        // attack-start distance minus the target's radius, over the race's last 16 melee contacts (hits and
+        // blocked hits), scaled by the actor's scale. 0 until the race has 4 contacts this session.
+        float LearnedUnarmedReach(RE::Actor *a_actor) const;
 
         // Update timers and clean up old attempts
         void Update(float a_deltaTime);
@@ -69,7 +75,7 @@ namespace CombatAI
         };
         AttackDefenseFeedback GetFeedback(RE::Actor *a_actor);
         // A blocked hit closes its attempt without counting it as a hit or a miss
-        void OnAttackBlocked(RE::Actor *a_attacker, RE::Actor *a_target);
+        void OnAttackBlocked(RE::Actor *a_attacker, RE::Actor *a_target, bool a_melee = true);
 
         // Damage race: every hit (anyone's, blocked or not) folds the victim's health lost since the same
         // attacker's previous hit into that pair's average. Unlike momentum it doesn't fade.
@@ -111,6 +117,12 @@ namespace CombatAI
             float average = 0.0f;
         };
         ThreadSafeMap<std::uint64_t, RaceHit> m_raceHits;
+
+        // Learned unarmed reach: per race, the last contacts' start distances (minus target radius, over actor scale)
+        void LearnReach(RE::Actor *a_attacker, const AttackAttempt &a_attempt);
+        ThreadSafeMap<RE::FormID, std::vector<float>> m_unarmedReach;
+        static constexpr size_t REACH_SAMPLES = 16;
+        static constexpr size_t REACH_MIN_SAMPLES = 4;
 
         // Maximum age for attack attempts (clean up old attempts)
         static constexpr float MAX_ATTEMPT_AGE = 2.0f;          // 2 seconds

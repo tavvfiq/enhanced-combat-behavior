@@ -8,8 +8,8 @@
   trees out of the engine's own node classes, and the node IDs in `include/TreeNodes.h`.
 - **Combat Pathing Revolution** by max-su-2019: behavior-tree structure layouts (via FenixCombatAI-NG).
   MIT.
-- **SCAR** by max-su-2019: the `SCAR_ActionData` format and range rules, and how SCAR starts an attack.
-  MIT.
+- **SCAR** by max-su-2019: how SCAR starts an attack (used by the combo follow-up; SCAR support itself
+  was dropped in 1.23.0). MIT.
 
 ## Research references
 - **ProjectGapClose**: hook patterns and sprint-attack rules.

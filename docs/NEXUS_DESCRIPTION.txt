@@ -15,7 +15,7 @@ Successor to [i]Enhanced Combat AI[/i]. Don't run both.
 [*][b]Personality.[/b] An NPC's Confidence, Aggression and combat style decide how much it gambles. A berserker dashes in and trades blows; a cautious mage keeps its distance. JSON profiles let you set it per faction, race, keyword or NPC (reckless Forsworn, patient Thalmor), and other mods can ship their own.
 [*][b]Groups take turns.[/b] Only a few enemies attack you at once, the rest circle and wait. Archers and casters hold fire when an ally is in the way and step aside.
 [*][b]Bosses.[/b] Bandit chiefs and draugr deathlords never wait their turn, get angrier as they lose health, and punish turtling, kiting and healing.
-[*][b]Combo follow-ups.[/b] With MCO or BFCO movesets, NPCs chain the next attack inside the combo window. No SCAR needed.
+[*][b]Combo follow-ups.[/b] With MCO or BFCO movesets, NPCs chain the next attack inside the combo window.
 [*][b]Draugr, falmer and skeletons[/b] with a weapon get the same brain (minus dodges).
 [/list]
 
@@ -33,6 +33,7 @@ Supports AE 1.6.1170 / 1.7.x; played and tested on AE 1.7.104. SE 1.5.97 builds 
 [*][b]MCO or BFCO[/b] - combo follow-ups.
 [*][b]Precision[/b] - exact weapon reach.
 [*][b]EldenParry[/b], [b]Simple Timed Block[/b] - parry and timed-block effects for NPCs. Without them these are just well-timed bashes and blocks.
+[*][b]Simple Elden Counter NG[/b] - NPC counters after a blocked hit land in its window and play its guard counter.
 [*][b]powerofthree's Tweaks[/b] (Load EditorIDs) - lets more bosses be detected.
 [/list]
 
@@ -42,7 +43,7 @@ Install with your mod manager. When updating, overwrite. Missing settings fall b
 [size=4][b]Compatibility[/b][/size]
 [list]
 [*][b]Not with:[/b] Enhanced Combat AI, CombatAI, Combat Pathing Revolution. They change the same combat movement code.
-[*][b]SCAR:[/b] works. SCAR keeps picking the move; this mod only stops it while an NPC waits its turn or defends. Our own combo follow-up switches off.
+[*][b]SCAR:[/b] not supported since 1.23.0, uninstall it. This mod picks attacks from the moveset's own animation data; SCAR starting attacks on top of it gave unexpected behavior.
 [*][b]FluidMotionNPC:[/b] works. NPCs that are circling or backing away on purpose aren't routed or vaulted back toward you.
 [*][b]Fluid Motion (original):[/b] set [i]bSwing = false[/i] in its [Combat] section, its auto-attack overrides this mod's attack timing.
 [*]Other parry / timed-block mods work if they react to an NPC's block or bash timing. Mods that only look at the player's key press won't apply to NPCs.
@@ -66,7 +67,7 @@ Turn on [i]Enable debug log[/i] in the General tab, open the console and click t
 [size=4][b]Credits[/b][/size]
 [list]
 [*]Built on Enhanced Combat AI and the behavior-tree work in FenixCombatAI-NG.
-[*]max-su-2019 for Combat Pathing Revolution and SCAR (MIT), whose structure layouts and action-data rules this builds on.
+[*]max-su-2019 for Combat Pathing Revolution and SCAR (MIT), whose structure layouts and attack-start approach this builds on.
 [*]Ersh for the Precision API.
 [*]CommonLibSSE-NG, spdlog, SimpleIni, SKSE Menu Framework.
 [*]MCO / BFCO documentation and KeyLogicExpansion for how combo windows work.

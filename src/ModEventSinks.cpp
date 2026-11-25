@@ -136,14 +136,17 @@ namespace CombatAI
         // Check if hit was blocked - if blocked, it's not a successful hit
         // (parries and timed blocks are handled by mod events, normal blocks are still blocks)
         bool isBlocked = a_event->flags.any(RE::TESHitEvent::Flag::kHitBlocked);
+        // A blow, not a projectile or spell: its start distance teaches the attacker's unarmed reach
+        const RE::TESForm *source = a_event->source ? RE::TESForm::LookupByID(a_event->source) : nullptr;
+        const bool melee = !a_event->projectile && (!source || source->IsWeapon());
         if (isBlocked) {
             // Not a hit, but not a miss either (run 22: 5 of 17 "misses" in reach were blocked hits)
-            AttackDefenseFeedbackTracker::GetInstance().OnAttackBlocked(attacker, target);
+            AttackDefenseFeedbackTracker::GetInstance().OnAttackBlocked(attacker, target, melee);
             return RE::BSEventNotifyControl::kContinue;
         }
 
         // This is a successful hit - notify the tracker
-        AttackDefenseFeedbackTracker::GetInstance().OnAttackHit(attacker, target);
+        AttackDefenseFeedbackTracker::GetInstance().OnAttackHit(attacker, target, melee);
 
         // Also check if this was a guard counter attempt (power attack during guard counter window)
         // The guard counter tracker will match this hit with the recorded attempt

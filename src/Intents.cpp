@@ -40,15 +40,16 @@ namespace CombatAI::Intents
             Clock::time_point dualBlockUntil{};
             float shotFactor = 1.0f;
             Clock::time_point shotUntil{};
+            Clock::time_point noBlockUntil{}; // vanilla's held block kept out until then (PostNoVanillaBlock)
             Clock::time_point holdSince{}; // start of the current shot hold (epoch = not holding)
             float refusedSide = 0.0f;      // Circle side that last failed, and when
             Clock::time_point refusedAt{};
-            Clock::time_point attackVetoUntil{};
             Clock::time_point swingAt{};
             Clock::time_point drinkSince{}, drinkUntil{}; // current drink wait (PostDrinkWait)
             bool dualBlockStarted = false;
             TreeReads attackReads{}, defendReads{}; // tree reads when each was posted (debug)
             float attackReach = 0.0f;               // weapon reach + target radius (NoteAttackReach)
+            float attackRange = 0.0f;               // the offense's attack distance (NoteAttackRange)
             Clock::time_point brainSeen{};          // the last brain tick (NoteAttackReach)
         };
 
@@ -389,6 +390,29 @@ namespace CombatAI::Intents
         return out;
     }
 
+    bool PostNoVanillaBlock(RE::Actor *a_actor, bool a_no)
+    {
+        if (!a_actor) {
+            return false;
+        }
+        bool was = false;
+        g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) {
+            const auto now = Clock::now();
+            was = now < e.noBlockUntil;
+            e.noBlockUntil = a_no ? now + std::chrono::seconds(1) : Clock::time_point{};
+        });
+        return was;
+    }
+
+    bool NoVanillaBlock(RE::Actor *a_actor)
+    {
+        if (!a_actor) {
+            return false;
+        }
+        const auto e = g_board.Find(a_actor->GetFormID());
+        return e && Clock::now() < e->noBlockUntil;
+    }
+
     float RangedShotFactor(RE::Actor *a_actor)
     {
         if (!a_actor) {
@@ -572,15 +596,6 @@ namespace CombatAI::Intents
         });
     }
 
-    void PostAttackVeto(RE::Actor *a_actor, float a_seconds)
-    {
-        if (!a_actor) {
-            return;
-        }
-        const auto until = Clock::now() + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<float>(a_seconds));
-        g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) { e.attackVetoUntil = until; });
-    }
-
     void NoteSwingStarted(RE::Actor *a_actor)
     {
         if (a_actor) {
@@ -596,15 +611,6 @@ namespace CombatAI::Intents
             return 999.0f;
         }
         return std::chrono::duration<float>(Clock::now() - e->swingAt).count();
-    }
-
-    bool AttackVetoed(RE::Actor *a_actor)
-    {
-        if (!a_actor) {
-            return false;
-        }
-        const auto e = g_board.Find(a_actor->GetFormID());
-        return e && Clock::now() < e->attackVetoUntil;
     }
 
     bool CircleRefused(RE::Actor *a_actor, float a_side)
@@ -657,6 +663,19 @@ namespace CombatAI::Intents
     {
         const auto e = a_actor ? g_board.Find(a_actor->GetFormID()) : std::nullopt;
         return e ? e->attackReach : 0.0f;
+    }
+
+    void NoteAttackRange(RE::Actor *a_actor, float a_range)
+    {
+        if (a_actor) {
+            g_board.ModifyOrCreate(a_actor->GetFormID(), [&](Entry &e) { e.attackRange = a_range; });
+        }
+    }
+
+    float AttackRange(RE::Actor *a_actor)
+    {
+        const auto e = a_actor ? g_board.Find(a_actor->GetFormID()) : std::nullopt;
+        return e ? e->attackRange : 0.0f;
     }
 
     bool BrainDriven(RE::Actor *a_actor)

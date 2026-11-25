@@ -11,7 +11,8 @@
 // drinks one mid-fight on its own. Buffs (vanilla never drinks them): with room, Resist the target's element, else
 // Fortify its weapon skill, unless already active. Poisons: vanilla never uses them; an NPC in combat with a drawn, unpoisoned weapon
 // coats it (paralyze a player or boss, drain a caster's magicka or a fighter's stamina, else damage health), at most
-// once per PoisonCooldownSeconds, never against a target with 100% poison resistance. Off while NPCs Use Potions is
+// once per PoisonCooldownSeconds, never against a target with 100% poison resistance. Antidotes: a poisoned NPC drinks a
+// Cure Poison potion it carries where it stands (after a low-health potion, before the rest; EnableAntidotes). Off while NPCs Use Potions is
 // loaded: that mod runs potions and poisons itself.
 namespace CombatAI
 {

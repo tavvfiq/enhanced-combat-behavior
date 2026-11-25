@@ -363,6 +363,25 @@ namespace CombatAI
         return m_dodgeSystem.ExecuteDodge(a_actor, {a_direction, -a_direction});
     }
 
+    bool ActionExecutor::UnstickStep(RE::Actor *a_actor, const ActorStateData &a_state)
+    {
+        if (!a_actor || !a_state.target.isValid) {
+            return false;
+        }
+        RE::NiPoint3 toTarget = a_state.target.position - a_state.self.position;
+        toTarget.z = 0.0f;
+        if (toTarget.Unitize() < 0.01f) {
+            return false;
+        }
+        const RE::NiPoint3 side(-toTarget.y, toTarget.x, 0.0f);
+        thread_local std::mt19937 rng{std::random_device{}()};
+        const float flip = (rng() & 1u) ? 1.0f : -1.0f;
+        ConfigureDodgeSystem();
+        // Toward the target first (where it was going); the target itself doesn't block the way
+        return m_dodgeSystem.ExecuteDodge(a_actor, {toTarget, side * flip, side * -flip, -toTarget},
+                                          RE::TESForm::LookupByID<RE::TESObjectREFR>(a_state.target.targetFormID));
+    }
+
     void ActionExecutor::ConfigureDodgeSystem()
     {
         auto &config = Config::GetInstance();
@@ -573,7 +592,7 @@ namespace CombatAI
             return false;
         }
 
-        // The vanilla event; MCO, BFCO and SCAR movesets all take over from it
+        // The vanilla event; MCO and BFCO movesets both take over from it
         return Intents::PostAttack(a_actor, Intents::Attack::Light); // run by our Melee tree
     }
 

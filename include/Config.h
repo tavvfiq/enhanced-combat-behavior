@@ -117,11 +117,16 @@ namespace CombatAI
             static constexpr float punishPriority = 3.0f;          // decision priority of a punish (a normal attack scores ~2.3)
             bool intentHitConeOverride = true;    // our attacks pass vanilla's hit cone when in reach and roughly in front
             static constexpr float intentHitConeMaxAngle = 60.0f;  // ...within this many degrees of the NPC's facing
+            bool learnUnarmedReach = true; // fist fighters' reach from where the race's blows landed; no cone override before that
+            bool noHideWhileAdvancing = true; // vanilla's Hide (melee NPCs) gives way while the brain sends the NPC in
+            bool noVanillaBlockVsMelee = true;  // no vanilla held block against a melee target (ECB's timed blocks cover swings)
+            float vanillaBlockMinStamina = 0.3f; // vanilla's held block (vs ranged) only above this stamina fraction; 0 = any
             bool advanceNavmeshRedirect = true;       // after a failed Advance, a target off the navmesh: go to its closest navmesh point
             static constexpr float advanceRedirectMaxDistance = 150.0f; // ...only when that point is this close to the target (2D)
             bool flankingStyleBrainMovement = true;    // flanking combat styles use the brain's close movement, not vanilla's
             bool enablePersonality = true;          // Confidence / Aggression / combat style scale risky rolls
             bool includeHumanoidCreatures = true;   // draugr, falmer, skeletons with a weapon get the brain (no dodges)
+            bool includeBeastCreatures = true;      // werewolves, werebears, trolls, spriggans get the brain's attacks
             static constexpr float creatureSwingSeconds = 3.0f;      // such a creature starts no new attack this soon after a swing start
             float personalityJitter = 0.15f;        // fixed per-NPC spread added to risk / caution / patience
             static constexpr float tacticalRetreatMinCaution = 0.3f; // retreat from a crowd (not low health) only this careful or more
@@ -133,6 +138,7 @@ namespace CombatAI
             float closeDodgeChance = 0.3f;        // Chance to dodge each melee swing aimed at it from within reach
             float defendOnSwingChance = 0.5f;     // Chance to parry / timed block each swing aimed at it (in window)
             bool enableCounter = true;            // Power attack in the window after blocking a hit (guard counter)
+            bool useEldenCounterNGWindow = true;  // with Simple Elden Counter NG, counter only while its window effect is on
             bool enableSelfShouts = true;         // Become Ethereal at low health, Elemental/Battle Fury on engage (vanilla never shouts them)
             bool selfShoutSlowTime = false;       // also Slow Time at low health or outnumbered (an NPC's Slow Time is untested)
             bool enableShoutTiming = true;        // Stagger shouts for an open target, Disarm for an armed one; none at a hidden player or while waiting a turn
@@ -150,6 +156,7 @@ namespace CombatAI
             float potionStaminaThreshold = 0.2f;  // melee fighters drink a stamina potion where they stand at or below this
             float potionCooldownSeconds = 5.0f;   // between drinks (the effect, or an animation, takes a moment)
             bool enableBuffPotions = true;        // NPCs drink Fortify weapon-skill potions on engage, Resist vs an elemental target
+            bool enableAntidotes = true;          // poisoned NPCs drink a Cure Poison potion they carry, where they stand
             bool enableNPCPoisons = true;         // NPCs coat their weapon with a poison they carry (vanilla never does)
             float poisonCooldownSeconds = 10.0f;  // between poisons (one dose each: the next hit spends it)
             float poisonParalysisCooldownSeconds = 30.0f; // between paralysis poisons (none on a target already down)
@@ -206,15 +213,12 @@ namespace CombatAI
         {
             bool enablePrecisionIntegration = true;
             bool enableTKDodgeIntegration = true;
-            bool enableSCARIntegration = true;
             bool enableAttackWarpIntegration = true; // Attack Warp loaded: per-NPC tracking, no stretch while waiting
             // Comma-separated keyword EditorIDs marking guns (OHCF pistols are one-handed axes, others staves); empty =
             // off. Mod content, not tuning: here so a preset (which resets [DecisionMatrix]) keeps it. Set through
             // SetGunKeywords, which republishes GunKeywordList for the game threads.
             std::string gunKeywords;
-            static constexpr float scarComboWindowSeconds = 20.0f; // A SCAR_ComboStart this recent marks the moveset as SCAR-driven
-            static constexpr float scarStallSeconds = 3.0f;        // SCAR actor wanting to attack this long without one: we attack
-            bool enableComboFollowUp = true;      // MCO/BFCO combo windows: start the next attack (off while SCAR.dll is loaded)
+            bool enableComboFollowUp = true;      // MCO/BFCO combo windows: start the next attack
             float comboFollowUpChance = 0.7f;     // per window: chance of a normal follow-up
             float comboPowerChance = 0.3f;        // per power window: chance of a power follow-up (needs power stamina)
             float comboReachMult = 1.3f;          // a follow-up starts up to this x the attack range (combo steps lunge)

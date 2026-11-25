@@ -38,6 +38,7 @@ namespace CombatAI::Potions
             std::array<RE::AlchemyItem *, kNeedCount> potion{}; // best potion per need at that scan
             bool caster = false;         // has spells to spend magicka on (at that scan)
             std::array<RE::AlchemyItem *, kBuffCount> buff{}; // best buff potion per kind at that scan
+            RE::AlchemyItem *antidote = nullptr; // a Cure Poison potion it carries, at that scan
         };
         ThreadSafeMap<RE::FormID, State> g_state;
         bool g_otherMod = false; // NPCs Use Potions is loaded
@@ -102,6 +103,56 @@ namespace CombatAI::Potions
                 }
             }
             return best;
+        }
+
+        // Antidotes (1.22.2): a potion with a Cure Poison effect and nothing harmful on it
+        bool CuresPoison(const RE::AlchemyItem *a_potion)
+        {
+            bool cures = false;
+            for (const auto *effect : a_potion->effects) {
+                const auto *base = effect ? effect->baseEffect : nullptr;
+                if (!base) {
+                    continue;
+                }
+                if (Harmful(base)) {
+                    return false;
+                }
+                cures = cures || base->GetArchetype() == RE::EffectSetting::Archetype::kCurePoison;
+            }
+            return cures;
+        }
+
+        RE::AlchemyItem *FindAntidote(RE::Actor *a_actor)
+        {
+            const auto items = a_actor->GetInventory([](RE::TESBoundObject &a_object) { return a_object.Is(RE::FormType::AlchemyItem); });
+            for (const auto &[object, data] : items) {
+                auto *potion = object->As<RE::AlchemyItem>();
+                if (potion && data.first > 0 && !potion->IsFood() && !potion->IsPoison() && CuresPoison(potion)) {
+                    return potion;
+                }
+            }
+            return nullptr;
+        }
+
+        // Seconds left on the longest running effect of a poison on the actor (0: not poisoned)
+        float PoisonLeft(RE::Actor *a_actor)
+        {
+            auto *target = a_actor->AsMagicTarget();
+            auto *list = target ? target->GetActiveEffectList() : nullptr;
+            float left = 0.0f;
+            if (!list) {
+                return left;
+            }
+            for (const auto *effect : *list) {
+                if (!effect || effect->flags.any(RE::ActiveEffect::Flag::kInactive, RE::ActiveEffect::Flag::kDispelled)) {
+                    continue;
+                }
+                const auto *item = effect->spell ? effect->spell->As<RE::AlchemyItem>() : nullptr;
+                if (item && item->IsPoison()) {
+                    left = (std::max)(left, effect->duration - effect->elapsedSeconds);
+                }
+            }
+            return left;
         }
 
         bool IsCastable(const RE::TESForm *a_form)
@@ -499,10 +550,17 @@ namespace CombatAI::Potions
         // Buffs only with room to spare: no backing off for them
         const bool buffing = cooled && matrix.enableBuffPotions && a_state.target.isValid && spare;
         const auto skill = WeaponSkill(a_state);
-        if ((want || buffing) && now - s.scanned >= std::chrono::seconds(1)) {
+        // Not while paralyzed or down: it couldn't drink, and an antidote would shake off a paralysis poison
+        const float poisonLeft = cooled && matrix.enableAntidotes &&
+                                         a_actor->AsActorState()->GetKnockState() == RE::KNOCK_STATE_ENUM::kNormal
+                                     ? PoisonLeft(a_actor)
+                                     : 0.0f;
+        const bool poisoned = poisonLeft >= 1.0f;
+        if ((want || buffing || poisoned) && now - s.scanned >= std::chrono::seconds(1)) {
             s.potion = BestPotions(a_actor);
             s.caster = IsCaster(a_actor);
             s.buff = BuffPotions(a_actor, skill);
+            s.antidote = FindAntidote(a_actor);
             s.scanned = now;
         }
         std::size_t need = kNeedCount;
@@ -510,6 +568,19 @@ namespace CombatAI::Potions
             if (low[n] && s.potion[n] && (n != kMagicka || s.caster)) {
                 need = n;
             }
+        }
+        // Poisoned: cure it where it stands (a low-health potion still goes first)
+        if (poisoned && s.antidote && need != kHealth) {
+            auto *antidote = s.antidote;
+            s.drank = now;
+            s.scanned = {};
+            g_state.ModifyOrCreate(id, [&](State &a_entry) { a_entry = s; });
+            if (a_debug) {
+                LOG_DEBUG("Potion 0x{:08X}: poisoned ({:.1f} s left), drinks {} (target at {:.0f})", id, poisonLeft,
+                          antidote->GetName(), a_state.target.distance);
+            }
+            Drink(a_actor, antidote);
+            return false;
         }
         if (need == kNeedCount) {
             // Resist the target's element first (the hits are coming), then fortify its own weapon skill

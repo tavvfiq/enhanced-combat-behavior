@@ -15,6 +15,8 @@ namespace CombatAI
 
         // Evaluate state and return decision
         DecisionResult Evaluate(RE::Actor *a_actor, const ActorStateData &a_state);
+        // Beast creatures' own path (werewolves, trolls, spriggans): attacks and punish only
+        DecisionResult EvaluateBeast(RE::Actor *a_actor, const ActorStateData &a_state);
 
         // Every option this thread's last Evaluate scored, so a failed skill roll can make the next-best choice.
         // Per thread: actors are updated on several threads at once (a shared vector crashed 0.8.0/0.8.1).
@@ -61,6 +63,11 @@ namespace CombatAI
 
         // Offense
         DecisionResult EvaluateOffense(RE::Actor *a_actor, const ActorStateData &a_state);
+        // EvaluateOffense on the distance as this NPC misjudges it (Humanizer reach judgment)
+        DecisionResult JudgedOffense(RE::Actor *a_actor, const ActorStateData &a_state);
+        // The winning decision among a path's candidates (both paths share it)
+        DecisionResult Choose(RE::Actor *a_actor, const ActorStateData &a_state,
+                              const std::vector<DecisionResult> &a_possibleDecisions);
 
         // Attack while the player recovers from a swing whose blows have passed (its clip's recovery mark)
         DecisionResult EvaluatePunish(RE::Actor *a_actor, const ActorStateData &a_state);

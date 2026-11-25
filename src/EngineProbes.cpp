@@ -1,5 +1,6 @@
 #include "EngineProbes.h"
 #include "Intents.h"
+#include "LimbReach.h"
 #include "CombatDirector.h"
 #include "ActorUtils.h"
 #include "Config.h"
@@ -37,10 +38,14 @@ namespace CombatAI::EngineProbes
                 // Melee/bash start events (attackStart*, attackPowerStart*, bashStart, bashPowerStart): the swing began
                 if (accepted) {
                     const std::string_view name = a_event.c_str();
-                    if (name.starts_with("attackStart") || name.starts_with("attackPowerStart") ||
-                        name.starts_with("bashStart") || name.starts_with("bashPowerStart")) {
+                    // Any case: werewolves send "AttackStartLeftPower", "AttackStartDualRunning" (1.22.0 run 4)
+                    const auto starts = [&](std::string_view a_prefix) {
+                        return name.size() >= a_prefix.size() && _strnicmp(name.data(), a_prefix.data(), a_prefix.size()) == 0;
+                    };
+                    if (starts("attackStart") || starts("attackPowerStart") || starts("bashStart") || starts("bashPowerStart")) {
                         CombatDirector::GetInstance().NotifySwingStarted(actor);
                         Intents::NoteSwingStarted(actor);
+                        LimbReach::NoteAttackStart(actor, name);
                     }
                 }
                 if (Config::GetInstance().IsDebugTarget(actor->GetFormID()) && IsCombatEvent(a_event.c_str())) {

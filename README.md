@@ -21,7 +21,7 @@ or Combat Pathing Revolution (with CPR installed a startup dialog lets you conti
   slot, go through health phases (enraged, desperate), defend better and punish turtling, kiting and
   healing.
 - **Humanoid creatures:** draugr, falmer and skeletons with a weapon get the same brain (without dodges).
-- **Combo follow-ups for MCO / BFCO movesets** without SCAR.
+- **Combo follow-ups for MCO / BFCO movesets.**
 
 ## Requirements
 - SKSE64 for your game version, Address Library for SKSE Plugins.
@@ -32,24 +32,23 @@ or Combat Pathing Revolution (with CPR installed a startup dialog lets you conti
 - **SKSE Menu Framework**: in-game config menu ("Enhanced Combat Behavior").
 - **TK Dodge RE**: dodges and forward dodges (without it NPCs don't dodge).
 - **Precision**: exact weapon reach.
-- **MCO / BFCO** movesets: combo follow-ups. With **SCAR** installed, SCAR drives combos instead and
-  this mod only gates them (pacing, defending).
+- **MCO / BFCO** movesets: combo follow-ups.
 - **Simple Timed Block**, **EldenParry**: timed block / parry windows.
+- **Simple Elden Counter NG**: NPC counters after a blocked hit attack inside its window, so they play its guard counter.
 - **powerofthree's Tweaks** with "Load EditorIDs": the "Boss in the EditorID" boss rule.
 
 ## Install, update, uninstall
 - Install with a mod manager. Files: `SKSE/Plugins/EnhancedCombatBehavior.dll` and
   `SKSE/Plugins/EnhancedCombatBehavior.ini`.
-- Update by overwriting. Coming from a development build named CombatAITree: remove `CombatAITree.dll` and
-  `CombatAITree.ini`.
 - Uninstall any time, mid-playthrough included: no plugin, no scripts, nothing written to saves.
 
 ## Compatibility
-- **Not compatible:** Enhanced Combat AI, FenixCombatAI (they drive the same combat trees) and Combat
+- **Not compatible:** Enhanced Combat AI, CombatAI (they drive the same combat trees) and Combat
   Pathing Revolution (it patches the same movement code; with CPR installed this mod shows a warning
   dialog at startup and does not load).
-- **SCAR:** works; SCAR keeps choosing its attacks, this mod holds them back while an NPC waits its turn
-  or defends, and its own combo follow-up switches off.
+- **SCAR:** not supported since 1.23.0. This mod picks attacks from the moveset's own animation data;
+  SCAR starts attacks past the brain and drives combos alongside the follow-up. Uninstall it (the log
+  warns when `SCAR.dll` is loaded).
 - **Other parry / timed-block mods:** work if they judge an NPC's vanilla block or bash timing; mods that
   only read the player's key press don't reach NPCs.
 - **FluidMotionNPC:** works. While an NPC circles, falls back or backs off (and during its jumps) this mod

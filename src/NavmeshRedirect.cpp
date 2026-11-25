@@ -177,6 +177,26 @@ namespace CombatAI::NavmeshRedirect
                 float newRadius = savedRadius;
                 bool swap = false;
                 if constexpr (K == Kind::Advance) {
+                    // A beast's target knocked down: the goal came from where combat last placed the target, its spot at
+                    // the blow. A werewolf's goal sat 150 from it and 554 from the marauder it had thrown, so every Advance
+                    // "arrived" in 24 ms and it stood 7 s (1.22.0 run 17). The goal is the target's body now.
+                    const auto self = reinterpret_cast<const RE::ActorHandle *>(a_path + 0x10)->get();
+                    if (self && Config::GetInstance().GetDecisionMatrix().includeBeastCreatures &&
+                        ActorUtils::IsBeastCreature(self.get())) {
+                        auto *combat = ActorUtils::SafeGetCombatController(self.get());
+                        const auto target = combat ? combat->targetHandle.get() : RE::ActorPtr{};
+                        if (target && ActorUtils::SafeGetKnockState(target.get()) != RE::KNOCK_STATE_ENUM::kNormal) {
+                            const RE::NiPoint3 body = target->GetPosition();
+                            if (Config::GetInstance().IsDebugTarget(self->GetFormID())) {
+                                LOG_DEBUG("Navmesh 0x{:08X}: Advance goal ({:.0f}, {:.0f}, {:.0f}) is {:.0f} from its downed "
+                                          "target; goal moved onto the target",
+                                          self->GetFormID(), newPoint.x, newPoint.y, newPoint.z, newPoint.GetDistance(body));
+                            }
+                            newPoint = body;
+                            newRadius = kMinRadius;
+                            swap = true;
+                        }
+                    }
                     // Ring slots: an Advance toward the NPC's sector goes to its arc point (then the navmesh check on it)
                     // An NPC standing off the navmesh has no start triangle: no path to any arc point (1.12.2 run: 5 of
                     // 10 failed Advances), so it takes the plain Advance

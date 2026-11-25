@@ -1,0 +1,26 @@
+# Enhanced Combat Behavior: Precision attack collisions for every troll race (ships with ECB, read only when Precision is installed).
+# Precision reads every .toml in Data/SKSE/Plugins/Precision, so this file needs no Nemesis run and no edit to
+# Precision_base.toml. Trolls had no definition there, so Precision had no hitbox for them.
+#
+# Every troll race (TrollRace, TrollFrostRace, Dawnguard's armored trolls, and mod races built on them) uses
+# TrollBodyPartData, so one BodyPartData entry covers them all.
+# Bone names are from meshes\Actors\Troll\Character Assets\skeleton.nif (human rig 1.1).
+#
+# Both hands on every attack, sharing ID 1, so a swing hits once whichever arm carries it.
+# shortcut: one definition for all 17 troll attacks; split into left/right hands once the debug display shows
+# which arm each attack uses.
+# Scale = 4 on the hand's own ragdoll capsule, as Precision_base.toml does for humanoid unarmed (same rig). The troll
+# hand capsule is 5 long, radius 9.6 (skeleton.nif), so the hitbox is about 20 long, radius 38, at each hand.
+
+[[AttackDefinitions]]
+    BodyPartDataFormIDs = [ { FormID = 0x92C93, Plugin = "Skyrim.esm" } ] # TrollBodyPartData
+    [[AttackDefinitions.Attacks]]
+        EventNames = ["DEFAULT"]
+        [[AttackDefinitions.Attacks.Collisions]]
+            NodeName = "NPC L Hand [LHnd]"
+            ID = 1
+            Scale = 4
+        [[AttackDefinitions.Attacks.Collisions]]
+            NodeName = "NPC R Hand [RHnd]"
+            ID = 1
+            Scale = 4

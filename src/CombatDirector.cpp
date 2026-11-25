@@ -10,7 +10,6 @@
 #include "ProjectileAwareness.h"
 #include "GuardCounterFeedbackTracker.h"
 #include "Intents.h"
-#include "SCARData.h"
 #include "Boss.h"
 #include "ClipTiming.h"
 #include "Personality.h"
@@ -27,7 +26,6 @@
 #include "CombatStyleEnhancer.h"
 #include "ParryFeedbackTracker.h"
 #include "PrecisionIntegration.h"
-#include "SCARIntegration.h"
 #include "TimedBlockFeedbackTracker.h"
 #include "TimedBlockIntegration.h"
 #include "VanillaAttackShaper.h"
@@ -212,7 +210,10 @@ namespace CombatAI
             TimedBlockIntegration::GetInstance().Initialize();
         }
 
-        SCARIntegration::GetInstance().Initialize();
+        // Unsupported since 1.23.0: SCAR picks attacks past the brain, and both it and our combo follow-up drive combos
+        if (GetModuleHandleA("SCAR.dll")) {
+            LOG_WARN("SCAR.dll is loaded: not supported (ECB picks attacks from the animation data); uninstall SCAR");
+        }
         AttackWarp::Initialize();
 
 
@@ -275,6 +276,45 @@ namespace CombatAI
         }
     }
 
+    namespace
+    {
+        // A beast in reach of its downed (ragdolled or rising) target turns to face it, every frame. Vanilla left a
+        // werewolf facing 69-71 deg off a rising marauder at 164-177 units: the hit cone refused all of the brain's
+        // attacks (11 in 3 s) until it stood (1.22.0 run 18). Not mid-attack: the attack clip turns it then.
+        constexpr float kFaceWithin = 15.0f;   // degrees left alone
+        constexpr float kTurnRate = 360.0f;    // degrees per second
+        constexpr float kFaceSlack = 60.0f;    // beyond the brain's attack range: past the body and a step
+
+        void FaceDownedTarget(RE::Actor *a_actor, float a_delta)
+        {
+            if (!Config::GetInstance().GetDecisionMatrix().includeBeastCreatures || !ActorUtils::IsBeastCreature(a_actor) ||
+                a_actor->AsActorState()->GetAttackState() != RE::ATTACK_STATE_ENUM::kNone || !Intents::BrainDriven(a_actor)) {
+                return;
+            }
+            auto *combat = ActorUtils::SafeGetCombatController(a_actor);
+            const auto target = combat ? combat->targetHandle.get() : RE::ActorPtr{};
+            const float range = Intents::AttackRange(a_actor);
+            if (!target || ActorUtils::SafeGetKnockState(target.get()) == RE::KNOCK_STATE_ENUM::kNormal || range <= 0.0f ||
+                a_actor->GetPosition().GetDistance(target->GetPosition()) > range + kFaceSlack) {
+                return;
+            }
+            const float angle = a_actor->GetHeadingAngle(target->GetPosition(), false);
+            if (std::abs(angle) <= kFaceWithin) {
+                return;
+            }
+            const float step = (std::min)(std::abs(angle) - kFaceWithin * 0.5f, kTurnRate * (std::max)(a_delta, 0.0f));
+            a_actor->SetHeading(a_actor->GetAngleZ() + RE::deg_to_rad(std::copysign(step, angle)));
+            if (Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+                thread_local std::chrono::steady_clock::time_point lastLogged{};
+                if (const auto now = std::chrono::steady_clock::now(); now - lastLogged > std::chrono::milliseconds(500)) {
+                    lastLogged = now;
+                    LOG_DEBUG("Beast 0x{:08X}: turns to its downed target 0x{:08X} ({:.0f} deg off)", a_actor->GetFormID(),
+                              target->GetFormID(), angle);
+                }
+            }
+        }
+    } // namespace
+
     void CombatDirector::ProcessActor(RE::Actor *a_actor, float a_deltaTime)
     {
         if (!a_actor) {
@@ -295,6 +335,8 @@ namespace CombatAI
             ApplyConfig();
         }
 
+        FaceDownedTarget(a_actor, a_deltaTime);
+
         // Time since this actor was last processed: the temporal timers advance by it, not by one frame
         float elapsed = a_deltaTime;
         if (!ShouldProcessActor(a_actor, formID, a_deltaTime, elapsed)) {
@@ -304,8 +346,6 @@ namespace CombatAI
         if (Intents::DualBlockOverdue(a_actor)) {
             Trees::ReleaseDualBlock(a_actor, true);
         }
-
-        SCARIntegration::GetInstance().Track(a_actor, formID);
 
         // Check if actor can react (reaction delay). Bail out before the expensive
         // state gathering and decision evaluation when the actor is still within its
@@ -379,8 +419,20 @@ namespace CombatAI
             t_swingTag = std::format("src={} {}", timingSource, t_swingTag);
         }
         MaybeSwitchTarget(a_actor, formID, state);
-        Intents::NoteAttackReach(a_actor, state.weaponReach + state.target.boundRadius); // for the hit cone override
-        if (!state.self.isRanged && state.target.isValid && state.target.distance < 1500.0f) {
+        // For the hit cone override. Unarmed reach is a guess (fists and claws have no weapon record; Precision's
+        // capsule plus body radius) until it is learned, and an overestimate swings at air: vanilla's cone decides till then.
+        const bool reachTrusted = !Config::GetInstance().GetDecisionMatrix().learnUnarmedReach ||
+                                  !StateHelpers::UsesUnarmedReach(a_actor) || state.weaponReachLearned;
+        Intents::NoteAttackReach(a_actor, reachTrusted ? state.weaponReach + state.target.boundRadius : 0.0f);
+        {
+            const auto &dm = Config::GetInstance().GetDecisionMatrix();
+            Intents::NoteAttackRange(a_actor, StateHelpers::EffectiveAttackRange(state.weaponReach, state.target.boundRadius,
+                                                                                 dm.offenseReachMultiplier,
+                                                                                 dm.offenseReachSafetyMargin));
+        }
+        // Beasts take no place on the ring: the NPCs around the target space themselves without them
+        if (!state.self.isRanged && state.target.isValid && state.target.distance < 1500.0f &&
+            !ActorUtils::IsBeastCreature(a_actor)) {
             RingSlots::Note(a_actor, RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID));
         }
         if (debugEnabled) {
@@ -389,19 +441,31 @@ namespace CombatAI
         // Every NPC's own attack clips (the punish check's startups); logged for the selected NPC
         ClipTiming::ObserveOwnAttack(a_actor, RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID),
                                      state.target.distance, state.weaponReach, state.target.boundRadius, debugEnabled);
-        DecisionResult decision = m_decisionMatrix.Evaluate(a_actor, state);
+        // Beasts have their own path: only the moves their graphs have (attacks, punish); vanilla moves them otherwise
+        DecisionResult decision = ActorUtils::IsBeastCreature(a_actor) ? m_decisionMatrix.EvaluateBeast(a_actor, state)
+                                                                       : m_decisionMatrix.Evaluate(a_actor, state);
         // Every tick, so the watch sees the NPC's own swings and blocks (1.7.7 run: a power attack in place, with no
         // executed decision during it, read as a 4.6 s stall)
         if (debugEnabled) {
             Intents::WatchStall(a_actor, decision.action == ActionType::None ? nullptr : ActionName(decision.action),
                                 state.target.distance);
         }
-        // Debug: which SCAR actions this NPC's active clip offers and which would fit now (read-only)
-        if (debugEnabled && state.target.isValid &&
-            (decision.action == ActionType::Attack || decision.action == ActionType::PowerAttack ||
-             state.self.attackState == RE::ATTACK_STATE_ENUM::kNextAttack)) {
-            if (auto target = RE::TESForm::LookupByID<RE::Actor>(state.target.targetFormID)) {
-                SCARData::Probe(a_actor, target, state.baseWeaponReach);
+        // Vanilla's held block: none against a melee target (vanilla raised shields from BlockStartDistance and held
+        // them, draining stamina; ECB's timed blocks, parries and bashes answer the swings). Against bows, guns and
+        // spells it stays, while stamina lasts.
+        // shortcut: only the combat target counts; an archer of the group aiming at this NPC doesn't lift the shield.
+        // shortcut: the stamina floor only stops a block starting; one already held runs its vanilla BlockTime out.
+        {
+            const auto &dm = config.GetDecisionMatrix();
+            const bool rangedThreat = state.target.isRanged || state.target.hasGun || state.target.isCasting ||
+                                      state.target.isDrawingBow || state.target.weaponType == WeaponType::Spell;
+            const bool melee = dm.noVanillaBlockVsMelee && state.target.isValid && !rangedThreat;
+            const bool tired = state.self.staminaPercent < dm.vanillaBlockMinStamina;
+            const bool no = melee || tired;
+            if (Intents::PostNoVanillaBlock(a_actor, no) != no && debugEnabled) {
+                LOG_DEBUG("Guard 0x{:08X}: vanilla held block {} (stamina {:.0f}%, target at {:.0f})", static_cast<std::uint32_t>(formID),
+                          !no ? "allowed (ranged target)" : melee ? "off, melee target" : "off, stamina low",
+                          state.self.staminaPercent * 100.0f, state.target.distance);
             }
         }
         // Shot factor for archers; for everyone else a cast hold while an ally is in the line of fire
@@ -454,8 +518,8 @@ namespace CombatAI
             m_drawStart.Erase(formID);
         }
 
-        // Never pull an NPC back mid-swing: its attack (often SCAR's, which bypasses our
-        // hooks) would whiff at range. After the hit (next-attack window, follow-through) it may back off.
+        // Never pull an NPC back mid-swing: its attack would whiff
+        // at range. After the hit (next-attack window, follow-through) it may back off.
         switch (state.self.attackState) {
         case RE::ATTACK_STATE_ENUM::kDraw:
         case RE::ATTACK_STATE_ENUM::kSwing:
@@ -508,6 +572,31 @@ namespace CombatAI
             }
             return best.action != ActionType::None ? ApplyCombatPacing(a_actor, formID, state, best) : best;
         };
+
+        // A dodge that just found every direction blocked isn't picked again from the same spot: the rays won't
+        // change, and each pick stopped the running Advance (Helene: Dodge 1.70 three times per gun aim, boxed in, 12 s)
+        if (decision.action == ActionType::Dodge) {
+            constexpr float kBoxedMove = 50.0f;
+            const auto boxed = m_dodgeBoxed.Find(formID);
+            if (boxed && m_time.load(std::memory_order_relaxed) < boxed->until &&
+                state.self.position.GetDistance(boxed->at) < kBoxedMove) {
+                const DecisionResult instead = nextBest([](const DecisionResult &a_option) {
+                    return a_option.action == ActionType::Dodge || a_option.action == ActionType::ForwardDodge ||
+                           a_option.action == ActionType::Jump;
+                });
+                if (debugEnabled) {
+                    LOG_DEBUG("Skip 0x{:08X}: Dodge failed to start here just now (boxed in or no stamina) - {} instead",
+                              static_cast<std::uint32_t>(formID), ActionName(instead.action));
+                }
+                if (instead.action == ActionType::None) {
+                    return;
+                }
+                decision = instead;
+            }
+        }
+        if (TryUnstick(a_actor, formID, state, decision.action, debugEnabled)) {
+            return;
+        }
 
         // Backing off is a choice, not a reflex: one roll per swing (the target's, or its own just after the hit)
         // decides whether it steps back this time. Run 18: in range it backed off 213 times against 81 attacks.
@@ -625,6 +714,14 @@ namespace CombatAI
             NotePace(a_formID, "boss");
             return a_decision;
         }
+        // Beasts don't wait their turn, and take no slot, so the NPCs' pacing doesn't count them (a spriggan held at
+        // the ring backed off and circled; a werewolf gave up its turn "out of range" over and over)
+        if (ActorUtils::IsBeastCreature(a_actor)) {
+            coordinator.Release(target, a_formID, "beast");
+            coordinator.ClearHeld(a_formID);
+            NotePace(a_formID, "beast");
+            return a_decision;
+        }
         if (pacing.paceTargetPlayerOnly && !a_state.target.isPlayer) {
             coordinator.Release(target, a_formID, "target not the player");
             coordinator.ClearHeld(a_formID);
@@ -632,9 +729,8 @@ namespace CombatAI
             return a_decision;
         }
 
-        // Slots follow who is actually engaging - attacking from any source (ours, vanilla,
-        // SCAR) or close enough to swing - not just our own attack decisions, which SCAR
-        // movesets and the vanilla AI bypass. (Wait Your Turn manages roles the same way.)
+        // Slots follow who is actually engaging - attacking from any source (ours or vanilla)
+        // or close enough to swing - not just our own attack decisions, which the vanilla AI bypasses. (Wait Your Turn manages roles the same way.)
         const auto &matrix = Config::GetInstance().GetDecisionMatrix();
         const float reach = StateHelpers::EffectiveAttackRange(a_state.weaponReach, a_state.target.boundRadius,
                                                                matrix.offenseReachMultiplier,
@@ -877,6 +973,11 @@ namespace CombatAI
         // Ring slots: an approach or a wait on the wrong side of the target walks around to the NPC's own sector
         RingSlots::Steer(a_actor, executedDecision, a_state);
         if (!m_executor.Execute(a_actor, executedDecision, a_state)) {
+            if (executedDecision.action == ActionType::Dodge) {
+                constexpr float kBoxedSeconds = 2.0f; // the brain doesn't pick Dodge again here meanwhile (ProcessActor)
+                const DodgeBoxed boxed{a_state.self.position, m_time.load(std::memory_order_relaxed) + kBoxedSeconds};
+                m_dodgeBoxed.ModifyOrCreate(a_formID, [&](DodgeBoxed &b) { b = boxed; });
+            }
             if (executedDecision.action != ActionType::ForwardDodge) {
                 return;
             }
@@ -896,18 +997,6 @@ namespace CombatAI
                       a_state.target.healthPercent * 100.0f, t_swingTag.empty() ? "" : " ", t_swingTag);
         }
 
-        switch (executedDecision.action) {
-        case ActionType::Dodge:
-        case ActionType::Parry:
-        case ActionType::TimedBlock:
-        case ActionType::Retreat:
-        case ActionType::Backoff:
-        case ActionType::Jump:
-            Intents::PostAttackVeto(a_actor, 0.4f); // SCAR attacks bypass the tree; the SCAR gate reads this
-            break;
-        default:
-            break;
-        }
 
         // Defense timing log: how long before the blow it committed (resolved by the hit event, or "no blow")
         if ((a_state.target.isAttacking || a_state.target.isPowerAttacking) && a_state.temporal.target.attackStartTime >= 0.0f) {
@@ -922,6 +1011,58 @@ namespace CombatAI
         APIManager::GetSingleton()->NotifyDecision(a_actor, executedDecision);
     }
 
+    bool CombatDirector::TryUnstick(RE::Actor *a_actor, RE::FormID a_formID, const ActorStateData &a_state,
+                                    ActionType a_action, bool a_debug)
+    {
+        // Sent in but standing still this long is a path that never starts from where it stands (Helene: 12 s, five
+        // goals on her own navmesh, our Advance and vanilla's alike; one TK Dodge step off the spot and her next path
+        // followed in 13 ms). Swinging, blocking or staggered in place doesn't count.
+        constexpr float kStuckMove = 25.0f;
+        constexpr float kStuckSeconds = 3.0f;
+        constexpr float kRetrySeconds = 2.0f;
+        const float now = m_time.load(std::memory_order_relaxed);
+        const auto *actorState = ActorUtils::SafeAsActorState(a_actor);
+        const bool busy = a_state.self.attackState != RE::ATTACK_STATE_ENUM::kNone || a_state.self.isBlocking ||
+                          (actorState && actorState->IsStaggered());
+        // Only while closing in from beyond its attack range (inside it, standing is the point), and only NPCs with
+        // dodge animations (humanoid creatures have none; vanilla moves beasts)
+        const auto &dm = Config::GetInstance().GetDecisionMatrix();
+        const bool sentIn = a_action == ActionType::Advancing && a_state.target.isValid &&
+                            a_state.target.distance > StateHelpers::EffectiveAttackRange(a_state.weaponReach,
+                                                                                         a_state.target.boundRadius,
+                                                                                         dm.offenseReachMultiplier,
+                                                                                         dm.offenseReachSafetyMargin) &&
+                            !ActorUtils::IsHumanoidCreature(a_actor) && !ActorUtils::IsBeastCreature(a_actor);
+        bool step = false;
+        float stood = 0.0f;
+        m_stuck.ModifyOrCreate(a_formID, [&](Stuck &s) {
+            if (busy || s.since <= 0.0f || a_state.self.position.GetDistance(s.at) > kStuckMove) {
+                s = {a_state.self.position, now, s.nextTry};
+                return;
+            }
+            stood = now - s.since;
+            if (sentIn && stood >= kStuckSeconds && now >= s.nextTry) {
+                s.nextTry = now + kRetrySeconds;
+                step = true;
+            }
+        });
+        if (!step) {
+            return false;
+        }
+        const bool stepped = m_executor.UnstickStep(a_actor, a_state);
+        if (a_debug) {
+            LOG_DEBUG("Unstick 0x{:08X}: stood {:.1f}s (within {:.0f} units) at dist {:.0f} while advancing - {}",
+                      static_cast<std::uint32_t>(a_formID), stood, kStuckMove, a_state.target.distance,
+                      stepped ? "dodge step off the spot" : "no way out, tries again in 2 s");
+        }
+        if (stepped) {
+            m_stuck.Erase(a_formID);
+            m_humanizer.MarkActionUsed(a_formID, ActionType::Dodge);
+            m_observer.NotifyActionExecuted(a_actor, ActionType::Dodge);
+        }
+        return stepped;
+    }
+
     void CombatDirector::Update(float a_deltaTime)
     {
         m_time.store(m_time.load(std::memory_order_relaxed) + a_deltaTime, std::memory_order_relaxed);
@@ -932,7 +1073,6 @@ namespace CombatAI
         Intents::LogSummary(a_deltaTime);
         DefenseTiming::Update(a_deltaTime);
         ClipTiming::Update(a_deltaTime);
-        SCARIntegration::GetInstance().Update(a_deltaTime);
         m_executor.UpdateJumps(a_deltaTime);
         m_observer.Update(a_deltaTime);
         AttackCoordinator::GetSingleton().Update(a_deltaTime);
@@ -1042,8 +1182,9 @@ namespace CombatAI
         AttackCoordinator::GetSingleton().ClearHeld(a_formID);
         m_nextTargetSwitchTime.Erase(a_formID);
         m_drawStart.Erase(a_formID);
+        m_dodgeBoxed.Erase(a_formID);
+        m_stuck.Erase(a_formID);
         m_processedActors.Erase(a_formID);
-        SCARIntegration::GetInstance().Evict(a_formID);
         m_executor.EvictActor(a_formID);
         ProjectileAwareness::GetInstance().Evict(a_formID);
         if (Intents::DualBlockStarted(a_formID)) { // left combat or died mid-block
@@ -1070,9 +1211,19 @@ namespace CombatAI
         // bookkeeping maps stay bounded.
         bool isDead = ActorUtils::SafeIsDead(a_actor);
         bool inCombat = ActorUtils::SafeIsInCombat(a_actor);
+        // Debug: why the selected actor isn't processed, once per change (a werewolf went 20 s with no brain tick by
+        // a knocked-down marauder, 1.22.0 run 15, and the log didn't say why)
+        static ThreadSafeMap<RE::FormID, const char *> lastReason;
+        const auto skipped = [&](const char *a_reason) {
+            if (Config::GetInstance().IsDebugTarget(a_formID) && lastReason.Find(a_formID).value_or(nullptr) != a_reason) {
+                lastReason.ModifyOrCreate(a_formID, [&](const char *&r) { r = a_reason; });
+                LOG_DEBUG("Unprocessed 0x{:08X}: {}", a_formID, a_reason);
+            }
+            return false;
+        };
         if (isDead || !inCombat) {
             EvictActor(a_formID);
-            return false;
+            return skipped(isDead ? "dead" : "not in combat");
         }
 
         // Liveness guard: an actor can be in combat yet mid-teardown (3D unloaded,
@@ -1081,7 +1232,7 @@ namespace CombatAI
         if (!ActorUtils::SafeIs3DLoaded(a_actor) || ActorUtils::SafeIsDeleted(a_actor) ||
             ActorUtils::SafeIsDisabled(a_actor)) {
             EvictActor(a_formID);
-            return false;
+            return skipped("3D unloaded, deleted or disabled");
         }
 
         // Skip player
@@ -1090,13 +1241,16 @@ namespace CombatAI
         }
 
         // NPCs (ActorTypeNPC, not ActorTypeCreature), plus creatures that fight like them with a weapon (draugr,
-        // falmer, skeletons; IncludeHumanoidCreatures). Animals, trolls, spiders, dragons, giants stay vanilla.
+        // falmer, skeletons; IncludeHumanoidCreatures) and beasts (werewolves, werebears, trolls, spriggans;
+        // IncludeBeastCreatures). Animals, spiders, dragons, giants stay vanilla.
         const bool creature = ActorUtils::SafeHasKeywordString(a_actor, "ActorTypeCreature");
         const bool npc = !creature && ActorUtils::SafeHasKeywordString(a_actor, "ActorTypeNPC") &&
                          ActorUtils::SafeCalculateCachedOwnerIsNPC(a_actor);
         if (!npc) {
-            if (!creature || !Config::GetInstance().GetDecisionMatrix().includeHumanoidCreatures ||
-                !ActorUtils::IsHumanoidCreature(a_actor)) {
+            const auto &dm = Config::GetInstance().GetDecisionMatrix();
+            const bool humanoid = dm.includeHumanoidCreatures && ActorUtils::IsHumanoidCreature(a_actor);
+            const bool beast = !humanoid && dm.includeBeastCreatures && ActorUtils::IsBeastCreature(a_actor);
+            if (!creature || (!humanoid && !beast)) {
                 return false;
             }
             // Once per race: which creature kinds the brain took
@@ -1105,8 +1259,8 @@ namespace CombatAI
             const RE::FormID raceID = race ? race->GetFormID() : 0;
             if (!logged.Find(raceID)) {
                 logged.ModifyOrCreate(raceID, [](bool &b) { b = true; });
-                LOG_INFO("Brain: humanoid creature 0x{:08X} ({}, race 0x{:08X}) - taken, no dodges", a_formID,
-                         a_actor->GetName(), raceID);
+                LOG_INFO("Brain: {} creature 0x{:08X} ({}, race 0x{:08X}) - taken, {}", humanoid ? "humanoid" : "beast",
+                         a_formID, a_actor->GetName(), raceID, humanoid ? "no dodges" : "attacks and punish only");
             }
         }
 
@@ -1114,7 +1268,7 @@ namespace CombatAI
 
         // Check if AI is enabled
         if (!ActorUtils::SafeIsAIEnabled(a_actor)) {
-            return false;
+            return skipped("AI disabled");
         }
 
         // Check spawn warmup delay for newly spawned actors
@@ -1125,7 +1279,7 @@ namespace CombatAI
             // Start at 0.0f, we'll increment it each frame
             m_actorCombatTimes.Emplace(a_formID, 0.0f);
             // Don't process newly spawned actors immediately
-            return false;
+            return skipped("combat entry (warmup starts)");
         }
 
         // Advance combat time (warmup gate + humanizer fatigue). The read-modify-write
@@ -1139,9 +1293,10 @@ namespace CombatAI
         // Check if actor is still in warmup period
         if (currentSpawnTime < SPAWN_WARMUP_DELAY) {
             // Actor is still warming up, don't process yet
-            return false;
+            return skipped("combat entry warmup");
         }
 
+        lastReason.Erase(a_formID); // processed again: the next skip logs
         // Determine processing interval based on distance to player (LOD)
         // Get player position - safely
         auto player = RE::PlayerCharacter::GetSingleton();

@@ -7,7 +7,7 @@ its actuator (raw animation events and graph variables in `ActionExecutor`) with
 from vanilla node classes, the way FenixCombatAI-NG does. Vanilla leaf nodes execute every action.
 
 At the time SCAR / MCO / BFCO / CPR / Precision / TK Dodge compatibility and VR were out of scope.
-SCAR, MCO, BFCO, Precision and TK Dodge are handled since; Combat Pathing Revolution is refused at
+MCO, BFCO, Precision and TK Dodge are handled since (SCAR was, until 1.23.0 dropped it); Combat Pathing Revolution is refused at
 startup (it patches the same movement code); VR stays out of scope (see the README). Targets: SE 1.5.97
 and AE 1.7.104 (1.6.1170 shares the AE IDs used here).
 

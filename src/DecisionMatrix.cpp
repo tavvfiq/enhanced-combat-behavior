@@ -1,5 +1,6 @@
 #include "DecisionMatrix.h"
 #include "ActorUtils.h"
+#include "LimbReach.h"
 #include "Config.h"
 #include "BlockRules.h"
 #include "FlankingStyle.h"
@@ -12,7 +13,6 @@
 #include "CombatDirector.h"
 #include "Logger.h"
 #include "ProjectileAwareness.h"
-#include "SCARIntegration.h"
 #include "TimedBlockIntegration.h"
 #include "pch.h"
 #include <algorithm>
@@ -71,7 +71,7 @@ namespace CombatAI
         return aimed >= kGunAimMin && aimed < kGunAimMin + kGunAimWindow;
     }
 
-    // Bash reach (GMST fCombatBashReach, read once; SCAR uses it for bash actions)
+    // Bash reach (GMST fCombatBashReach, read once)
     static float BashReach()
     {
         static const float reach = [] {
@@ -414,7 +414,7 @@ namespace CombatAI
         }
 
         // Guard break: the target has held its block for a second, in reach and facing us. A bash only inside bash
-        // reach (GMST fCombatBashReach, as SCAR measures it): run 56's 119 guard-break bashes were taken by the Block
+        // reach (GMST fCombatBashReach): run 56's 119 guard-break bashes were taken by the Block
         // tree but only 2 swung, the rest failed vanilla's range check at weapon reach.
         if (a_state.target.isBlocking &&
             a_state.temporal.target.blockingDuration >= Config::GetInstance().GetBoss().guardBreakBlockSeconds && cc.isInAttackRange &&
@@ -732,20 +732,7 @@ namespace CombatAI
             possibleDecisions.push_back(bossResult);
         }
 
-        // Reach judgment (1.19.0): the offense decides on the distance as this NPC misreads it
-        DecisionResult offenseResult;
-        if (!ranged) {
-            auto &director = CombatDirector::GetInstance();
-            const float judged = director.GetHumanizer().ReachJudgment(a_actor, a_actor->GetFormID(), a_state,
-                                                                       director.CombatTime(a_actor->GetFormID()));
-            offenseResult = judged == 1.0f ? EvaluateOffense(a_actor, a_state)
-                                           : EvaluateOffense(a_actor, WithJudgedDistance(a_state, judged));
-        }
-        // SCAR-patched movesets pick their own normal/power attacks (sprint attack stays ours)
-        if ((offenseResult.action == ActionType::Attack || offenseResult.action == ActionType::PowerAttack) &&
-            SCARIntegration::GetInstance().OwnsAttacks(a_actor->GetFormID())) {
-            offenseResult = DecisionResult();
-        }
+        DecisionResult offenseResult = ranged ? DecisionResult() : JudgedOffense(a_actor, a_state);
         if (offenseResult.action != ActionType::None) {
             possibleDecisions.push_back(offenseResult);
         }
@@ -814,6 +801,58 @@ namespace CombatAI
             }
         }
 
+        return Choose(a_actor, a_state, possibleDecisions);
+    }
+
+    // Reach judgment (1.19.0): the offense decides on the distance as this NPC misreads it
+    DecisionResult DecisionMatrix::JudgedOffense(RE::Actor *a_actor, const ActorStateData &a_state)
+    {
+        auto &director = CombatDirector::GetInstance();
+        const float judged = director.GetHumanizer().ReachJudgment(a_actor, a_actor->GetFormID(), a_state,
+                                                                   director.CombatTime(a_actor->GetFormID()));
+        return judged == 1.0f ? EvaluateOffense(a_actor, a_state) : EvaluateOffense(a_actor, WithJudgedDistance(a_state, judged));
+    }
+
+    // Beasts (werewolves, werebears, trolls, spriggans; ActorUtils::IsBeastCreature): their graphs have attacks and
+    // nothing else the brain uses (no block, bash, dodge, jump; feints and sprint attacks are humanoid clips). So
+    // their path asks only when and from how far to attack, and whether to punish the player's swing recovery.
+    // Movement stays vanilla's (advance, circle, back off): a werewolf on our Advance everywhere stood still 2-7 s at a
+    // time, 24 times in 4 minutes, its path searching (1.22.0 run 7). One exception: our Advance closes on a downed
+    // target out of reach.
+    DecisionResult DecisionMatrix::EvaluateBeast(RE::Actor *a_actor, const ActorStateData &a_state)
+    {
+        std::vector<DecisionResult> possibleDecisions;
+        DecisionResult offenseResult = JudgedOffense(a_actor, a_state);
+        // Vanilla's range check counted a ragdolled or rising target as in range: a werewolf stood 354-400 out (its
+        // Backoff and Circle refused, then Idle) until the marauder it knocked down stood up, 6-8 s, twice (1.22.0 run 16)
+        const bool targetDown = a_state.target.knockState != RE::KNOCK_STATE_ENUM::kNormal;
+        if (offenseResult.action == ActionType::Attack || offenseResult.action == ActionType::PowerAttack ||
+            (targetDown && offenseResult.action == ActionType::Advancing)) {
+            possibleDecisions.push_back(offenseResult);
+        }
+        DecisionResult punishResult = EvaluatePunish(a_actor, a_state);
+        if (punishResult.action != ActionType::None) {
+            possibleDecisions.push_back(punishResult);
+        }
+        // Debug: each half second while the target is down: how far, the brain's range, and what the offense said
+        if (targetDown && Config::GetInstance().IsDebugTarget(a_actor->GetFormID())) {
+            thread_local std::chrono::steady_clock::time_point lastLogged{};
+            if (const auto now = std::chrono::steady_clock::now(); now - lastLogged > std::chrono::milliseconds(500)) {
+                lastLogged = now;
+                LOG_DEBUG("Beast 0x{:08X}: target down (knock state {}), dist {:.0f} vs range {:.0f}, idle {}, offense {}",
+                          a_actor->GetFormID(), static_cast<int>(a_state.target.knockState), a_state.target.distance,
+                          EffectiveAttackRange(a_state, a_state.weaponReach, Config::GetInstance().GetDecisionMatrix().offenseReachMultiplier,
+                                               Config::GetInstance().GetDecisionMatrix().offenseReachSafetyMargin),
+                          a_state.self.isIdle, ActionName(offenseResult.action));
+            }
+        }
+        return Choose(a_actor, a_state, possibleDecisions);
+    }
+
+    // Highest priority wins (style-enhanced, ties a coin flip); every scored option kept for the skill roll's next-best
+    DecisionResult DecisionMatrix::Choose(RE::Actor *a_actor, const ActorStateData &a_state,
+                                          const std::vector<DecisionResult> &possibleDecisions)
+    {
         // If no decisions, return None
         t_candidates.clear();
         if (possibleDecisions.empty()) {
@@ -2095,7 +2134,7 @@ namespace CombatAI
                 const bool guarded = a_state.target.isBlocking && a_state.target.orientationDot > 0.5f;
                 const bool opening = (gap <= dodgeCfg.forwardDodgeMaxGap && targetOpen) || counterOpening;
                 bool canUseForwardDodge = config.GetModIntegrations().enableTKDodgeIntegration && opening && !guarded &&
-                                          !ActorUtils::IsHumanoidCreature(a_actor) &&
+                                          !ActorUtils::IsBrainCreature(a_actor) &&
                                           a_state.self.currentStamina >= dodgeCfg.RequiredStamina() &&
                                           a_state.self.staminaPercent >= dodgeCfg.forwardDodgeMinStamina;
                 if (canUseForwardDodge) {
@@ -2344,8 +2383,10 @@ namespace CombatAI
             if (toTarget.Unitize() > 1.0f && forward.Unitize() > 0.01f) {
                 constexpr float kMaxAttackAngleCos = 0.259f; // cos 75 deg
             // A draugr's (falmer's, skeleton's) swing runs ~2 s with its attack state reading idle; a new attack
-            // inside that is refused by its graph (run 58: 34 of 36 attack events 0.5-2 s after a start)
-            if (ActorUtils::IsHumanoidCreature(a_actor) && Intents::SinceSwing(a_actor) < config.GetDecisionMatrix().creatureSwingSeconds) {
+            // inside that is refused by its graph (run 58: 34 of 36 attack events 0.5-2 s after a start). Beasts too:
+            // vanilla trolls started their attacks 2.5-5 s apart (1.22.0 test run).
+            // With limb reach a beast waits only for its swing's first blow (LimbReach::CreatureStillSwinging)
+            if (LimbReach::CreatureStillSwinging(a_actor)) {
                 return skip("creature still swinging, s", Intents::SinceSwing(a_actor));
             }
             if (!AttackReady(a_actor)) {

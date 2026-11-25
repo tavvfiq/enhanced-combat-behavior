@@ -80,13 +80,9 @@ namespace CombatAI::Intents
     // Tree side: our Circle node failed (start or run) while the brain wanted a side. Brain side: that side
     // (+1/-1) failed under 2 s ago, so try the other one.
     void NoteCircleRefused(RE::Actor *a_actor);
-    // Brain side: it is defending (dodge, block, back off, retreat); attacks that bypass the tree's intents (SCAR)
-    // are refused until a_seconds from now. Refreshed while the brain keeps defending.
-    void PostAttackVeto(RE::Actor *a_actor, float a_seconds);
     // An attack or bash start event was accepted by the actor's graph (EngineProbes); seconds since then (999 = none)
     void NoteSwingStarted(RE::Actor *a_actor);
     float SinceSwing(RE::Actor *a_actor);
-    bool AttackVetoed(RE::Actor *a_actor);
     bool CircleRefused(RE::Actor *a_actor, float a_side);
     // Our Circle failed on either side under 2 s ago
     bool CircleRefusedRecently(RE::Actor *a_actor);
@@ -115,6 +111,12 @@ namespace CombatAI::Intents
     float PostRangedShot(RE::Actor *a_actor, float a_factor);
     float RangedShotFactor(RE::Actor *a_actor);
 
+    // Vanilla's held block (1.22.2): true while vanilla's Block and Block Attack branches must stay out (melee target,
+    // or stamina too low to hold a guard). Refreshed every brain tick, falls back to vanilla after 1 s. Returns the
+    // value posted before this one.
+    bool PostNoVanillaBlock(RE::Actor *a_actor, bool a_no);
+    bool NoVanillaBlock(RE::Actor *a_actor);
+
     // Potions: vanilla wants a drink but the target is too close. Each refused drink keeps the wait 1 s (the brain
     // retreats meanwhile, see WantsToDrink); returns how long this wait has lasted (s).
     float PostDrinkWait(RE::Actor *a_actor);
@@ -131,6 +133,10 @@ namespace CombatAI::Intents
     // side's read of it (0 = never noted). The hit cone override (EngineProbes) checks our attacks against it
     void NoteAttackReach(RE::Actor *a_actor, float a_reach);
     float AttackReach(RE::Actor *a_actor);
+    // Brain side, each tick: the center-to-center distance its offense attacks from (0 = never noted). Beasts' own
+    // vanilla attack starts are held to it (VanillaAttackShaper)
+    void NoteAttackRange(RE::Actor *a_actor, float a_range);
+    float AttackRange(RE::Actor *a_actor);
     // The brain processed a_actor in the last 1.5 s (NoteAttackReach runs every brain tick): it drives this NPC
     bool BrainDriven(RE::Actor *a_actor);
 

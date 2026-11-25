@@ -4,14 +4,14 @@
 #include "DecisionResult.h"
 #include "pch.h"
 
-// Our own combo follow-up for MCO / BFCO movesets (replaces SCAR's combo driving; off while SCAR.dll is loaded).
+// Our own combo follow-up for MCO / BFCO movesets.
 // The movesets mark when the next attack may start with annotation events: MCO_WinOpen / MCO_WinClose (normal),
 // MCO_PowerWinOpen / MCO_PowerWinClose (power), BFCO_NextWinStart / BFCO_NextPowerWinStart / BFCO_DIY_EndLoop.
 // The behavior graph already knows which attack comes next (MCO_nextattack, BFCO_NextIsAttackN); inside an open
 // window we only start "the next attack" with vanilla's attack event (CombatAnimation, as the Attack node does).
 namespace CombatAI::ComboFollowUp
 {
-    // Hooks the Character anim event sink (VTABLE_Character[2] slot 1) to track the windows. Not when SCAR.dll is loaded.
+    // Hooks the Character anim event sink (VTABLE_Character[2] slot 1) to track the windows.
     void Install();
 
     // Brain tick: inside an open window, roll once per window to start the next attack (power first if its window
